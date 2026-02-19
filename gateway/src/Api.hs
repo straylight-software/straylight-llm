@@ -30,9 +30,13 @@ module Api
     , EmbeddingsAPI
     , ModelsAPI
     , HealthAPI
+
+      -- * Types
+    , HealthResponse (..)
     ) where
 
-import Data.Proxy (Proxy (..))
+import Data.Aeson (ToJSON (..), object, (.=))
+import Data.Text (Text)
 import Servant
 
 import Types
@@ -66,13 +70,8 @@ type ChatAPI =
         :> ReqBody '[JSON] ChatRequest
         :> Post '[JSON] ChatResponse
 
--- | Chat completions with streaming (SSE)
--- Returns Server-Sent Events for streaming responses
-type ChatStreamAPI =
-    "v1" :> "chat" :> "completions"
-        :> Header "Authorization" Text
-        :> ReqBody '[JSON] ChatRequest
-        :> StreamPost NewlineFraming OctetStream (SourceIO ByteString)
+-- TODO: Chat completions with streaming (SSE) - not yet implemented
+-- type ChatStreamAPI = ...
 
 -- | Legacy completions endpoint
 -- POST /v1/completions
@@ -113,14 +112,3 @@ type GatewayAPI =
 -- | API proxy
 api :: Proxy GatewayAPI
 api = Proxy
-
-
--- ════════════════════════════════════════════════════════════════════════════
---                                                               // imports
--- ════════════════════════════════════════════════════════════════════════════
-
--- Re-export needed for API types
-import Data.Aeson (ToJSON (..), object, (.=))
-import Data.ByteString (ByteString)
-import Data.Text (Text)
-import Servant.Types.SourceT (SourceIO)

@@ -55,12 +55,13 @@
       inputs.nimi.follows = "nimi";
     };
 
-    # Sensenet — nix-compile infrastructure for Straylight stack
+    # TODO: Sensenet — nix-compile infrastructure for Straylight stack
     # Provides LLVM/CUDA build infrastructure, TensorRT integration
-    sensenet = {
-      url = "github:straylight-software/sensenet/nix-compile/strict-straylight";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
+    # Re-enable when repo is available:
+    # sensenet = {
+    #   url = "github:straylight-software/sensenet/nix-compile/strict-straylight";
+    #   inputs.nixpkgs.follows = "nixpkgs";
+    # };
   };
 
   nixConfig = {
@@ -156,6 +157,9 @@
               pkgs.curl
               pkgs.jq
               pkgs.httpie
+
+              # Build dependencies
+              pkgs.zlib
 
               # Container tools
               pkgs.docker

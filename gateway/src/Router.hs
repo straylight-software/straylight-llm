@@ -34,11 +34,9 @@ module Router
     , defaultChain
     ) where
 
-import Control.Monad (foldM)
-import Data.IORef (IORef, newIORef, readIORef, writeIORef)
+import Data.IORef (IORef, newIORef)
 import Data.Text (Text)
 
-import Data.Text qualified as T
 import Network.HTTP.Client qualified as HC
 import Network.HTTP.Client.TLS qualified as HCT
 

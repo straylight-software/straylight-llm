@@ -31,7 +31,7 @@ module Config
     ) where
 
 import Control.Exception (SomeException, try)
-import Data.Maybe (fromMaybe)
+import Data.Maybe ()
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO

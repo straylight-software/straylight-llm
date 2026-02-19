@@ -25,7 +25,7 @@ module Provider.OpenRouter
 
 import Control.Exception (SomeException, try)
 import Data.Aeson (eitherDecode, encode)
-import Data.ByteString (ByteString)
+import Data.ByteString ()
 import Data.IORef (IORef, readIORef)
 import Data.Text (Text)
 import Data.Text.Encoding (encodeUtf8)

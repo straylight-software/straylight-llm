@@ -38,6 +38,8 @@ import Numeric (showHex)
 import Servant
 import System.Random (randomIO)
 
+import Data.Aeson (encode)
+import Data.ByteString.Lazy qualified as LBS
 import Data.Text qualified as T
 
 import Api
@@ -195,12 +197,9 @@ toServantError err = case err of
     ModelNotFoundError msg -> err404 { errBody = encodeError "model_not_found" msg }
     ProviderUnavailable msg -> err503 { errBody = encodeError "provider_unavailable" msg }
     InvalidRequestError msg -> err400 { errBody = encodeError "invalid_request" msg }
+    InternalError msg -> err500 { errBody = encodeError "internal_error" msg }
     TimeoutError msg -> err504 { errBody = encodeError "timeout" msg }
     UnknownError msg -> err500 { errBody = encodeError "internal_error" msg }
   where
     encodeError :: Text -> Text -> LBS.ByteString
     encodeError typ msg = encode $ ApiError $ ErrorDetail msg typ Nothing Nothing
-
--- Missing imports for error encoding
-import Data.Aeson (encode)
-import Data.ByteString.Lazy qualified as LBS

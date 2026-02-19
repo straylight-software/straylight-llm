@@ -32,11 +32,11 @@ module Provider.Vertex
 import Control.Concurrent.MVar (MVar, newMVar, modifyMVar)
 import Control.Exception (SomeException, try)
 import Data.Aeson (eitherDecode, encode)
-import Data.Aeson qualified as Aeson
-import Data.ByteString (ByteString)
+import Data.Aeson ()
+import Data.ByteString ()
 import Data.IORef (IORef, readIORef)
 import Data.Text (Text)
-import Data.Text.Encoding (decodeUtf8, encodeUtf8)
+import Data.Text.Encoding (encodeUtf8)
 import Data.Time.Clock (UTCTime, getCurrentTime, addUTCTime)
 import System.Process (readProcess)
 

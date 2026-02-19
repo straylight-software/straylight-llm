@@ -28,7 +28,7 @@ import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 
 import Api (api)
-import Config (Config (..), loadConfig)
+import Config (Config (..), ProviderConfig (..), loadConfig)
 import Handlers (server)
 import Router (makeRouter)
 
@@ -99,12 +99,9 @@ main = do
     run port app
 
 -- | Log provider configuration status
-logProviderStatus :: T.Text -> Config.ProviderConfig -> IO ()
+logProviderStatus :: T.Text -> ProviderConfig -> IO ()
 logProviderStatus name cfg = do
-    let status = if Config.pcEnabled cfg && Config.pcApiKey cfg /= Nothing
+    let status = if pcEnabled cfg && pcApiKey cfg /= Nothing
                  then "[enabled]"
                  else "[disabled]"
     TIO.putStrLn $ "  " <> name <> ": " <> status
-
--- Import for ProviderConfig access
-import Config (ProviderConfig (..))
