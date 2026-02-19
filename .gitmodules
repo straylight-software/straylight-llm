@@ -1,0 +1,21 @@
+[submodule "aleph-reference"]
+	path = aleph-reference
+	url = git@github.com:straylight-software/aleph-0xff.git
+[submodule "haskemathesis-reference"]
+	path = haskemathesis-reference
+	url = git@github.com:weyl-ai/haskemathesis.git
+[submodule "purescript-radix-reference"]
+	path = purescript-radix-reference
+	url = git@github.com:straylight-software/purescript-radix.git
+[submodule "sensenet-reference"]
+	path = sensenet-reference
+	url = git@github.com:straylight-software/sensenet.git
+[submodule "trinity-engine-reference"]
+	path = trinity-engine-reference
+	url = git@github.com:straylight-software/trinity-engine-hs.git
+[submodule "triton-tensorrt-reference"]
+	path = triton-tensorrt-reference
+	url = git@github.com:straylight-software/triton-tensorrt-llm.git
+[submodule "weapon-server-reference"]
+	path = weapon-server-reference
+	url = https://github.com/straylight-software/weapon-server-hs.git
