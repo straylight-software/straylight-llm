@@ -1,5 +1,5 @@
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
---                                              // straylight-llm // types
+--                                                   // straylight-llm // types
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 --
 --     "A year here and he still dreamed of cyberspace, hope fading nightly."
@@ -12,16 +12,47 @@
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Types
-    ( -- * Messages
-      Message (..)
+    ( -- * Semantic Types
+      ModelId (..)
+    , Temperature (..)
+    , TopP (..)
+    , MaxTokens (..)
+    , UserId (..)
+    , ToolCallId (..)
+    , ResponseId (..)
+    , Timestamp (..)
+    , FinishReason (..)
+
+      -- * Messages
+    , Message (..)
     , Role (..)
     , ContentPart (..)
     , MessageContent (..)
+
+      -- * Tool Calls
+    , ToolCall (..)
+    , FunctionCall (..)
+    , ToolCallDelta (..)
+    , FunctionCallDelta (..)
+
+      -- * Request Parameters
+    , StopSequence (..)
+    , LogitBias (..)
+    , ToolDef (..)
+    , ToolFunction (..)
+    , JsonSchema (..)
+    , ToolChoice (..)
+    , ToolChoiceFunction (..)
+    , ResponseFormat (..)
+    , EmbeddingInput (..)
+    , DeltaContent (..)
 
       -- * Chat Completions
     , ChatRequest (..)
@@ -53,17 +84,96 @@ module Types
     ) where
 
 import Data.Aeson
+import Data.Aeson.Key qualified as Key
+import Data.Aeson.KeyMap (foldrWithKey)
 import Data.Text (Text)
 import Data.Vector (Vector)
 import GHC.Generics (Generic)
 
 
 -- ════════════════════════════════════════════════════════════════════════════
---                                                                   // roles
+--                                                            // semantic types
+-- ════════════════════════════════════════════════════════════════════════════
+
+{- | Model identifier (e.g. "gpt-4", "claude-3-opus").
+
+Prevents accidental mixing with other Text values.
+-}
+newtype ModelId = ModelId {unModelId :: Text}
+    deriving stock (Eq, Ord, Show, Generic)
+    deriving newtype (ToJSON, FromJSON)
+
+{- | Sampling temperature (0.0 to 2.0).
+
+Controls randomness in token selection. Higher values produce more random output.
+-}
+newtype Temperature = Temperature {unTemperature :: Double}
+    deriving stock (Eq, Ord, Show, Generic)
+    deriving newtype (ToJSON, FromJSON)
+
+{- | Top-p sampling parameter (0.0 to 1.0).
+
+Also known as nucleus sampling. Limits token selection to a cumulative probability.
+-}
+newtype TopP = TopP {unTopP :: Double}
+    deriving stock (Eq, Ord, Show, Generic)
+    deriving newtype (ToJSON, FromJSON)
+
+{- | Maximum tokens for completion.
+
+Limits the number of tokens in the generated response.
+-}
+newtype MaxTokens = MaxTokens {unMaxTokens :: Int}
+    deriving stock (Eq, Ord, Show, Generic)
+    deriving newtype (ToJSON, FromJSON)
+
+{- | User identifier for tracking and abuse prevention.
+
+Passed through to the upstream provider for rate limiting.
+-}
+newtype UserId = UserId {unUserId :: Text}
+    deriving stock (Eq, Ord, Show, Generic)
+    deriving newtype (ToJSON, FromJSON)
+
+{- | Tool call identifier.
+
+Unique identifier for a tool invocation within a message.
+-}
+newtype ToolCallId = ToolCallId {unToolCallId :: Text}
+    deriving stock (Eq, Ord, Show, Generic)
+    deriving newtype (ToJSON, FromJSON)
+
+{- | Response identifier.
+
+Unique identifier for a completion response.
+-}
+newtype ResponseId = ResponseId {unResponseId :: Text}
+    deriving stock (Eq, Ord, Show, Generic)
+    deriving newtype (ToJSON, FromJSON)
+
+{- | Unix timestamp.
+
+Seconds since epoch (1970-01-01 00:00:00 UTC).
+-}
+newtype Timestamp = Timestamp {unTimestamp :: Int}
+    deriving stock (Eq, Ord, Show, Generic)
+    deriving newtype (ToJSON, FromJSON)
+
+{- | Finish reason (e.g. "stop", "length", "tool_calls").
+
+Indicates why the model stopped generating tokens.
+-}
+newtype FinishReason = FinishReason {unFinishReason :: Text}
+    deriving stock (Eq, Ord, Show, Generic)
+    deriving newtype (ToJSON, FromJSON)
+
+
+-- ════════════════════════════════════════════════════════════════════════════
+--                                                                     // roles
 -- ════════════════════════════════════════════════════════════════════════════
 
 data Role = System | User | Assistant | Tool
-    deriving (Eq, Show, Generic)
+    deriving stock (Eq, Show, Generic)
 
 instance ToJSON Role where
     toJSON = \case
@@ -82,14 +192,343 @@ instance FromJSON Role where
 
 
 -- ════════════════════════════════════════════════════════════════════════════
---                                                                // messages
+--                                                                // tool calls
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- | Function call within a tool call
+data FunctionCall = FunctionCall
+    { fcName :: Text
+    , fcArguments :: Text  -- JSON string of arguments
+    }
+    deriving stock (Eq, Show, Generic)
+
+instance ToJSON FunctionCall where
+    toJSON FunctionCall{..} = object
+        [ "name" .= fcName
+        , "arguments" .= fcArguments
+        ]
+
+instance FromJSON FunctionCall where
+    parseJSON = withObject "FunctionCall" $ \v ->
+        FunctionCall
+            <$> v .: "name"
+            <*> v .:? "arguments" .!= ""
+
+-- | Tool call from assistant message
+data ToolCall = ToolCall
+    { tcId :: ToolCallId
+    , tcType :: Text       -- Currently always "function"
+    , tcFunction :: FunctionCall
+    }
+    deriving stock (Eq, Show, Generic)
+
+instance ToJSON ToolCall where
+    toJSON ToolCall{..} = object
+        [ "id" .= tcId
+        , "type" .= tcType
+        , "function" .= tcFunction
+        ]
+
+instance FromJSON ToolCall where
+    parseJSON = withObject "ToolCall" $ \v ->
+        ToolCall
+            <$> v .: "id"
+            <*> v .:? "type" .!= "function"
+            <*> v .: "function"
+
+
+-- ════════════════════════════════════════════════════════════════════════════
+--                                                            // stop sequences
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- | Stop sequence: either a single string or a list of strings
+data StopSequence
+    = StopSingle Text
+    | StopMultiple [Text]
+    deriving stock (Eq, Show, Generic)
+
+instance ToJSON StopSequence where
+    toJSON (StopSingle t) = toJSON t
+    toJSON (StopMultiple ts) = toJSON ts
+
+instance FromJSON StopSequence where
+    parseJSON (String t) = pure $ StopSingle t
+    parseJSON (Array a) = StopMultiple <$> mapM parseJSON (foldr (:) [] a)
+    parseJSON _ = fail "Stop must be string or array of strings"
+
+
+-- ════════════════════════════════════════════════════════════════════════════
+--                                                                // logit bias
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- | Logit bias: map from token ID to bias value (-100 to 100)
+newtype LogitBias = LogitBias { unLogitBias :: [(Text, Double)] }
+    deriving stock (Eq, Show, Generic)
+
+instance ToJSON LogitBias where
+    toJSON (LogitBias biases) = object [(Key.fromText k, toJSON v) | (k, v) <- biases]
+
+instance FromJSON LogitBias where
+    parseJSON = withObject "LogitBias" $ \v ->
+        LogitBias <$> mapM (\(k, val) -> (Key.toText k,) <$> parseJSON val) (toList v)
+      where
+        toList obj = foldrWithKey (\k val acc -> (k, val) : acc) [] obj
+
+
+-- ════════════════════════════════════════════════════════════════════════════
+--                                                                     // tools
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- | JSON Schema for tool parameters (simplified - we preserve the structure)
+newtype JsonSchema = JsonSchema { unJsonSchema :: Object }
+    deriving stock (Eq, Show, Generic)
+
+instance ToJSON JsonSchema where
+    toJSON (JsonSchema obj) = Object obj
+
+instance FromJSON JsonSchema where
+    parseJSON = withObject "JsonSchema" $ pure . JsonSchema
+
+-- | Tool function definition
+data ToolFunction = ToolFunction
+    { tfName :: Text
+    , tfDescription :: Maybe Text
+    , tfParameters :: Maybe JsonSchema
+    , tfStrict :: Maybe Bool
+    }
+    deriving stock (Eq, Show, Generic)
+
+instance ToJSON ToolFunction where
+    toJSON ToolFunction{..} = object $ filter ((/= Null) . snd)
+        [ "name" .= tfName
+        , "description" .= tfDescription
+        , "parameters" .= tfParameters
+        , "strict" .= tfStrict
+        ]
+
+instance FromJSON ToolFunction where
+    parseJSON = withObject "ToolFunction" $ \v ->
+        ToolFunction
+            <$> v .: "name"
+            <*> v .:? "description"
+            <*> v .:? "parameters"
+            <*> v .:? "strict"
+
+-- | Tool definition
+data ToolDef = ToolDef
+    { toolType :: Text      -- Currently always "function"
+    , toolFunction :: ToolFunction
+    }
+    deriving stock (Eq, Show, Generic)
+
+instance ToJSON ToolDef where
+    toJSON ToolDef{..} = object
+        [ "type" .= toolType
+        , "function" .= toolFunction
+        ]
+
+instance FromJSON ToolDef where
+    parseJSON = withObject "ToolDef" $ \v ->
+        ToolDef
+            <$> v .:? "type" .!= "function"
+            <*> v .: "function"
+
+
+-- ════════════════════════════════════════════════════════════════════════════
+--                                                               // tool choice
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- | Specific function for tool_choice
+data ToolChoiceFunction = ToolChoiceFunction
+    { tcfName :: Text
+    }
+    deriving stock (Eq, Show, Generic)
+
+instance ToJSON ToolChoiceFunction where
+    toJSON ToolChoiceFunction{..} = object ["name" .= tcfName]
+
+instance FromJSON ToolChoiceFunction where
+    parseJSON = withObject "ToolChoiceFunction" $ \v ->
+        ToolChoiceFunction <$> v .: "name"
+
+-- | Tool choice: "auto", "none", "required", or specific function
+data ToolChoice
+    = ToolChoiceAuto
+    | ToolChoiceNone
+    | ToolChoiceRequired
+    | ToolChoiceSpecific Text ToolChoiceFunction  -- type and function
+    deriving stock (Eq, Show, Generic)
+
+instance ToJSON ToolChoice where
+    toJSON ToolChoiceAuto = "auto"
+    toJSON ToolChoiceNone = "none"
+    toJSON ToolChoiceRequired = "required"
+    toJSON (ToolChoiceSpecific typ func) = object
+        [ "type" .= typ
+        , "function" .= func
+        ]
+
+instance FromJSON ToolChoice where
+    parseJSON (String "auto") = pure ToolChoiceAuto
+    parseJSON (String "none") = pure ToolChoiceNone
+    parseJSON (String "required") = pure ToolChoiceRequired
+    parseJSON (Object v) =
+        ToolChoiceSpecific
+            <$> v .:? "type" .!= "function"
+            <*> v .: "function"
+    parseJSON _ = fail "tool_choice must be string or object"
+
+
+-- ════════════════════════════════════════════════════════════════════════════
+--                                                            // response format
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- | Response format type
+data ResponseFormat
+    = ResponseFormatText
+    | ResponseFormatJsonObject
+    | ResponseFormatJsonSchema Text (Maybe JsonSchema) (Maybe Bool) -- name, schema, strict
+    deriving stock (Eq, Show, Generic)
+
+instance ToJSON ResponseFormat where
+    toJSON ResponseFormatText = object ["type" .= ("text" :: Text)]
+    toJSON ResponseFormatJsonObject = object ["type" .= ("json_object" :: Text)]
+    toJSON (ResponseFormatJsonSchema name mSchema mStrict) = object $ filter ((/= Null) . snd)
+        [ "type" .= ("json_schema" :: Text)
+        , "json_schema" .= object (filter ((/= Null) . snd)
+            [ "name" .= name
+            , "schema" .= mSchema
+            , "strict" .= mStrict
+            ])
+        ]
+
+instance FromJSON ResponseFormat where
+    parseJSON = withObject "ResponseFormat" $ \v -> do
+        typ <- v .: "type"
+        case typ :: Text of
+            "text" -> pure ResponseFormatText
+            "json_object" -> pure ResponseFormatJsonObject
+            "json_schema" -> do
+                schemaObj <- v .: "json_schema"
+                name <- schemaObj .: "name"
+                schema <- schemaObj .:? "schema"
+                strict <- schemaObj .:? "strict"
+                pure $ ResponseFormatJsonSchema name schema strict
+            other -> fail $ "Unknown response_format type: " <> show other
+
+
+-- ════════════════════════════════════════════════════════════════════════════
+--                                                             // delta content
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- | Delta content in streaming response
+data DeltaContent = DeltaContent
+    { dcRole :: Maybe Role
+    , dcContent :: Maybe Text
+    , dcToolCalls :: Maybe [ToolCallDelta]
+    }
+    deriving stock (Eq, Show, Generic)
+
+-- | Tool call delta in streaming (may have partial data)
+data ToolCallDelta = ToolCallDelta
+    { tcdIndex :: Int
+    , tcdId :: Maybe ToolCallId
+    , tcdType :: Maybe Text
+    , tcdFunction :: Maybe FunctionCallDelta
+    }
+    deriving stock (Eq, Show, Generic)
+
+-- | Function call delta in streaming
+data FunctionCallDelta = FunctionCallDelta
+    { fcdName :: Maybe Text
+    , fcdArguments :: Maybe Text
+    }
+    deriving stock (Eq, Show, Generic)
+
+instance ToJSON FunctionCallDelta where
+    toJSON FunctionCallDelta{..} = object $ filter ((/= Null) . snd)
+        [ "name" .= fcdName
+        , "arguments" .= fcdArguments
+        ]
+
+instance FromJSON FunctionCallDelta where
+    parseJSON = withObject "FunctionCallDelta" $ \v ->
+        FunctionCallDelta
+            <$> v .:? "name"
+            <*> v .:? "arguments"
+
+instance ToJSON ToolCallDelta where
+    toJSON ToolCallDelta{..} = object $ filter ((/= Null) . snd)
+        [ "index" .= tcdIndex
+        , "id" .= tcdId
+        , "type" .= tcdType
+        , "function" .= tcdFunction
+        ]
+
+instance FromJSON ToolCallDelta where
+    parseJSON = withObject "ToolCallDelta" $ \v ->
+        ToolCallDelta
+            <$> v .: "index"
+            <*> v .:? "id"
+            <*> v .:? "type"
+            <*> v .:? "function"
+
+instance ToJSON DeltaContent where
+    toJSON DeltaContent{..} = object $ filter ((/= Null) . snd)
+        [ "role" .= dcRole
+        , "content" .= dcContent
+        , "tool_calls" .= dcToolCalls
+        ]
+
+instance FromJSON DeltaContent where
+    parseJSON = withObject "DeltaContent" $ \v ->
+        DeltaContent
+            <$> v .:? "role"
+            <*> v .:? "content"
+            <*> v .:? "tool_calls"
+
+
+-- ════════════════════════════════════════════════════════════════════════════
+--                                                            // embedding input
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- | Embedding input: single string, array of strings, array of tokens, or array of token arrays
+data EmbeddingInput
+    = EmbeddingText Text
+    | EmbeddingTexts [Text]
+    | EmbeddingTokens [Int]
+    | EmbeddingTokenArrays [[Int]]
+    deriving stock (Eq, Show, Generic)
+
+instance ToJSON EmbeddingInput where
+    toJSON (EmbeddingText t) = toJSON t
+    toJSON (EmbeddingTexts ts) = toJSON ts
+    toJSON (EmbeddingTokens tokens) = toJSON tokens
+    toJSON (EmbeddingTokenArrays arrays) = toJSON arrays
+
+instance FromJSON EmbeddingInput where
+    parseJSON (String t) = pure $ EmbeddingText t
+    parseJSON (Array a) = do
+        let items = foldr (:) [] a
+        case items of
+            [] -> pure $ EmbeddingTexts []
+            (x:_) -> case x of
+                String _ -> EmbeddingTexts <$> mapM parseJSON items
+                Number _ -> EmbeddingTokens <$> mapM parseJSON items
+                Array _ -> EmbeddingTokenArrays <$> mapM parseJSON items
+                _ -> fail "Embedding input array must contain strings, numbers, or arrays"
+    parseJSON _ = fail "Embedding input must be string or array"
+
+
+-- ════════════════════════════════════════════════════════════════════════════
+--                                                                   // messages
 -- ════════════════════════════════════════════════════════════════════════════
 
 -- | Content can be text or multimodal (text + images)
 data ContentPart
     = TextPart Text
     | ImageUrlPart Text (Maybe Text)  -- url, optional detail level
-    deriving (Eq, Show, Generic)
+    deriving stock (Eq, Show, Generic)
 
 instance ToJSON ContentPart where
     toJSON (TextPart t) = object ["type" .= ("text" :: Text), "text" .= t]
@@ -114,7 +553,7 @@ instance FromJSON ContentPart where
 data MessageContent
     = TextContent Text
     | PartsContent [ContentPart]
-    deriving (Eq, Show, Generic)
+    deriving stock (Eq, Show, Generic)
 
 instance ToJSON MessageContent where
     toJSON (TextContent t) = toJSON t
@@ -130,10 +569,10 @@ data Message = Message
     { msgRole :: Role
     , msgContent :: Maybe MessageContent  -- Nothing for tool_calls-only messages
     , msgName :: Maybe Text               -- For tool messages
-    , msgToolCallId :: Maybe Text         -- For tool result messages
-    , msgToolCalls :: Maybe Value         -- Tool calls from assistant
+    , msgToolCallId :: Maybe ToolCallId   -- For tool result messages
+    , msgToolCalls :: Maybe [ToolCall]    -- Tool calls from assistant
     }
-    deriving (Eq, Show, Generic)
+    deriving stock (Eq, Show, Generic)
 
 instance ToJSON Message where
     toJSON Message{..} = object $ filter ((/= Null) . snd)
@@ -155,30 +594,30 @@ instance FromJSON Message where
 
 
 -- ════════════════════════════════════════════════════════════════════════════
---                                                        // chat completions
+--                                                           // chat completions
 -- ════════════════════════════════════════════════════════════════════════════
 
 -- | Chat completion request (OpenAI format)
 data ChatRequest = ChatRequest
-    { crModel :: Text
+    { crModel :: ModelId
     , crMessages :: [Message]
-    , crTemperature :: Maybe Double
-    , crTopP :: Maybe Double
+    , crTemperature :: Maybe Temperature
+    , crTopP :: Maybe TopP
     , crN :: Maybe Int
     , crStream :: Maybe Bool
-    , crStop :: Maybe Value              -- String or [String]
-    , crMaxTokens :: Maybe Int
-    , crMaxCompletionTokens :: Maybe Int -- OpenAI's newer field
+    , crStop :: Maybe StopSequence
+    , crMaxTokens :: Maybe MaxTokens
+    , crMaxCompletionTokens :: Maybe MaxTokens -- OpenAI's newer field
     , crPresencePenalty :: Maybe Double
     , crFrequencyPenalty :: Maybe Double
-    , crLogitBias :: Maybe Value
-    , crUser :: Maybe Text
-    , crTools :: Maybe Value             -- Tool definitions
-    , crToolChoice :: Maybe Value        -- "auto" | "none" | specific tool
-    , crResponseFormat :: Maybe Value    -- {"type": "json_object"} etc.
+    , crLogitBias :: Maybe LogitBias
+    , crUser :: Maybe UserId
+    , crTools :: Maybe [ToolDef]
+    , crToolChoice :: Maybe ToolChoice
+    , crResponseFormat :: Maybe ResponseFormat
     , crSeed :: Maybe Int
     }
-    deriving (Eq, Show, Generic)
+    deriving stock (Eq, Show, Generic)
 
 instance ToJSON ChatRequest where
     toJSON ChatRequest{..} = object $ filter ((/= Null) . snd)
@@ -228,7 +667,7 @@ data Usage = Usage
     , usageCompletionTokens :: Int
     , usageTotalTokens :: Int
     }
-    deriving (Eq, Show, Generic)
+    deriving stock (Eq, Show, Generic)
 
 instance ToJSON Usage where
     toJSON Usage{..} = object
@@ -248,9 +687,9 @@ instance FromJSON Usage where
 data Choice = Choice
     { choiceIndex :: Int
     , choiceMessage :: Message
-    , choiceFinishReason :: Maybe Text
+    , choiceFinishReason :: Maybe FinishReason
     }
-    deriving (Eq, Show, Generic)
+    deriving stock (Eq, Show, Generic)
 
 instance ToJSON Choice where
     toJSON Choice{..} = object
@@ -268,15 +707,15 @@ instance FromJSON Choice where
 
 -- | Chat completion response
 data ChatResponse = ChatResponse
-    { respId :: Text
+    { respId :: ResponseId
     , respObject :: Text           -- "chat.completion"
-    , respCreated :: Int           -- Unix timestamp
-    , respModel :: Text
+    , respCreated :: Timestamp
+    , respModel :: ModelId
     , respChoices :: [Choice]
     , respUsage :: Maybe Usage
     , respSystemFingerprint :: Maybe Text
     }
-    deriving (Eq, Show, Generic)
+    deriving stock (Eq, Show, Generic)
 
 instance ToJSON ChatResponse where
     toJSON ChatResponse{..} = object $ filter ((/= Null) . snd)
@@ -294,7 +733,7 @@ instance FromJSON ChatResponse where
         ChatResponse
             <$> v .: "id"
             <*> v .:? "object" .!= "chat.completion"
-            <*> v .:? "created" .!= 0
+            <*> v .:? "created" .!= Timestamp 0
             <*> v .: "model"
             <*> v .: "choices"
             <*> v .:? "usage"
@@ -302,16 +741,16 @@ instance FromJSON ChatResponse where
 
 
 -- ════════════════════════════════════════════════════════════════════════════
---                                                               // streaming
+--                                                                  // streaming
 -- ════════════════════════════════════════════════════════════════════════════
 
 -- | Delta in streaming response
 data ChoiceDelta = ChoiceDelta
     { deltaIndex :: Int
-    , deltaDelta :: Maybe Value      -- Partial message
-    , deltaFinishReason :: Maybe Text
+    , deltaDelta :: Maybe DeltaContent
+    , deltaFinishReason :: Maybe FinishReason
     }
-    deriving (Eq, Show, Generic)
+    deriving stock (Eq, Show, Generic)
 
 instance ToJSON ChoiceDelta where
     toJSON ChoiceDelta{..} = object $ filter ((/= Null) . snd)
@@ -329,14 +768,14 @@ instance FromJSON ChoiceDelta where
 
 -- | Streaming chunk
 data StreamChunk = StreamChunk
-    { chunkId :: Text
+    { chunkId :: ResponseId
     , chunkObject :: Text          -- "chat.completion.chunk"
-    , chunkCreated :: Int
-    , chunkModel :: Text
+    , chunkCreated :: Timestamp
+    , chunkModel :: ModelId
     , chunkChoices :: [ChoiceDelta]
     , chunkUsage :: Maybe Usage    -- Only in final chunk with stream_options
     }
-    deriving (Eq, Show, Generic)
+    deriving stock (Eq, Show, Generic)
 
 instance ToJSON StreamChunk where
     toJSON StreamChunk{..} = object $ filter ((/= Null) . snd)
@@ -353,31 +792,31 @@ instance FromJSON StreamChunk where
         StreamChunk
             <$> v .: "id"
             <*> v .:? "object" .!= "chat.completion.chunk"
-            <*> v .:? "created" .!= 0
+            <*> v .:? "created" .!= Timestamp 0
             <*> v .: "model"
             <*> v .: "choices"
             <*> v .:? "usage"
 
 
 -- ════════════════════════════════════════════════════════════════════════════
---                                                   // completions (legacy)
+--                                                      // completions (legacy)
 -- ════════════════════════════════════════════════════════════════════════════
 
 -- | Legacy completion request
 data CompletionRequest = CompletionRequest
-    { complModel :: Text
+    { complModel :: ModelId
     , complPrompt :: Text
-    , complMaxTokens :: Maybe Int
-    , complTemperature :: Maybe Double
-    , complTopP :: Maybe Double
+    , complMaxTokens :: Maybe MaxTokens
+    , complTemperature :: Maybe Temperature
+    , complTopP :: Maybe TopP
     , complN :: Maybe Int
     , complStream :: Maybe Bool
-    , complStop :: Maybe Value
+    , complStop :: Maybe StopSequence
     , complPresencePenalty :: Maybe Double
     , complFrequencyPenalty :: Maybe Double
-    , complUser :: Maybe Text
+    , complUser :: Maybe UserId
     }
-    deriving (Eq, Show, Generic)
+    deriving stock (Eq, Show, Generic)
 
 instance ToJSON CompletionRequest where
     toJSON CompletionRequest{..} = object $ filter ((/= Null) . snd)
@@ -413,9 +852,9 @@ instance FromJSON CompletionRequest where
 data CompletionChoice = CompletionChoice
     { ccText :: Text
     , ccIndex :: Int
-    , ccFinishReason :: Maybe Text
+    , ccFinishReason :: Maybe FinishReason
     }
-    deriving (Eq, Show, Generic)
+    deriving stock (Eq, Show, Generic)
 
 instance ToJSON CompletionChoice where
     toJSON CompletionChoice{..} = object
@@ -433,14 +872,14 @@ instance FromJSON CompletionChoice where
 
 -- | Legacy completion response
 data CompletionResponse = CompletionResponse
-    { complRespId :: Text
+    { complRespId :: ResponseId
     , complRespObject :: Text
-    , complRespCreated :: Int
-    , complRespModel :: Text
+    , complRespCreated :: Timestamp
+    , complRespModel :: ModelId
     , complRespChoices :: [CompletionChoice]
     , complRespUsage :: Maybe Usage
     }
-    deriving (Eq, Show, Generic)
+    deriving stock (Eq, Show, Generic)
 
 instance ToJSON CompletionResponse where
     toJSON CompletionResponse{..} = object
@@ -457,25 +896,25 @@ instance FromJSON CompletionResponse where
         CompletionResponse
             <$> v .: "id"
             <*> v .:? "object" .!= "text_completion"
-            <*> v .:? "created" .!= 0
+            <*> v .:? "created" .!= Timestamp 0
             <*> v .: "model"
             <*> v .: "choices"
             <*> v .:? "usage"
 
 
 -- ════════════════════════════════════════════════════════════════════════════
---                                                              // embeddings
+--                                                                // embeddings
 -- ════════════════════════════════════════════════════════════════════════════
 
 -- | Embedding request
 data EmbeddingRequest = EmbeddingRequest
-    { embModel :: Text
-    , embInput :: Value              -- String or [String]
-    , embUser :: Maybe Text
+    { embModel :: ModelId
+    , embInput :: EmbeddingInput
+    , embUser :: Maybe UserId
     , embEncodingFormat :: Maybe Text  -- "float" or "base64"
     , embDimensions :: Maybe Int
     }
-    deriving (Eq, Show, Generic)
+    deriving stock (Eq, Show, Generic)
 
 instance ToJSON EmbeddingRequest where
     toJSON EmbeddingRequest{..} = object $ filter ((/= Null) . snd)
@@ -501,7 +940,7 @@ data EmbeddingData = EmbeddingData
     , edIndex :: Int
     , edEmbedding :: Vector Double
     }
-    deriving (Eq, Show, Generic)
+    deriving stock (Eq, Show, Generic)
 
 instance ToJSON EmbeddingData where
     toJSON EmbeddingData{..} = object
@@ -521,10 +960,10 @@ instance FromJSON EmbeddingData where
 data EmbeddingResponse = EmbeddingResponse
     { embRespObject :: Text      -- "list"
     , embRespData :: [EmbeddingData]
-    , embRespModel :: Text
+    , embRespModel :: ModelId
     , embRespUsage :: Usage
     }
-    deriving (Eq, Show, Generic)
+    deriving stock (Eq, Show, Generic)
 
 instance ToJSON EmbeddingResponse where
     toJSON EmbeddingResponse{..} = object
@@ -544,17 +983,17 @@ instance FromJSON EmbeddingResponse where
 
 
 -- ════════════════════════════════════════════════════════════════════════════
---                                                                  // models
+--                                                                    // models
 -- ════════════════════════════════════════════════════════════════════════════
 
 -- | Model information
 data Model = Model
-    { modelId :: Text
+    { modelId :: ModelId
     , modelObject :: Text        -- "model"
-    , modelCreated :: Int
+    , modelCreated :: Timestamp
     , modelOwnedBy :: Text
     }
-    deriving (Eq, Show, Generic)
+    deriving stock (Eq, Show, Generic)
 
 instance ToJSON Model where
     toJSON Model{..} = object
@@ -569,7 +1008,7 @@ instance FromJSON Model where
         Model
             <$> v .: "id"
             <*> v .:? "object" .!= "model"
-            <*> v .:? "created" .!= 0
+            <*> v .:? "created" .!= Timestamp 0
             <*> v .:? "owned_by" .!= "system"
 
 -- | List of models
@@ -577,7 +1016,7 @@ data ModelList = ModelList
     { mlObject :: Text           -- "list"
     , mlData :: [Model]
     }
-    deriving (Eq, Show, Generic)
+    deriving stock (Eq, Show, Generic)
 
 instance ToJSON ModelList where
     toJSON ModelList{..} = object
@@ -593,7 +1032,7 @@ instance FromJSON ModelList where
 
 
 -- ════════════════════════════════════════════════════════════════════════════
---                                                                  // errors
+--                                                                    // errors
 -- ════════════════════════════════════════════════════════════════════════════
 
 -- | Error detail
@@ -603,7 +1042,7 @@ data ErrorDetail = ErrorDetail
     , errParam :: Maybe Text
     , errCode :: Maybe Text
     }
-    deriving (Eq, Show, Generic)
+    deriving stock (Eq, Show, Generic)
 
 instance ToJSON ErrorDetail where
     toJSON ErrorDetail{..} = object $ filter ((/= Null) . snd)
@@ -625,7 +1064,7 @@ instance FromJSON ErrorDetail where
 data ApiError = ApiError
     { apiError :: ErrorDetail
     }
-    deriving (Eq, Show, Generic)
+    deriving stock (Eq, Show, Generic)
 
 instance ToJSON ApiError where
     toJSON ApiError{..} = object ["error" .= apiError]

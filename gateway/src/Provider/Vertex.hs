@@ -30,7 +30,8 @@ module Provider.Vertex
     ) where
 
 import Control.Concurrent.MVar (MVar, newMVar, modifyMVar)
-import Control.Exception (SomeException, try)
+import Control.Exception (IOException, try)
+import Network.HTTP.Client (HttpException)
 import Data.Aeson (eitherDecode, encode)
 import Data.Aeson ()
 import Data.ByteString ()
@@ -47,6 +48,7 @@ import Network.HTTP.Client qualified as HC
 import Network.HTTP.Types qualified as HT
 
 import Config (ProviderConfig (..), VertexConfig (..))
+import Effects.Graded
 import Provider.Types
 import Types
 
@@ -84,7 +86,7 @@ getAccessToken cacheVar _mServiceAccountPath = do
             -- n.b. In production, would use service account JSON directly
             -- but gcloud auth application-default print-access-token works
             -- in containers with mounted credentials
-            result <- try @SomeException $
+            result <- try @IOException $
                 readProcess "gcloud" ["auth", "application-default", "print-access-token"] ""
             
             case result of
@@ -119,9 +121,10 @@ makeVertexProvider configRef = do
         }
 
 -- | Check if Vertex is configured
-isEnabled :: IORef ProviderConfig -> IO Bool
+isEnabled :: IORef ProviderConfig -> GatewayM Bool
 isEnabled configRef = do
-    config <- readIORef configRef
+    recordConfigAccess "vertex.enabled"
+    config <- liftGatewayIO $ readIORef configRef
     case pcVertexConfig config of
         Nothing -> pure False
         Just vc -> pure $ pcEnabled config && not (T.null $ vcProjectId vc)
@@ -143,78 +146,92 @@ getVertexBaseUrl vc =
     <> vcProjectId vc <> "/locations/" <> vcLocation vc <> "/endpoints/openapi"
 
 -- | Non-streaming chat completion
-chat :: IORef ProviderConfig -> MVar (Maybe TokenCache) -> RequestContext -> ChatRequest -> IO (ProviderResult ChatResponse)
+chat :: IORef ProviderConfig -> MVar (Maybe TokenCache) -> RequestContext -> ChatRequest -> GatewayM (ProviderResult ChatResponse)
 chat configRef tokenCache ctx req = do
-    config <- readIORef configRef
+    recordProvider "vertex"
+    recordModel (unModelId $ crModel req)
+    config <- liftGatewayIO $ readIORef configRef
     case pcVertexConfig config of
         Nothing -> pure $ Failure $ AuthError "Vertex AI not configured"
         Just vc -> do
-            tokenResult <- getAccessToken tokenCache (vcServiceAccountKeyPath vc)
+            recordAuthUsage "vertex" "oauth"
+            tokenResult <- liftGatewayIO $ getAccessToken tokenCache (vcServiceAccountKeyPath vc)
             case tokenResult of
                 Left err -> pure $ Failure $ AuthError err
                 Right token -> do
                     let url = T.unpack (getVertexBaseUrl vc) <> "/chat/completions"
-                    result <- makeRequest (rcManager ctx) url token (encode req)
-                    pure $ case result of
-                        Left err -> classifyError err
-                        Right body -> case eitherDecode body of
+                    recordHttpAccess (T.pack url) "POST" Nothing
+                    result <- withLatency $ makeRequest (rcManager ctx) url token (encode req)
+                    case result of
+                        Left err -> liftGatewayIO $ classifyErrorWithCacheInvalidation tokenCache err
+                        Right body -> pure $ case eitherDecode body of
                             Left parseErr -> Failure $ UnknownError $ "Parse error: " <> T.pack parseErr
                             Right resp -> Success resp
 
 -- | Streaming chat completion
-chatStream :: IORef ProviderConfig -> MVar (Maybe TokenCache) -> RequestContext -> ChatRequest -> StreamCallback -> IO (ProviderResult ())
+chatStream :: IORef ProviderConfig -> MVar (Maybe TokenCache) -> RequestContext -> ChatRequest -> StreamCallback -> GatewayM (ProviderResult ())
 chatStream configRef tokenCache ctx req callback = do
-    config <- readIORef configRef
+    recordProvider "vertex"
+    recordModel (unModelId $ crModel req)
+    config <- liftGatewayIO $ readIORef configRef
     case pcVertexConfig config of
         Nothing -> pure $ Failure $ AuthError "Vertex AI not configured"
         Just vc -> do
-            tokenResult <- getAccessToken tokenCache (vcServiceAccountKeyPath vc)
+            recordAuthUsage "vertex" "oauth"
+            tokenResult <- liftGatewayIO $ getAccessToken tokenCache (vcServiceAccountKeyPath vc)
             case tokenResult of
                 Left err -> pure $ Failure $ AuthError err
                 Right token -> do
                     let url = T.unpack (getVertexBaseUrl vc) <> "/chat/completions"
                         streamReq = req { crStream = Just True }
-                    result <- makeStreamingRequest (rcManager ctx) url token (encode streamReq) callback
-                    pure $ case result of
-                        Left err -> classifyError err
-                        Right () -> Success ()
+                    recordHttpAccess (T.pack url) "POST" Nothing
+                    result <- withLatency $ makeStreamingRequest (rcManager ctx) url token (encode streamReq) callback
+                    case result of
+                        Left err -> liftGatewayIO $ classifyErrorWithCacheInvalidation tokenCache err
+                        Right () -> pure $ Success ()
 
 -- | Generate embeddings
-embeddings :: IORef ProviderConfig -> MVar (Maybe TokenCache) -> RequestContext -> EmbeddingRequest -> IO (ProviderResult EmbeddingResponse)
+embeddings :: IORef ProviderConfig -> MVar (Maybe TokenCache) -> RequestContext -> EmbeddingRequest -> GatewayM (ProviderResult EmbeddingResponse)
 embeddings configRef tokenCache ctx req = do
-    config <- readIORef configRef
+    recordProvider "vertex"
+    recordModel (unModelId $ embModel req)
+    config <- liftGatewayIO $ readIORef configRef
     case pcVertexConfig config of
         Nothing -> pure $ Failure $ AuthError "Vertex AI not configured"
         Just vc -> do
-            tokenResult <- getAccessToken tokenCache (vcServiceAccountKeyPath vc)
+            recordAuthUsage "vertex" "oauth"
+            tokenResult <- liftGatewayIO $ getAccessToken tokenCache (vcServiceAccountKeyPath vc)
             case tokenResult of
                 Left err -> pure $ Failure $ AuthError err
                 Right token -> do
                     let url = T.unpack (getVertexBaseUrl vc) <> "/embeddings"
-                    result <- makeRequest (rcManager ctx) url token (encode req)
-                    pure $ case result of
-                        Left err -> classifyError err
-                        Right body -> case eitherDecode body of
+                    recordHttpAccess (T.pack url) "POST" Nothing
+                    result <- withLatency $ makeRequest (rcManager ctx) url token (encode req)
+                    case result of
+                        Left err -> liftGatewayIO $ classifyErrorWithCacheInvalidation tokenCache err
+                        Right body -> pure $ case eitherDecode body of
                             Left parseErr -> Failure $ UnknownError $ "Parse error: " <> T.pack parseErr
                             Right resp -> Success resp
 
 -- | List available models
 -- n.b. Vertex doesn't have a direct /models endpoint like OpenAI
 -- Return a static list of known Vertex models
-models :: IORef ProviderConfig -> MVar (Maybe TokenCache) -> RequestContext -> IO (ProviderResult ModelList)
+models :: IORef ProviderConfig -> MVar (Maybe TokenCache) -> RequestContext -> GatewayM (ProviderResult ModelList)
 models configRef _tokenCache _ctx = do
-    config <- readIORef configRef
+    recordProvider "vertex"
+    recordConfigAccess "vertex.models"
+    config <- liftGatewayIO $ readIORef configRef
     case pcVertexConfig config of
         Nothing -> pure $ Failure $ AuthError "Vertex AI not configured"
         Just _ -> do
             -- Return static list of Vertex AI models
             let vertexModels =
-                    [ Model "gemini-2.0-flash" "model" 0 "google"
-                    , Model "gemini-2.0-pro" "model" 0 "google"
-                    , Model "gemini-1.5-flash" "model" 0 "google"
-                    , Model "gemini-1.5-pro" "model" 0 "google"
-                    , Model "claude-3-5-sonnet@20240620" "model" 0 "anthropic"
-                    , Model "claude-3-opus@20240229" "model" 0 "anthropic"
+                    [ Model (ModelId "gemini-2.0-flash") "model" (Timestamp 0) "google"
+                    , Model (ModelId "gemini-2.0-pro") "model" (Timestamp 0) "google"
+                    , Model (ModelId "gemini-1.5-flash") "model" (Timestamp 0) "google"
+                    , Model (ModelId "gemini-1.5-pro") "model" (Timestamp 0) "google"
+                    , Model (ModelId "claude-3-5-sonnet@20240620") "model" (Timestamp 0) "anthropic"
+                    , Model (ModelId "claude-3-opus@20240229") "model" (Timestamp 0) "anthropic"
                     ]
             pure $ Success $ ModelList "list" vertexModels
 
@@ -236,7 +253,7 @@ makeRequest manager url token body = do
             , HC.requestBody = HC.RequestBodyLBS body
             }
 
-    result <- try @SomeException $ HC.httpLbs req manager
+    result <- try @HttpException $ HC.httpLbs req manager
     case result of
         Left e -> pure $ Left (0, T.pack $ show e)
         Right resp -> do
@@ -258,7 +275,7 @@ makeStreamingRequest manager url token body callback = do
             , HC.requestBody = HC.RequestBodyLBS body
             }
 
-    result <- try @SomeException $ HC.withResponse req manager $ \resp -> do
+    result <- try @HttpException $ HC.withResponse req manager $ \resp -> do
         let status = HT.statusCode $ HC.responseStatus resp
         if status >= 200 && status < 300
             then do
@@ -288,7 +305,14 @@ streamBody bodyReader callback = loop
 decodeBody :: LBS.ByteString -> Text
 decodeBody = T.pack . show . LBS.toStrict
 
+-- | Invalidate the token cache (called on 401 errors)
+invalidateTokenCache :: MVar (Maybe TokenCache) -> IO ()
+invalidateTokenCache cacheVar = do
+    _ <- modifyMVar cacheVar $ \_ -> pure (Nothing, ())
+    pure ()
+
 -- | Classify HTTP error into ProviderError
+-- For 401 errors, the caller must invalidate the token cache before retrying
 classifyError :: (Int, Text) -> ProviderResult a
 classifyError (status, msg)
     | status == 401 = Retry $ AuthError msg    -- Token expired, retry with refresh
@@ -299,3 +323,12 @@ classifyError (status, msg)
     | status >= 400 = Failure $ InvalidRequestError msg
     | status == 0 = Retry $ TimeoutError msg
     | otherwise = Failure $ UnknownError msg
+
+-- | Classify error, invalidating token cache on 401
+classifyErrorWithCacheInvalidation :: MVar (Maybe TokenCache) -> (Int, Text) -> IO (ProviderResult a)
+classifyErrorWithCacheInvalidation cacheVar err@(status, _) = do
+    -- Invalidate token cache on 401 so retry will fetch a fresh token
+    if status == 401
+        then invalidateTokenCache cacheVar
+        else pure ()
+    pure $ classifyError err

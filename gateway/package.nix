@@ -35,18 +35,22 @@ hp.mkDerivation {
 
   libraryHaskellDepends = [
     hp.aeson
+    hp.base16-bytestring
     hp.base64-bytestring
     hp.bytestring
     hp.case-insensitive
     hp.containers
+    hp.crypton
     hp.crypton-connection
     hp.data-default-class
+    hp.deepseq
     hp.directory
     hp.filepath
     hp.http-client
     hp.http-client-tls
     hp.http-types
     hp.katip
+    hp.memory
     hp.mtl
     hp.network
     hp.posix-pty
@@ -60,6 +64,7 @@ hp.mkDerivation {
     hp.tls
     hp.unix
     hp.unliftio-core
+    hp.uuid
     hp.wai
     hp.wai-websockets
     hp.warp

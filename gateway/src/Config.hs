@@ -30,9 +30,10 @@ module Config
     , defaultConfig
     ) where
 
-import Control.Exception (SomeException, try)
-import Data.Maybe ()
+import Control.Exception (IOException, try)
+import Data.Maybe (fromMaybe)
 import Data.Text (Text)
+import Text.Read (readMaybe)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 import System.Environment (lookupEnv)
@@ -129,9 +130,10 @@ defaultConfig = Config
 -- ════════════════════════════════════════════════════════════════════════════
 
 -- | Read API key from file, stripping whitespace
+-- Uses IOException (not SomeException) for precise error handling
 readApiKey :: FilePath -> IO (Maybe Text)
 readApiKey path = do
-    result <- try @SomeException $ TIO.readFile path
+    result <- try @IOException $ TIO.readFile path
     pure $ case result of
         Left _ -> Nothing
         Right content -> Just $ T.strip content
@@ -171,8 +173,8 @@ loadApiKey mPath mDirect envVar = do
 --   OPENROUTER_API_KEY_FILE   - Path to OpenRouter API key file
 loadConfigFromEnv :: IO Config
 loadConfigFromEnv = do
-    -- Server settings
-    port <- maybe 8080 read <$> lookupEnv "STRAYLIGHT_PORT"
+    -- Server settings (use readMaybe, never partial read)
+    port <- fromMaybe 8080 . (>>= readMaybe) <$> lookupEnv "STRAYLIGHT_PORT"
     host <- maybe "0.0.0.0" T.pack <$> lookupEnv "STRAYLIGHT_HOST"
     logLevel <- maybe "info" T.pack <$> lookupEnv "STRAYLIGHT_LOG_LEVEL"
 

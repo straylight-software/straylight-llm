@@ -10,6 +10,12 @@
 -- Provider abstraction for LLM backends. Each provider implements the same
 -- interface, enabling transparent fallback routing.
 --
+-- All provider operations use GatewayM for effect tracking:
+--   - HTTP access recorded as co-effects
+--   - Auth usage recorded as co-effects
+--   - Latency and token usage recorded in grade
+--   - Provider/model recorded in provenance
+--
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 {-# LANGUAGE OverloadedStrings #-}
@@ -32,6 +38,7 @@ import Data.ByteString (ByteString)
 import Data.Text (Text)
 import Network.HTTP.Client (Manager)
 
+import Effects.Graded (GatewayM)
 import Types (ChatRequest, ChatResponse, EmbeddingRequest, EmbeddingResponse, ModelList)
 
 
@@ -81,25 +88,30 @@ type StreamCallback = ByteString -> IO ()
 -- ════════════════════════════════════════════════════════════════════════════
 
 -- | Provider interface
--- Each backend (Venice, Vertex, Baseten, OpenAI) implements this
+-- Each backend (Venice, Vertex, Baseten, OpenAI) implements this.
+--
+-- All operations return GatewayM for effect tracking:
+--   - HTTP access, auth usage recorded as co-effects
+--   - Latency, token counts recorded in grade
+--   - Provider/model recorded in provenance
 data Provider = Provider
     { providerName :: ProviderName
 
-    , providerEnabled :: IO Bool
+    , providerEnabled :: GatewayM Bool
     -- ^ Check if provider is configured and ready
 
-    , providerChat :: RequestContext -> ChatRequest -> IO (ProviderResult ChatResponse)
+    , providerChat :: RequestContext -> ChatRequest -> GatewayM (ProviderResult ChatResponse)
     -- ^ Non-streaming chat completion
 
-    , providerChatStream :: RequestContext -> ChatRequest -> StreamCallback -> IO (ProviderResult ())
+    , providerChatStream :: RequestContext -> ChatRequest -> StreamCallback -> GatewayM (ProviderResult ())
     -- ^ Streaming chat completion (calls callback with SSE chunks)
 
-    , providerEmbeddings :: RequestContext -> EmbeddingRequest -> IO (ProviderResult EmbeddingResponse)
+    , providerEmbeddings :: RequestContext -> EmbeddingRequest -> GatewayM (ProviderResult EmbeddingResponse)
     -- ^ Generate embeddings
 
-    , providerModels :: RequestContext -> IO (ProviderResult ModelList)
+    , providerModels :: RequestContext -> GatewayM (ProviderResult ModelList)
     -- ^ List available models
 
     , providerSupportsModel :: Text -> Bool
-    -- ^ Check if this provider supports a given model ID
+    -- ^ Check if this provider supports a given model ID (pure, no effects)
     }

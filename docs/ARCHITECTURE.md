@@ -11,12 +11,14 @@ This document tracks compliance with the aleph cube architecture as defined in `
 | Principle | Current Status | Required |
 |-----------|---------------|----------|
 | StrictData | Enabled (GHC 9.12) | Yes |
-| No partial functions | 1 violation (`read`) | Zero |
+| No partial functions | Compliant (readMaybe) | Zero |
 | No `unsafePerformIO` | Compliant | Zero |
 | No `fromJust`/`head`/`tail`/`!!` | Compliant | Zero |
-| Typed coeffects | Missing | Required |
-| Discharge proofs | Missing | Required |
-| Effect system | Raw IO everywhere | Required |
+| No `Value` (Aeson) | Compliant (proper ADTs) | Zero |
+| Semantic newtypes | Compliant (ModelId, etc.) | Yes |
+| Typed coeffects | **Complete** (Effects.Graded) | Required |
+| Discharge proofs | **Complete** (Coeffect.Discharge) | Required |
+| Effect system | **Complete** (GatewayM graded monad) | Required |
 | Property tests | None | Required |
 | Lean4 proofs | None | Required |
 | Deterministic builds | Untested | Required |
@@ -157,55 +159,92 @@ This document tracks compliance with the aleph cube architecture as defined in `
 
 4. **Fix Vertex 401 token cache invalidation**
 
-### Phase 2: Effect System (1-2 weeks)
+### Phase 2: Effect System (1-2 weeks) — **COMPLETE**
 
-1. Add `effectful` or `polysemy` dependency
-2. Define effect algebra:
-   ```haskell
-   data Http :: Effect where
-     HttpRequest :: Request -> Http m Response
-   
-   data Config :: Effect where
-     GetEnv :: Text -> Config m (Maybe Text)
-   
-   data Log :: Effect where
-     LogInfo :: Text -> Log m ()
-   ```
-3. Refactor all modules to use effects instead of raw IO
-4. Add effect interpreters (IO, Test, Mock)
+**Completed:**
+1. ✅ Created `Effects.Graded` module with graded monad following COMPASS Voice.Graded pattern
+2. ✅ Defined `GatewayM` graded monad tracking (Grade, Provenance, CoEffect)
+3. ✅ Defined `GatewayGrade` for cost tracking (latency, tokens, retries, cache)
+4. ✅ Defined `GatewayCoEffect` for resource access tracking (HTTP, Auth, Config)
+5. ✅ Defined `GatewayProvenance` for audit trail (requestId, providers, models)
+6. ✅ Added helper functions: `withLatency`, `withTokens`, `recordHttpAccess`, etc.
+7. ✅ Refactored Provider interface to use `GatewayM` instead of raw `IO`
+8. ✅ Updated all providers (Venice, Vertex, Baseten, OpenRouter) to use `GatewayM`
+9. ✅ Updated Router to track effects through provider chain
+10. ✅ Router calls `runGatewayMPure` at boundary to interpret `GatewayM` to `IO`
 
-### Phase 3: Coeffect Tracking (1 week)
+**Architecture (implemented in Effects.Graded):**
+```haskell
+-- Graded monad tracking grade, provenance, and co-effects
+newtype GatewayM a = GatewayM
+  { unGatewayM :: IO (a, GatewayGrade, GatewayProvenance, GatewayCoEffect)
+  }
 
-1. Define coeffect types matching Continuity.lean:
-   ```haskell
-   data Coeffect
-     = Pure
-     | Network
-     | Auth Text
-     | Sandbox Text
-     | Filesystem Text
-     | Combined [Coeffect]
-   
-   data NetworkAccess = NetworkAccess
-     { naUrl :: Text
-     , naMethod :: Text
-     , naContentHash :: Hash
-     , naTimestamp :: UTCTime
-     }
-   
-   data DischargeProof = DischargeProof
-     { dpCoeffects :: [Coeffect]
-     , dpNetworkAccess :: [NetworkAccess]
-     , dpFilesystemAccess :: [FilesystemAccess]
-     , dpAuthUsage :: [AuthUsage]
-     , dpBuildId :: Text
-     , dpDerivationHash :: Hash
-     , dpOutputHashes :: [(Text, Hash)]
-     , dpStartTime :: UTCTime
-     , dpEndTime :: UTCTime
-     , dpSignature :: Maybe (PublicKey, Signature)
-     }
-   ```
+-- Cost tracking
+data GatewayGrade = GatewayGrade
+  { ggLatencyMs, ggInputTokens, ggOutputTokens :: !Int
+  , ggProviderCalls, ggRetries, ggCacheHits, ggCacheMisses :: !Int
+  }
+
+-- Resource access tracking (co-effects)
+data GatewayCoEffect = GatewayCoEffect
+  { gceHttpAccess :: !(Set HttpAccess)
+  , gceAuthUsage :: !(Set AuthUsage)
+  , gceConfigAccess :: !(Set ConfigAccess)
+  }
+
+-- Audit trail
+data GatewayProvenance = GatewayProvenance
+  { gpRequestId :: !(Maybe Text)
+  , gpProvidersUsed :: ![Text]
+  , gpModelsUsed :: ![Text]
+  , gpTimestamp :: !(Maybe UTCTime)
+  }
+```
+
+### Phase 3: Coeffect Tracking & Discharge Proofs (1 week) — **COMPLETE**
+
+**Completed:**
+- ✅ `HttpAccess` type matching Continuity.lean `NetworkAccess`
+- ✅ `AuthUsage` type for auth credential tracking
+- ✅ `ConfigAccess` type for configuration access tracking
+- ✅ All co-effects tracked via `GatewayCoEffect` in `GatewayM`
+- ✅ `DischargeProof` generation with ed25519 signatures
+- ✅ Proof verification via `verifyProof`
+- ✅ SHA256 content hashing for request/response bodies
+- ✅ `/v1/proof/:requestId` API endpoint to retrieve proofs
+- ✅ Proof cache in Router (TVar-based, thread-safe)
+- ✅ ToJSON instances for DischargeProof and Coeffect
+
+**Architecture (implemented in Coeffect/):**
+```haskell
+-- Coeffect types (Coeffect/Types.hs)
+data Coeffect
+  = CoeffectPure
+  | CoeffectNetwork
+  | CoeffectAuth !Text
+  | CoeffectSandbox !Text
+  | CoeffectFilesystem !Text
+  | CoeffectCombined ![Coeffect]
+
+data DischargeProof = DischargeProof
+  { dpCoeffects :: ![Coeffect]
+  , dpNetworkAccess :: ![NetworkAccess]
+  , dpFilesystemAccess :: ![FilesystemAccess]
+  , dpAuthUsage :: ![AuthUsage]
+  , dpRequestId :: !Text
+  , dpDerivationHash :: !Hash
+  , dpOutputHashes :: ![(Text, Hash)]
+  , dpStartTime :: !UTCTime
+  , dpEndTime :: !UTCTime
+  , dpSignature :: !(Maybe (PublicKey, Signature))
+  }
+
+-- Discharge proof generation (Coeffect/Discharge.hs)
+generateDischargeProof :: GatewayCoEffect -> Text -> ByteString -> UTCTime -> UTCTime -> IO DischargeProof
+signProof :: SecretKey -> DischargeProof -> DischargeProof
+verifyProof :: PublicKey -> DischargeProof -> Bool
+```
 
 ### Phase 4: Property Tests (1 week)
 

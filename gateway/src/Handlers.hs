@@ -29,6 +29,7 @@ module Handlers
     , completionsHandler
     , embeddingsHandler
     , modelsHandler
+    , proofHandler
     ) where
 
 import Control.Monad.IO.Class (liftIO)
@@ -43,6 +44,7 @@ import Data.ByteString.Lazy qualified as LBS
 import Data.Text qualified as T
 
 import Api
+import Coeffect.Types (DischargeProof)
 import Provider.Types (ProviderError (..))
 import Router
 import Types
@@ -63,6 +65,7 @@ server router =
     :<|> completionsHandler router
     :<|> embeddingsHandler router
     :<|> modelsHandler router
+    :<|> proofHandler router
 
 
 -- ════════════════════════════════════════════════════════════════════════════
@@ -203,3 +206,23 @@ toServantError err = case err of
   where
     encodeError :: Text -> Text -> LBS.ByteString
     encodeError typ msg = encode $ ApiError $ ErrorDetail msg typ Nothing Nothing
+
+
+-- ════════════════════════════════════════════════════════════════════════════
+--                                                               // proof api
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- | Discharge proof handler
+-- GET /v1/proof/:requestId
+proofHandler :: Router -> Text -> Handler DischargeProof
+proofHandler router requestId = do
+    mProof <- liftIO $ lookupProof router requestId
+    case mProof of
+        Just proof -> pure proof
+        Nothing -> throwError err404
+            { errBody = encode $ ApiError $ ErrorDetail
+                ("Proof not found for request: " <> requestId)
+                "proof_not_found"
+                Nothing
+                Nothing
+            }

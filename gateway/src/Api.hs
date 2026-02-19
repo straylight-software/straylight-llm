@@ -30,6 +30,7 @@ module Api
     , EmbeddingsAPI
     , ModelsAPI
     , HealthAPI
+    , ProofAPI
 
       -- * Types
     , HealthResponse (..)
@@ -39,6 +40,7 @@ import Data.Aeson (ToJSON (..), object, (.=))
 import Data.Text (Text)
 import Servant
 
+import Coeffect.Types (DischargeProof)
 import Types
 
 
@@ -96,6 +98,13 @@ type ModelsAPI =
         :> Header "Authorization" Text
         :> Get '[JSON] ModelList
 
+-- | Proof endpoint
+-- GET /v1/proof/:requestId — get discharge proof for a request
+type ProofAPI =
+    "v1" :> "proof"
+        :> Capture "requestId" Text
+        :> Get '[JSON] DischargeProof
+
 
 -- ════════════════════════════════════════════════════════════════════════════
 --                                                           // combined api
@@ -108,6 +117,7 @@ type GatewayAPI =
     :<|> CompletionsAPI
     :<|> EmbeddingsAPI
     :<|> ModelsAPI
+    :<|> ProofAPI
 
 -- | API proxy
 api :: Proxy GatewayAPI

@@ -23,7 +23,8 @@ module Provider.OpenRouter
       makeOpenRouterProvider
     ) where
 
-import Control.Exception (SomeException, try)
+import Control.Exception (try)
+import Network.HTTP.Client (HttpException)
 import Data.Aeson (eitherDecode, encode)
 import Data.ByteString ()
 import Data.IORef (IORef, readIORef)
@@ -37,6 +38,7 @@ import Network.HTTP.Client qualified as HC
 import Network.HTTP.Types qualified as HT
 
 import Config (ProviderConfig (..))
+import Effects.Graded
 import Provider.Types
 import Types
 
@@ -58,9 +60,10 @@ makeOpenRouterProvider configRef = Provider
     }
 
 -- | Check if OpenRouter is configured
-isEnabled :: IORef ProviderConfig -> IO Bool
+isEnabled :: IORef ProviderConfig -> GatewayM Bool
 isEnabled configRef = do
-    config <- readIORef configRef
+    recordConfigAccess "openrouter.enabled"
+    config <- liftGatewayIO $ readIORef configRef
     pure $ pcEnabled config && pcApiKey config /= Nothing
 
 -- | Check if model is supported
@@ -83,14 +86,18 @@ supportsModel modelId =
         ]
 
 -- | Non-streaming chat completion
-chat :: IORef ProviderConfig -> RequestContext -> ChatRequest -> IO (ProviderResult ChatResponse)
+chat :: IORef ProviderConfig -> RequestContext -> ChatRequest -> GatewayM (ProviderResult ChatResponse)
 chat configRef ctx req = do
-    config <- readIORef configRef
+    recordProvider "openrouter"
+    recordModel (unModelId $ crModel req)
+    config <- liftGatewayIO $ readIORef configRef
     case pcApiKey config of
         Nothing -> pure $ Failure $ AuthError "OpenRouter API key not configured"
         Just apiKey -> do
+            recordAuthUsage "openrouter" "api-key"
             let url = T.unpack (pcBaseUrl config) <> "/chat/completions"
-            result <- makeRequest (rcManager ctx) url apiKey (encode req)
+            recordHttpAccess (T.pack url) "POST" Nothing
+            result <- withLatency $ makeRequest (rcManager ctx) url apiKey (encode req)
             pure $ case result of
                 Left err -> classifyError err
                 Right body -> case eitherDecode body of
@@ -98,36 +105,45 @@ chat configRef ctx req = do
                     Right resp -> Success resp
 
 -- | Streaming chat completion
-chatStream :: IORef ProviderConfig -> RequestContext -> ChatRequest -> StreamCallback -> IO (ProviderResult ())
+chatStream :: IORef ProviderConfig -> RequestContext -> ChatRequest -> StreamCallback -> GatewayM (ProviderResult ())
 chatStream configRef ctx req callback = do
-    config <- readIORef configRef
+    recordProvider "openrouter"
+    recordModel (unModelId $ crModel req)
+    config <- liftGatewayIO $ readIORef configRef
     case pcApiKey config of
         Nothing -> pure $ Failure $ AuthError "OpenRouter API key not configured"
         Just apiKey -> do
+            recordAuthUsage "openrouter" "api-key"
             let url = T.unpack (pcBaseUrl config) <> "/chat/completions"
                 streamReq = req { crStream = Just True }
-            result <- makeStreamingRequest (rcManager ctx) url apiKey (encode streamReq) callback
+            recordHttpAccess (T.pack url) "POST" Nothing
+            result <- withLatency $ makeStreamingRequest (rcManager ctx) url apiKey (encode streamReq) callback
             pure $ case result of
                 Left err -> classifyError err
                 Right () -> Success ()
 
 -- | Generate embeddings
 -- n.b. OpenRouter embedding support is limited
-embeddings :: IORef ProviderConfig -> RequestContext -> EmbeddingRequest -> IO (ProviderResult EmbeddingResponse)
+embeddings :: IORef ProviderConfig -> RequestContext -> EmbeddingRequest -> GatewayM (ProviderResult EmbeddingResponse)
 embeddings _configRef _ctx _req = do
+    recordProvider "openrouter"
     -- OpenRouter doesn't have great embedding support
     -- Return error to fall through to other providers or fail gracefully
     pure $ Failure $ ModelNotFoundError "OpenRouter embedding support is limited"
 
 -- | List available models
-models :: IORef ProviderConfig -> RequestContext -> IO (ProviderResult ModelList)
+models :: IORef ProviderConfig -> RequestContext -> GatewayM (ProviderResult ModelList)
 models configRef ctx = do
-    config <- readIORef configRef
+    recordProvider "openrouter"
+    recordConfigAccess "openrouter.models"
+    config <- liftGatewayIO $ readIORef configRef
     case pcApiKey config of
         Nothing -> pure $ Failure $ AuthError "OpenRouter API key not configured"
         Just apiKey -> do
+            recordAuthUsage "openrouter" "api-key"
             let url = T.unpack (pcBaseUrl config) <> "/models"
-            result <- makeGetRequest (rcManager ctx) url apiKey
+            recordHttpAccess (T.pack url) "GET" Nothing
+            result <- withLatency $ makeGetRequest (rcManager ctx) url apiKey
             pure $ case result of
                 Left err -> classifyError err
                 Right body -> case eitherDecode body of
@@ -154,7 +170,7 @@ makeRequest manager url apiKey body = do
             , HC.requestBody = HC.RequestBodyLBS body
             }
 
-    result <- try @SomeException $ HC.httpLbs req manager
+    result <- try @HttpException $ HC.httpLbs req manager
     case result of
         Left e -> pure $ Left (0, T.pack $ show e)
         Right resp -> do
@@ -176,7 +192,7 @@ makeGetRequest manager url apiKey = do
                 ]
             }
 
-    result <- try @SomeException $ HC.httpLbs req manager
+    result <- try @HttpException $ HC.httpLbs req manager
     case result of
         Left e -> pure $ Left (0, T.pack $ show e)
         Right resp -> do
@@ -200,7 +216,7 @@ makeStreamingRequest manager url apiKey body callback = do
             , HC.requestBody = HC.RequestBodyLBS body
             }
 
-    result <- try @SomeException $ HC.withResponse req manager $ \resp -> do
+    result <- try @HttpException $ HC.withResponse req manager $ \resp -> do
         let status = HT.statusCode $ HC.responseStatus resp
         if status >= 200 && status < 300
             then do
