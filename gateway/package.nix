@@ -8,7 +8,7 @@
 #                                                          — Neuromancer
 #
 # Haskell derivation for the straylight-llm gateway binary.
-# n.b. builds with GHC 9.10, based on weapon-server-hs implementation
+# n.b. builds with GHC 9.12 for StrictData and latest language features
 #
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 {

@@ -96,8 +96,8 @@
           ...
         }:
         let
-          # GHC 9.10 for stability
-          hpkgs = pkgs.haskell.packages.ghc910;
+          # GHC 9.12 for StrictData and latest language features
+          hpkgs = pkgs.haskell.packages.ghc912;
 
           # The gateway package
           straylightPackage = pkgs.callPackage ./gateway/package.nix {
