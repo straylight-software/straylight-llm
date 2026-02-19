@@ -86,6 +86,7 @@ module Types
 import Data.Aeson
 import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap (foldrWithKey)
+import Data.List (sortOn)
 import Data.Text (Text)
 import Data.Vector (Vector)
 import GHC.Generics (Generic)
@@ -269,8 +270,10 @@ instance ToJSON LogitBias where
     toJSON (LogitBias biases) = object [(Key.fromText k, toJSON v) | (k, v) <- biases]
 
 instance FromJSON LogitBias where
-    parseJSON = withObject "LogitBias" $ \v ->
-        LogitBias <$> mapM (\(k, val) -> (Key.toText k,) <$> parseJSON val) (toList v)
+    parseJSON = withObject "LogitBias" $ \v -> do
+        kvPairs <- mapM (\(k, val) -> (Key.toText k,) <$> parseJSON val) (toList v)
+        -- Sort by key for consistent ordering (JSON objects have no guaranteed order)
+        pure $ LogitBias (sortOn fst kvPairs)
       where
         toList obj = foldrWithKey (\k val acc -> (k, val) : acc) [] obj
 

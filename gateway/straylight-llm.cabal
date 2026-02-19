@@ -140,3 +140,42 @@ executable straylight-llm
   default-extensions:
     OverloadedStrings
     RecordWildCards
+
+-- ════════════════════════════════════════════════════════════════════════════
+--                                                               // test suite
+-- ════════════════════════════════════════════════════════════════════════════
+
+test-suite straylight-llm-test
+  type:             exitcode-stdio-1.0
+  main-is:          Main.hs
+  hs-source-dirs:   test
+  default-language: GHC2021
+
+  ghc-options:
+    -Wall
+    -Wcompat
+    -threaded
+    -rtsopts
+    "-with-rtsopts=-N"
+
+  other-modules:
+    Property.TypesProps
+    Property.CoeffectProps
+    Property.Generators
+
+  build-depends:
+    , aeson
+    , base                >=4.17 && <5
+    , bytestring
+    , containers
+    , hedgehog            >=1.0
+    , straylight-llm
+    , tasty               >=1.4
+    , tasty-hedgehog      >=1.4
+    , text
+    , time
+    , vector
+
+  default-extensions:
+    OverloadedStrings
+    RecordWildCards

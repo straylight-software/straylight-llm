@@ -51,9 +51,11 @@ module Coeffect.Types
     ) where
 
 import Control.DeepSeq (NFData (rnf))
-import Data.Aeson (ToJSON (..), FromJSON (..), object, (.=), (.:), (.:?), withObject)
+import Data.Aeson (ToJSON (..), FromJSON (..), object, (.=), (.:), (.:?), withObject, withText)
 import Data.ByteString (ByteString)
+import Data.ByteString.Base16 qualified as Base16
 import Data.Text (Text)
+import Data.Text.Encoding qualified as TE
 import Data.Time (UTCTime)
 import GHC.Generics (Generic)
 
@@ -88,6 +90,18 @@ instance ToJSON Coeffect where
     toJSON (Sandbox path) = object ["type" .= ("sandbox" :: Text), "path" .= path]
     toJSON (Filesystem path) = object ["type" .= ("filesystem" :: Text), "path" .= path]
     toJSON (Combined cs) = object ["type" .= ("combined" :: Text), "coeffects" .= cs]
+
+instance FromJSON Coeffect where
+    parseJSON = withObject "Coeffect" $ \o -> do
+        ty <- o .: "type"
+        case (ty :: Text) of
+            "pure" -> pure Pure
+            "network" -> pure Network
+            "auth" -> Auth <$> o .: "provider"
+            "sandbox" -> Sandbox <$> o .: "path"
+            "filesystem" -> Filesystem <$> o .: "path"
+            "combined" -> Combined <$> o .: "coeffects"
+            _ -> fail $ "Unknown coeffect type: " ++ show ty
 
 -- | Combine coeffects (monoid-like)
 combineCoeffects :: Coeffect -> Coeffect -> Coeffect
@@ -150,7 +164,12 @@ instance ToJSON FilesystemMode where
     toJSON Execute = "execute"
 
 instance FromJSON FilesystemMode where
-    parseJSON = withObject "FilesystemMode" $ \_ -> pure Read  -- Simplified
+    parseJSON = withText "FilesystemMode" $ \t ->
+        case t of
+            "read" -> pure Read
+            "write" -> pure Write
+            "execute" -> pure Execute
+            _ -> fail $ "Unknown filesystem mode: " ++ show t
 
 -- | Witness of filesystem access outside sandbox
 data FilesystemAccess = FilesystemAccess
@@ -224,10 +243,13 @@ instance NFData Hash where
     rnf (Hash bs) = rnf bs
 
 instance ToJSON Hash where
-    toJSON (Hash bs) = toJSON (show bs)  -- Hex encode in practice
+    toJSON (Hash bs) = toJSON (TE.decodeUtf8 (Base16.encode bs))
 
 instance FromJSON Hash where
-    parseJSON v = Hash . read <$> parseJSON v  -- Simplified
+    parseJSON = withText "Hash" $ \t ->
+        case Base16.decode (TE.encodeUtf8 t) of
+            Right bs -> pure (Hash bs)
+            Left err -> fail $ "Invalid hex encoding for Hash: " ++ err
 
 -- | Ed25519 public key (32 bytes)
 newtype PublicKey = PublicKey { unPublicKey :: ByteString }
@@ -237,10 +259,13 @@ instance NFData PublicKey where
     rnf (PublicKey bs) = rnf bs
 
 instance ToJSON PublicKey where
-    toJSON (PublicKey bs) = toJSON (show bs)
+    toJSON (PublicKey bs) = toJSON (TE.decodeUtf8 (Base16.encode bs))
 
 instance FromJSON PublicKey where
-    parseJSON v = PublicKey . read <$> parseJSON v
+    parseJSON = withText "PublicKey" $ \t ->
+        case Base16.decode (TE.encodeUtf8 t) of
+            Right bs -> pure (PublicKey bs)
+            Left err -> fail $ "Invalid hex encoding for PublicKey: " ++ err
 
 -- | Ed25519 signature (64 bytes)
 newtype Signature = Signature { unSignature :: ByteString }
@@ -250,10 +275,13 @@ instance NFData Signature where
     rnf (Signature bs) = rnf bs
 
 instance ToJSON Signature where
-    toJSON (Signature bs) = toJSON (show bs)
+    toJSON (Signature bs) = toJSON (TE.decodeUtf8 (Base16.encode bs))
 
 instance FromJSON Signature where
-    parseJSON v = Signature . read <$> parseJSON v
+    parseJSON = withText "Signature" $ \t ->
+        case Base16.decode (TE.encodeUtf8 t) of
+            Right bs -> pure (Signature bs)
+            Left err -> fail $ "Invalid hex encoding for Signature: " ++ err
 
 
 -- ════════════════════════════════════════════════════════════════════════════
@@ -339,6 +367,28 @@ instance ToJSON DischargeProof where
         ]
       where
         formatSig (pk, sig) = object ["publicKey" .= pk, "signature" .= sig]
+
+instance FromJSON DischargeProof where
+    parseJSON = withObject "DischargeProof" $ \o -> do
+        coeffects <- o .: "coeffects"
+        networkAccess <- o .: "networkAccess"
+        filesystemAccess <- o .: "filesystemAccess"
+        authUsage <- o .: "authUsage"
+        buildId <- o .: "buildId"
+        derivationHash <- o .: "derivationHash"
+        outputHashes <- o .: "outputHashes"
+        startTime <- o .: "startTime"
+        endTime <- o .: "endTime"
+        sigObj <- o .:? "signature"
+        sig <- case sigObj of
+            Nothing -> pure Nothing
+            Just s -> withObject "Signature" (\so -> do
+                pk <- so .: "publicKey"
+                sg <- so .: "signature"
+                pure $ Just (pk, sg)) s
+        pure $ DischargeProof coeffects networkAccess filesystemAccess
+                              authUsage buildId derivationHash outputHashes
+                              startTime endTime sig
 
 
 -- ════════════════════════════════════════════════════════════════════════════
