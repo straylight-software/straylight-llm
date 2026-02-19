@@ -45,13 +45,29 @@ The architecture is defined in `aleph-reference/src/examples/lean-continuity/Con
   - `complStop :: Maybe StopSequence` — same as crStop
   - `embInput :: EmbeddingInput` — `EmbeddingText | EmbeddingTexts | EmbeddingTokens | EmbeddingTokenArrays`
 
+### Completed (Phase 2 - Effect System)
+- `GatewayM` graded monad in `Effects/Graded.hs`
+- All providers updated to use `GatewayM` instead of raw `IO`
+- Effect tracking: HTTP, Config, Log, Crypto
+
+### Completed (Phase 3 - Discharge Proofs)
+- `Coeffect/Types.hs`: Coeffect, NetworkAccess, FilesystemAccess, AuthUsage, DischargeProof
+- `Coeffect/Discharge.hs`: ed25519 signing, SHA256 hashing, proof generation
+- Router generates discharge proofs after each request
+- `/v1/proof/:requestId` API endpoint to retrieve proofs
+
+### Completed (Phase 4 - Property Tests)
+- 47 hedgehog property tests (all passing)
+- Coeffect types: Coeffect, NetworkAccess, FilesystemAccess, AuthUsage, DischargeProof, Hash
+- Types.hs: All semantic types, messages, tool calls, requests/responses
+- `FromJSON` instances for Coeffect, FilesystemMode, DischargeProof
+- Base16 encoding/decoding for Hash, PublicKey, Signature (no `read`)
+- LogitBias JSON key ordering fix
+
 ### Remaining Phases
-- **Phase 2**: Add effect system (effectful or polysemy)
-- **Phase 3**: Add coeffect tracking with discharge proofs
-- **Phase 4**: Add hedgehog + haskemathesis property tests
 - **Phase 5**: Add Lean4 proofs (no `sorry`, no `axiom` escapes)
 - **Phase 6**: PureScript/Halogen frontend
-- **Phase 7**: Integration (Dhall, DICE, e2e, security)
+- **Phase 7**: Integration (Dhall, DICE, e2e, security, SearXNG + gVisor sandbox)
 
 ## Build Commands
 
@@ -93,11 +109,25 @@ straylight-llm/
 │   ├── src/
 │   │   ├── Config.hs              # FIXED: readMaybe, IOException
 │   │   ├── Types.hs               # FIXED: All 9 Value fields → proper ADTs
+│   │   ├── Effects/
+│   │   │   └── Graded.hs          # Phase 2: GatewayM graded monad
+│   │   ├── Coeffect/
+│   │   │   ├── Types.hs           # Phase 3: Coeffect, DischargeProof types
+│   │   │   └── Discharge.hs       # Phase 3: proof generation, ed25519
+│   │   ├── Router.hs              # Modified: generates discharge proofs
+│   │   ├── Api.hs                 # Modified: added ProofAPI
+│   │   ├── Handlers.hs            # Modified: added proofHandler
 │   │   └── Provider/
-│   │       ├── Venice.hs          # FIXED: HttpException
+│   │       ├── Venice.hs          # FIXED: HttpException, uses GatewayM
 │   │       ├── Vertex.hs          # FIXED: HttpException, 401 cache bug
-│   │       ├── Baseten.hs         # FIXED: HttpException
-│   │       └── OpenRouter.hs      # FIXED: HttpException
+│   │       ├── Baseten.hs         # FIXED: HttpException, uses GatewayM
+│   │       └── OpenRouter.hs      # FIXED: HttpException, uses GatewayM
+│   ├── test/
+│   │   ├── Main.hs                # Phase 4: test runner
+│   │   └── Property/
+│   │       ├── Generators.hs      # Phase 4: hedgehog generators
+│   │       ├── TypesProps.hs      # Phase 4: Types.hs roundtrip tests
+│   │       └── CoeffectProps.hs   # Phase 4: Coeffect types tests
 │   └── app/
 │       └── Main.hs
 ```
