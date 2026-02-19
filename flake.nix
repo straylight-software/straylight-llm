@@ -54,6 +54,13 @@
       # n.b. override nix2gpu's nimi to use our fixed version
       inputs.nimi.follows = "nimi";
     };
+
+    # Sensenet — nix-compile infrastructure for Straylight stack
+    # Provides LLVM/CUDA build infrastructure, TensorRT integration
+    sensenet = {
+      url = "github:straylight-software/sensenet/nix-compile/strict-straylight";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   nixConfig = {

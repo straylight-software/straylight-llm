@@ -1,15 +1,16 @@
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
---                                                     // weapon-server // main
+--                                              // straylight-llm // main
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 --
---   "The matrix has its roots in primitive arcade games," said the voice-over,
---    "in early graphics programs and military experimentation with cranial
---    jacks."
+--     "The sky above the port was the color of television, tuned to a dead
+--      channel."
 --
---                                                                — Neuromancer
+--                                                              — Neuromancer
 --
--- Entry point for the Weapon Haskell server. Sets up Warp with WebSocket
--- support for PTY connections, CORS middleware, and the Servant API.
+-- Entry point for straylight-llm, a LiteLLM-style OpenAI-compatible proxy.
+-- Routes requests through provider fallback chain:
+--
+--     Venice AI -> Vertex AI (GCP) -> Baseten -> OpenRouter
 --
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -17,48 +18,26 @@
 
 module Main where
 
-import Api
-import Bus.Bus qualified as Bus
-import Control.Concurrent (forkIO, threadDelay)
-import Control.Exception (SomeException, try)
-import Control.Monad (void)
-import Data.Aeson (object)
-import Data.ByteString qualified as BS
-import Data.Text qualified as T
-import Data.Text.Encoding qualified as TE
-import Global.Event ()
-import Handlers
-import Katip qualified
-import Log qualified
-import Middleware (supplyEmptyBody)
 import Network.HTTP.Types (methodOptions, status200)
 import Network.Wai (Middleware, mapResponseHeaders, requestMethod, responseLBS)
 import Network.Wai.Handler.Warp (run)
-import Network.Wai.Handler.WebSockets (websocketsOr)
-import Network.WebSockets
-    ( Connection
-    , PendingConnection
-    , acceptRequest
-    , defaultConnectionOptions
-    , pendingRequest
-    , receiveData
-    , requestPath
-    , sendBinaryData
-    )
-import Pty.Connect ()
-import Pty.Pty qualified as Pty
-import Servant
-import State
-import System.Directory (getCurrentDirectory)
-import System.FilePath ((</>))
+import Servant (serve)
 import System.IO (BufferMode (..), hSetBuffering, stdout)
 
+import Data.Text qualified as T
+import Data.Text.IO qualified as TIO
+
+import Api (api)
+import Config (Config (..), loadConfig)
+import Handlers (server)
+import Router (makeRouter)
+
 
 -- ════════════════════════════════════════════════════════════════════════════
---                                                                 // middleware
+--                                                              // middleware
 -- ════════════════════════════════════════════════════════════════════════════
 
--- | CORS middleware for cross-origin requests.
+-- | CORS middleware for cross-origin requests
 enableCors :: Middleware
 enableCors app req callback
     | requestMethod req == methodOptions =
@@ -69,87 +48,63 @@ enableCors app req callback
   where
     corsHeaders =
         [ ("Access-Control-Allow-Origin", "*")
-        , ("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH")
-        , ("Access-Control-Allow-Headers", "Authorization, Content-Type, x-weapon-directory")
+        , ("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        , ("Access-Control-Allow-Headers", "Authorization, Content-Type")
         ]
 
--- ════════════════════════════════════════════════════════════════════════════
---                                                                 // websocket
--- ════════════════════════════════════════════════════════════════════════════
-
--- | WebSocket handler for PTY connections.
---
--- Bridges WebSocket I/O to PTY sessions, enabling terminal access from
--- browser clients.
-ptyWebSocketApp :: AppState -> PendingConnection -> IO ()
-ptyWebSocketApp appState pending = do
-    let path = requestPath (pendingRequest pending)
-        pathParts = BS.split (fromIntegral (fromEnum '/')) path
-        -- path should be /pty/{ptyId}/connect
-        maybePtyId = case pathParts of
-            [_, "pty", ptyIdBytes, "connect"] -> Just (TE.decodeUtf8 ptyIdBytes)
-            _ -> Nothing
-
-    case maybePtyId of
-        Nothing -> pure ()
-        Just ptyId -> do
-            maybeConnection <- Pty.connect (stPtyManager appState) ptyId Nothing
-            case maybeConnection of
-                Nothing -> pure ()
-                Just ptyConnection -> do
-                    websocketConnection <- acceptRequest pending
-                    bridgePtyToWebSocket ptyConnection websocketConnection
-
--- | Bidirectional bridge between PTY and WebSocket.
-bridgePtyToWebSocket :: Pty.PtyConnection -> Network.WebSockets.Connection -> IO ()
-bridgePtyToWebSocket ptyConnection websocketConnection = do
-    -- reader thread: pty -> websocket
-    void $ forkIO $ Pty.pcOnData ptyConnection $ \bytes -> do
-        void $ try @SomeException $ sendBinaryData websocketConnection bytes
-
-    -- writer loop: websocket -> pty
-    let loop = do
-            result <- try @SomeException $ receiveData websocketConnection
-            case result of
-                Left _ -> Pty.pcClose ptyConnection
-                Right bytes -> do
-                    Pty.pcSend ptyConnection bytes
-                    loop
-    loop
-
 
 -- ════════════════════════════════════════════════════════════════════════════
---                                                                      // main
+--                                                                   // main
 -- ════════════════════════════════════════════════════════════════════════════
 
 main :: IO ()
-main = Log.withLogger "weapon" $ \logger -> do
+main = do
     hSetBuffering stdout LineBuffering
 
-    let serverLogger = Log.withNS logger "server"
-    Log.logMsg serverLogger Katip.InfoS "initializing weapon server"
+    -- Banner
+    TIO.putStrLn ""
+    TIO.putStrLn "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    TIO.putStrLn "                                                   // straylight-llm //"
+    TIO.putStrLn "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    TIO.putStrLn ""
+    TIO.putStrLn "    \"The sky above the port was the color of television,"
+    TIO.putStrLn "     tuned to a dead channel.\""
+    TIO.putStrLn ""
+    TIO.putStrLn "                                                             — Neuromancer"
+    TIO.putStrLn ""
 
-    workingDirectory <- getCurrentDirectory
-    let storageDirectory = workingDirectory </> ".weapon" </> "storage"
-    let projectId = "proj_default"
+    -- Load configuration from environment
+    config <- loadConfig
 
-    appState <- initialState storageDirectory (T.pack projectId) (T.pack workingDirectory) logger
-    startPromptAsyncWorker appState
+    -- Log provider status
+    TIO.putStrLn "════════════════════════════════════════════════════════════════════════════════"
+    TIO.putStrLn "                                                         // providers //"
+    TIO.putStrLn "════════════════════════════════════════════════════════════════════════════════"
+    TIO.putStrLn ""
+    logProviderStatus "Venice AI" (cfgVenice config)
+    logProviderStatus "Vertex AI" (cfgVertex config)
+    logProviderStatus "Baseten" (cfgBaseten config)
+    logProviderStatus "OpenRouter" (cfgOpenRouter config)
+    TIO.putStrLn ""
 
-    -- heartbeat thread
-    _ <- forkIO $ heartbeatLoop appState
+    -- Create router with provider chain
+    router <- makeRouter config
 
-    Log.logMsg serverLogger Katip.InfoS $ "storage: " <> T.pack storageDirectory
-    Log.logMsg serverLogger Katip.InfoS "listening on port 4096"
+    -- Start server
+    let port = cfgPort config
+    TIO.putStrLn $ "listening on port " <> T.pack (show port)
+    TIO.putStrLn ""
 
-    let servantApp = enableCors $ supplyEmptyBody $ serve api (server appState)
-        websocketApp = websocketsOr defaultConnectionOptions (ptyWebSocketApp appState) servantApp
+    let app = enableCors $ serve api (server router)
+    run port app
 
-    run 4096 websocketApp
+-- | Log provider configuration status
+logProviderStatus :: T.Text -> Config.ProviderConfig -> IO ()
+logProviderStatus name cfg = do
+    let status = if Config.pcEnabled cfg && Config.pcApiKey cfg /= Nothing
+                 then "[enabled]"
+                 else "[disabled]"
+    TIO.putStrLn $ "  " <> name <> ": " <> status
 
--- | Periodic heartbeat to keep SSE connections alive.
-heartbeatLoop :: AppState -> IO ()
-heartbeatLoop appState = do
-    threadDelay 10_000_000  -- 10 seconds
-    Bus.publish (stBus appState) "server.heartbeat" (object [])
-    heartbeatLoop appState
+-- Import for ProviderConfig access
+import Config (ProviderConfig (..))

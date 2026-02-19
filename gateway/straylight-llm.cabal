@@ -1,21 +1,25 @@
 cabal-version: 3.0
 name:          straylight-llm
 version:       0.1.0.0
-synopsis:      CGP-first OpenAI-compatible LLM gateway with AI coding agent
+synopsis:      LiteLLM-style OpenAI-compatible LLM gateway proxy
 description:
-  Haskell implementation of the straylight-llm gateway server.
-  Routes requests to CGP first, falls back to OpenRouter.
+  Haskell implementation of a LiteLLM-style OpenAI-compatible proxy.
+  Routes requests through a provider fallback chain.
   .
-  Features:
+  Provider priority:
   .
-  * CGP-first routing with OpenRouter fallback
-  * Full API parity with TypeScript reference (95 endpoints)
-  * Session management with persistent storage
-  * LLM integration (Anthropic, OpenRouter, CGP)
-  * Tool execution (read, write, edit, bash, glob, grep)
-  * PTY terminals with WebSocket bridge
-  * SSE event streaming
-  * Sandboxed execution via bubblewrap
+  * Venice AI (primary) — use Venice credits first
+  * Vertex AI (GCP) (secondary) — use GCP credits second
+  * Baseten (tertiary) — fall back to Baseten third
+  * OpenRouter (final fallback) — only if all others fail
+  .
+  Endpoints:
+  .
+  * POST /v1/chat/completions
+  * POST /v1/completions
+  * POST /v1/embeddings
+  * GET  /v1/models
+  * GET  /health
 
 license:       MIT
 license-file:  LICENSE
@@ -35,93 +39,18 @@ source-repository head
 
 library
   exposed-modules:
-    -- // agent
-    Agent.Agent
-    Agent.Types
-    -- // api
+    -- // core
     Api
-    Api.Experimental
-    Api.File
-    Api.Message
-    Api.Pty
-    Api.Session
-    Api.Tui
-    Api.Types
+    Config
     Handlers
-    State
-    -- // bus
-    Bus.Bus
-    Bus.Event
-    -- // config
-    Config.Config
-    Config.Types
-    -- // experimental
-    Experimental.Worktree
-    -- // find
-    Find.Parse
-    Find.Search
-    -- // formatter
-    Formatter.Status
-    -- // global
-    Global.Event
-    -- // health
-    Health.Build
-    -- // llm
-    LLM.Anthropic
-    LLM.OpenRouter
-    LLM.Types
-    -- // log
-    Log
-    -- // middleware
-    Middleware
-    -- // lsp
-    Lsp.Store
-    -- // message
-    Message.Parts
-    Message.Todo
-    Message.Types
-    -- // path
-    Path.Build
-    -- // project
-    Project.Build
-    Project.Discovery
-    -- // prompt
-    Prompt.Async
-    -- // provider
-    Provider.OAuth
-    Provider.Provider
+    Router
+    Types
+    -- // providers
     Provider.Types
-    -- // proxy
-    Proxy.Proxy
-    Proxy.Types
-    -- // pty
-    Pty.Connect
-    Pty.Parse
-    Pty.Pty
-    Pty.Types
-    -- // request
-    Request.Store
-    -- // sandbox
-    Sandbox.Sandbox
-    Sandbox.Types
-    -- // session
-    Session.Session
-    Session.Status
-    Session.Types
-    -- // skill
-    Skill.Skill
-    -- // storage
-    Storage.Storage
-    -- // tool
-    Tool.Defs
-    Tool.Exec
-    Tool.Tool
-    Tool.Types
-    -- // tui
-    Tui.Store
-    -- // vcs
-    Vcs.Diff
-    Vcs.Status
+    Provider.Venice
+    Provider.Vertex
+    Provider.Baseten
+    Provider.OpenRouter
 
   hs-source-dirs:     src
   default-language:   GHC2021
@@ -142,35 +71,22 @@ library
   build-depends:
     , aeson               >=2.0
     , base                >=4.17 && <5
-    , base64-bytestring   >=1.2
     , bytestring          >=0.11
-    , case-insensitive    >=1.2
     , containers          >=0.6
-    , crypton-connection  >=0.4
-    , data-default-class  >=0.1
     , directory           >=1.3
-    , filepath            >=1.4
     , http-client
     , http-client-tls
     , http-types          >=0.12
-    , katip               >=0.8
     , mtl                 >=2.2
-    , network             >=3.1
-    , posix-pty           >=0.2
     , process             >=1.6
     , random              >=1.2
     , servant             >=0.20
     , servant-server      >=0.20
-    , stm                 >=2.5
     , text                >=2.0
     , time                >=1.12
-    , tls                 >=2.0
-    , unix                >=2.8
-    , unliftio-core       >=0.2
+    , vector              >=0.12
     , wai                 >=3.2
-    , wai-websockets      >=3.0
     , warp                >=3.3
-    , websockets          >=0.12
 
   default-extensions:
     BangPatterns
@@ -203,39 +119,14 @@ executable straylight-llm
     "-with-rtsopts=-N -T"
 
   build-depends:
-    , aeson
     , base             >=4.17 && <5
-    , bytestring
-    , containers
-    , directory
-    , filepath
     , http-types
-    , katip
-    , process
     , servant-server
-    , stm
-    , text
-    , time
-    , wai
-    , wai-websockets
-    , warp
     , straylight-llm
-    , websockets
+    , text
+    , wai
+    , warp
 
   default-extensions:
     OverloadedStrings
     RecordWildCards
-
--- ════════════════════════════════════════════════════════════════════════════
---                                                               // test suite
--- ════════════════════════════════════════════════════════════════════════════
-
--- n.b. tests disabled in nix build — many test deps not in standard
--- haskellPackages; run tests via cabal in devShell instead
---
--- test-suite straylight-llm-test
---   type:               exitcode-stdio-1.0
---   main-is:            Spec.hs
---   hs-source-dirs:     test
---   default-language:   GHC2021
---   build-depends:      straylight-llm, base, hspec, hedgehog

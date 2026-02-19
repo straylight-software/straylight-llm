@@ -1,0 +1,165 @@
+cabal-version:   3.0
+name:            straylight-llm
+version:         0.1.0.0
+synopsis:        CGP-first OpenAI-compatible LLM gateway with verified types
+description:
+  A lightweight OpenAI-compatible proxy server that routes requests to
+  a Cloud GPU Provider (CGP) first, falling back to OpenRouter when
+  CGP is unavailable. Features System F Omega type proofs in Lean4
+  and graded monads with coeffect equations for resource tracking.
+
+license:         MIT
+license-file:    LICENSE
+author:          straylight
+maintainer:      straylight@weyl.ai
+category:        Network
+build-type:      Simple
+
+-- ════════════════════════════════════════════════════════════════════════════════
+--                                                        // common // stanzas
+-- ════════════════════════════════════════════════════════════════════════════════
+
+common warnings
+  ghc-options:
+    -Wall
+    -Wcompat
+    -Widentities
+    -Wincomplete-record-updates
+    -Wincomplete-uni-patterns
+    -Wmissing-deriving-strategies
+    -Wpartial-fields
+    -Wredundant-constraints
+
+common extensions
+  default-extensions:
+    DataKinds
+    DeriveAnyClass
+    DeriveGeneric
+    DerivingStrategies
+    GADTs
+    GeneralizedNewtypeDeriving
+    KindSignatures
+    LambdaCase
+    OverloadedStrings
+    RecordWildCards
+    ScopedTypeVariables
+    StrictData
+    TypeApplications
+    TypeFamilies
+    TypeOperators
+
+-- ════════════════════════════════════════════════════════════════════════════════
+--                                                        // library // definition
+-- ════════════════════════════════════════════════════════════════════════════════
+
+library
+  import:           warnings, extensions
+  hs-source-dirs:   src
+  default-language: GHC2021
+  
+  exposed-modules:
+    -- // core // types
+    Straylight.Config
+    Straylight.Types
+    -- // graded // monads
+    Straylight.Coeffect
+    Straylight.GradedMonad
+    -- // routing
+    Straylight.Router
+    Straylight.Server
+    -- // endpoints
+    Straylight.Endpoints.Chat
+    Straylight.Endpoints.Health
+    Straylight.Endpoints.Models
+    -- // middleware
+    Straylight.Middleware.Errors
+    Straylight.Middleware.Logging
+    -- // providers
+    Straylight.Providers.Base
+    Straylight.Providers.Cgp
+    Straylight.Providers.OpenRouter
+    -- // streaming
+    Straylight.Streaming
+  
+  build-depends:
+    , aeson                 >=2.2    && <2.3
+    , base                  >=4.18   && <5
+    , bytestring            >=0.11   && <0.13
+    , http-client           >=0.7    && <0.8
+    , http-client-tls       >=0.3    && <0.4
+    , http-types            >=0.12   && <0.13
+    , mtl                   >=2.3    && <2.4
+    , text                  >=2.0    && <2.2
+    , time                  >=1.12   && <1.15
+    , uuid                  >=1.3    && <1.4
+    , wai                   >=3.2    && <3.3
+    , warp                  >=3.3    && <3.5
+
+-- ════════════════════════════════════════════════════════════════════════════════
+--                                                        // executable // gateway
+-- ════════════════════════════════════════════════════════════════════════════════
+
+executable straylight-llm
+  import:           warnings, extensions
+  hs-source-dirs:   app
+  main-is:          Main.hs
+  default-language: GHC2021
+  ghc-options:      -threaded -rtsopts -with-rtsopts=-N
+  
+  build-depends:
+    , base           >=4.18 && <5
+    , straylight-llm
+
+-- ════════════════════════════════════════════════════════════════════════════════
+--                                                        // test // unit
+-- ════════════════════════════════════════════════════════════════════════════════
+
+test-suite unit-tests
+  import:           warnings, extensions
+  type:             exitcode-stdio-1.0
+  hs-source-dirs:   test/unit
+  main-is:          Main.hs
+  default-language: GHC2021
+  ghc-options:      -threaded -rtsopts -with-rtsopts=-N
+  
+  other-modules:
+    Test.Straylight.Coeffect
+    Test.Straylight.Config
+    Test.Straylight.Router
+    Test.Straylight.Types
+  
+  build-depends:
+    , aeson
+    , base             >=4.18 && <5
+    , bytestring
+    , hspec            >=2.11 && <2.12
+    , hspec-discover
+    , straylight-llm
+    , text
+
+-- ════════════════════════════════════════════════════════════════════════════════
+--                                                        // test // property
+-- ════════════════════════════════════════════════════════════════════════════════
+
+test-suite property-tests
+  import:           warnings, extensions
+  type:             exitcode-stdio-1.0
+  hs-source-dirs:   test/property
+  main-is:          Main.hs
+  default-language: GHC2021
+  ghc-options:      -threaded -rtsopts -with-rtsopts=-N
+  
+  other-modules:
+    Test.Straylight.Property.Coeffect
+    Test.Straylight.Property.Types
+    Test.Straylight.Property.Generators
+  
+  build-depends:
+    , aeson
+    , base             >=4.18 && <5
+    , bytestring
+    , hedgehog         >=1.4  && <1.5
+    , hspec            >=2.11 && <2.12
+    , hspec-hedgehog   >=0.1  && <0.2
+    , straylight-llm
+    , text

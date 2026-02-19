@@ -1,20 +1,18 @@
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
---                                                       // weapon-server // api
+--                                                 // straylight-llm // api
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 --
--- Servant type-level API definition. Every endpoint is expressed as a type,
--- enabling compile-time verification of routing and handler signatures.
+--     "The matrix has its roots in primitive arcade games."
 --
--- This module re-exports domain-specific types from:
---   - Api.Types        Core types (health, path, project, provider, vcs)
---   - Api.Session      Session management
---   - Api.Message      Message handling
---   - Api.File         File system operations
---   - Api.Pty          Pseudo-terminal management
---   - Api.Tui          Terminal UI controls
---   - Api.Experimental Unstable features
+--                                                              — Neuromancer
 --
--- See docs/API.md for endpoint documentation.
+-- Servant API definition for OpenAI-compatible LLM gateway.
+-- Implements the core OpenAI API endpoints:
+--   - POST /v1/chat/completions
+--   - POST /v1/completions
+--   - POST /v1/embeddings
+--   - GET  /v1/models
+--   - GET  /health
 --
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -22,149 +20,107 @@
 {-# LANGUAGE TypeOperators #-}
 
 module Api
-    ( -- * Combined API
-      OpencodeAPI
+    ( -- * API Type
+      GatewayAPI
     , api
 
-      -- * Re-exported Domain Types
-    , module Api.Types
-    , module Api.Session
-    , module Api.Message
-    , module Api.File
-    , module Api.Pty
-    , module Api.Tui
-    , module Api.Experimental
+      -- * Sub-APIs
+    , ChatAPI
+    , CompletionsAPI
+    , EmbeddingsAPI
+    , ModelsAPI
+    , HealthAPI
     ) where
 
-import Data.Proxy
+import Data.Proxy (Proxy (..))
 import Servant
 
--- domain modules
-import Api.Experimental
-import Api.File
-import Api.Message
-import Api.Pty
-import Api.Session
-import Api.Tui
-import Api.Types
+import Types
 
 
--- ═══════════════════════════════════════════════════════════════════════════
--- // combined api //
--- ═══════════════════════════════════════════════════════════════════════════
+-- ════════════════════════════════════════════════════════════════════════════
+--                                                              // endpoints
+-- ════════════════════════════════════════════════════════════════════════════
 
-type OpencodeAPI =
-    -- core
-    HealthAPI
-        :<|> PathAPI
-        :<|> GlobalConfigAPI
-        :<|> GlobalConfigUpdateAPI
-        -- project
-        :<|> ProjectListAPI
-        :<|> ProjectGetAPI
-        :<|> ProjectUpdateAPI
-        :<|> ProjectCurrentAPI
-        -- provider and auth
-        :<|> ProviderListAPI
-        :<|> ProviderAuthAPI
-        :<|> ProviderAPI
-        :<|> ProviderOauthAuthorizeAPI
-        :<|> ProviderOauthCallbackAPI
-        :<|> AuthCreateAPI
-        :<|> AuthUpdateAPI
-        :<|> AuthDeleteAPI
-        -- agent and config
-        :<|> AgentAPI
-        :<|> ConfigAPI
-        :<|> ConfigUpdateAPI
-        :<|> CommandAPI
-        -- session
-        :<|> SessionStatusAPI
-        :<|> SessionListAPI
-        :<|> SessionCreateAPI
-        :<|> SessionGetAPI
-        :<|> SessionDeleteAPI
-        :<|> SessionUpdateAPI
-        :<|> SessionChildrenAPI
-        :<|> SessionTodoAPI
-        :<|> SessionInitAPI
-        :<|> SessionForkAPI
-        :<|> SessionAbortAPI
-        :<|> SessionShareCreateAPI
-        :<|> SessionShareDeleteAPI
-        :<|> SessionDiffAPI
-        :<|> SessionSummarizeAPI
-        :<|> SessionCommandAPI
-        :<|> SessionShellAPI
-        :<|> SessionRevertAPI
-        :<|> SessionUnrevertAPI
-        :<|> SessionPermissionAPI
-        -- message
-        :<|> SessionMessageListAPI
-        :<|> SessionMessageCreateAPI
-        :<|> SessionMessageGetAPI
-        :<|> SessionMessagePartDeleteAPI
-        :<|> SessionMessagePartUpdateAPI
-        :<|> SessionPromptAsyncAPI
-        -- infrastructure
-        :<|> LspAPI
-        :<|> VcsAPI
-        :<|> PermissionAPI
-        :<|> PermissionReplyAPI
-        :<|> QuestionAPI
-        :<|> QuestionReplyAPI
-        :<|> QuestionRejectAPI
-        -- find
-        :<|> FindAPI
-        :<|> FindFileAPI
-        :<|> FindSymbolAPI
-        -- file
-        :<|> FileListAPI
-        :<|> FileReadAPI
-        :<|> FileStatusAPI
-        -- events
-        :<|> GlobalEventAPI
-        -- pty
-        :<|> PtyListAPI
-        :<|> PtyCreateAPI
-        :<|> PtyGetAPI
-        :<|> PtyUpdateAPI
-        :<|> PtyDeleteAPI
-        :<|> PtyConnectAPI
-        :<|> PtyCommitAPI
-        :<|> PtyChangesAPI
-        -- tui
-        :<|> TuiAppendPromptAPI
-        :<|> TuiOpenHelpAPI
-        :<|> TuiOpenSessionsAPI
-        :<|> TuiOpenThemesAPI
-        :<|> TuiOpenModelsAPI
-        :<|> TuiSubmitPromptAPI
-        :<|> TuiClearPromptAPI
-        :<|> TuiExecuteCommandAPI
-        :<|> TuiShowToastAPI
-        :<|> TuiPublishAPI
-        :<|> TuiSelectSessionAPI
-        :<|> TuiControlNextAPI
-        :<|> TuiControlResponseAPI
-        -- lifecycle
-        :<|> InstanceDisposeAPI
-        :<|> GlobalDisposeAPI
-        :<|> EventAPI
-        :<|> LogAPI
-        :<|> SkillAPI
-        :<|> FormatterAPI
-        -- experimental
-        :<|> ExperimentalToolIdsAPI
-        :<|> ExperimentalToolListAPI
-        :<|> ExperimentalToolAPI
-        :<|> ExperimentalWorktreeGetAPI
-        :<|> ExperimentalWorktreePostAPI
-        :<|> ExperimentalWorktreeResetAPI
-        :<|> ExperimentalWorktreeDeleteAPI
-        -- llm
-        :<|> ChatAPI
+-- | Health check endpoint
+type HealthAPI = "health" :> Get '[JSON] HealthResponse
+
+-- | Health response
+data HealthResponse = HealthResponse
+    { hrStatus :: String
+    , hrVersion :: String
+    }
+
+instance ToJSON HealthResponse where
+    toJSON hr = object
+        [ "status" .= hrStatus hr
+        , "version" .= hrVersion hr
+        ]
+
+-- | Chat completions endpoint
+-- POST /v1/chat/completions
+-- Supports both streaming (SSE) and non-streaming responses
+type ChatAPI =
+    "v1" :> "chat" :> "completions"
+        :> Header "Authorization" Text
+        :> ReqBody '[JSON] ChatRequest
+        :> Post '[JSON] ChatResponse
+
+-- | Chat completions with streaming (SSE)
+-- Returns Server-Sent Events for streaming responses
+type ChatStreamAPI =
+    "v1" :> "chat" :> "completions"
+        :> Header "Authorization" Text
+        :> ReqBody '[JSON] ChatRequest
+        :> StreamPost NewlineFraming OctetStream (SourceIO ByteString)
+
+-- | Legacy completions endpoint
+-- POST /v1/completions
+type CompletionsAPI =
+    "v1" :> "completions"
+        :> Header "Authorization" Text
+        :> ReqBody '[JSON] CompletionRequest
+        :> Post '[JSON] CompletionResponse
+
+-- | Embeddings endpoint
+-- POST /v1/embeddings
+type EmbeddingsAPI =
+    "v1" :> "embeddings"
+        :> Header "Authorization" Text
+        :> ReqBody '[JSON] EmbeddingRequest
+        :> Post '[JSON] EmbeddingResponse
+
+-- | Models endpoint
+-- GET /v1/models
+type ModelsAPI =
+    "v1" :> "models"
+        :> Header "Authorization" Text
+        :> Get '[JSON] ModelList
 
 
-api :: Proxy OpencodeAPI
+-- ════════════════════════════════════════════════════════════════════════════
+--                                                           // combined api
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- | Combined gateway API
+type GatewayAPI =
+         HealthAPI
+    :<|> ChatAPI
+    :<|> CompletionsAPI
+    :<|> EmbeddingsAPI
+    :<|> ModelsAPI
+
+-- | API proxy
+api :: Proxy GatewayAPI
 api = Proxy
+
+
+-- ════════════════════════════════════════════════════════════════════════════
+--                                                               // imports
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- Re-export needed for API types
+import Data.Aeson (ToJSON (..), object, (.=))
+import Data.ByteString (ByteString)
+import Data.Text (Text)
+import Servant.Types.SourceT (SourceIO)
