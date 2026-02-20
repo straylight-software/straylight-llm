@@ -1,0 +1,33 @@
+{"synthetic": false,
+ "schemaVersion": "2025-09-10",
+ "outputs":
+ {"o": ["24f65a3fa27fd960.olean"],
+  "i": "d364cb56ba4566cc.ilean",
+  "c": "519b0168a193489c.c"},
+ "log":
+ [{"message":
+   ".> LEAN_PATH=/home/justin/jpyxal/straylight-llm/proofs/.lake/build/lib/lean /nix/store/75c91mcn5ric5m141r7hbf3hf8f12r7x-lean4-4.28.0/bin/lean /home/justin/jpyxal/straylight-llm/proofs/Straylight/Hermetic.lean -o /home/justin/jpyxal/straylight-llm/proofs/.lake/build/lib/lean/Straylight/Hermetic.olean -i /home/justin/jpyxal/straylight-llm/proofs/.lake/build/lib/lean/Straylight/Hermetic.ilean -c /home/justin/jpyxal/straylight-llm/proofs/.lake/build/ir/Straylight/Hermetic.c --setup /home/justin/jpyxal/straylight-llm/proofs/.lake/build/ir/Straylight/Hermetic.setup.json --json",
+   "level": "trace"}],
+ "inputs":
+ [["Straylight.Hermetic:deps",
+   [["deps",
+     [["straylight/Straylight:extraDep",
+       [["@straylight:extraDep", "00000000000006bb"]]],
+      ["imports",
+       [["Straylight.Coeffect transitive imports (legacy)", "00000000000006bb"],
+        ["Straylight.Coeffect:importAllArts", "03a67df0a2a797ce"],
+        ["Straylight.Gateway transitive imports (legacy)", "86928fa9dc8298e3"],
+        ["Straylight.Gateway:importAllArts", "af3e06c259d2037d"]]]]],
+    ["libs",
+     [["import dynlibs", "00000000000006bb"],
+      ["package external libraries", "00000000000006bb"],
+      ["module dynlibs", "00000000000006bb"],
+      ["module plugins", "00000000000006bb"]]]]],
+  ["Lean 4.28.0, commit v4.28.0", "f336884a5afab07d"],
+  ["/home/justin/jpyxal/straylight-llm/proofs/Straylight/Hermetic.lean",
+   "c12dfeaf245df6d9"],
+  ["options",
+   [["-DrelaxedAutoImplicit=false", "74a2b5546b55be80"],
+    ["-DautoImplicit=false", "4a85acb881fd49d0"]]],
+  ["Module.leanArgs: #[]", "00000000000006bb"]],
+ "depHash": "f6ef96023170f4bd"}

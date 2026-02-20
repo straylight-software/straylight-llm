@@ -1,0 +1,19 @@
+{
+  "name": "straylight-frontend",
+  "version": "0.1.0",
+  "description": "Straylight LLM Gateway Dashboard",
+  "scripts": {
+    "build": "npx spago@next build",
+    "bundle": "npx spago@next bundle --bundle-type app --outfile dist/app.js",
+    "dev": "npx spago@next build --watch",
+    "clean": "rm -rf output .spago dist",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2",
+    "esbuild": "^0.20.0",
+    "spago": "^0.93.45"
+  }
+}

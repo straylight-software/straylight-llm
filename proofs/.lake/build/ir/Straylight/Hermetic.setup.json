@@ -1,0 +1,11 @@
+{"plugins": [],
+ "package": "straylight",
+ "options": {"relaxedAutoImplicit": false, "autoImplicit": false},
+ "name": "Straylight.Hermetic",
+ "isModule": false,
+ "importArts":
+ {"Straylight.Gateway":
+  ["/home/justin/jpyxal/straylight-llm/proofs/.lake/build/lib/lean/Straylight/Gateway.olean"],
+  "Straylight.Coeffect":
+  ["/home/justin/jpyxal/straylight-llm/proofs/.lake/build/lib/lean/Straylight/Coeffect.olean"]},
+ "dynlibs": []}

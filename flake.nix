@@ -149,6 +149,21 @@
               hpkgs.hlint
               hpkgs.ormolu
 
+              # PureScript (Phase 6 - Frontend)
+              pkgs.purescript
+              pkgs.spago
+              pkgs.esbuild
+              pkgs.nodejs
+
+              # Tauri (Desktop app)
+              pkgs.rustc
+              pkgs.cargo
+              pkgs.pkg-config
+              pkgs.gtk3
+              pkgs.webkitgtk_4_1
+              pkgs.libsoup_3
+              pkgs.openssl
+
               # Lean4
               pkgs.lean4
 
@@ -176,7 +191,7 @@
               echo "  CGP-first OpenAI gateway with verified types"
               echo ""
               echo "════════════════════════════════════════════════════════════════════════════════"
-              echo "                                                          // commands //"
+              echo "                                                   // gateway commands //"
               echo "════════════════════════════════════════════════════════════════════════════════"
               echo ""
               echo "  nix build .#basic         Build basic container (OpenRouter only)"
@@ -186,6 +201,25 @@
               echo "  cabal build               Build gateway locally"
               echo "  cabal run straylight-llm  Run gateway locally"
               echo "  ghcid                     Watch mode"
+              echo ""
+              echo "════════════════════════════════════════════════════════════════════════════════"
+              echo "                                                  // frontend commands //"
+              echo "════════════════════════════════════════════════════════════════════════════════"
+              echo ""
+              echo "  cd frontend && spago build     Build PureScript frontend"
+              echo "  cd frontend && spago bundle    Bundle for production"
+              echo "  cd frontend && spago build -w  Watch mode"
+              echo ""
+              echo "════════════════════════════════════════════════════════════════════════════════"
+              echo "                                                  // desktop commands //"
+              echo "════════════════════════════════════════════════════════════════════════════════"
+              echo ""
+              echo "  cd frontend && npm run tauri:dev    Run Tauri dev mode"
+              echo "  cd frontend && npm run tauri:build  Build desktop app"
+              echo ""
+              echo "════════════════════════════════════════════════════════════════════════════════"
+              echo "                                                      // other commands //"
+              echo "════════════════════════════════════════════════════════════════════════════════"
               echo ""
               echo "  nix fmt                   Format all code"
               echo ""

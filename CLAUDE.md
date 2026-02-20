@@ -64,8 +64,32 @@ The architecture is defined in `aleph-reference/src/examples/lean-continuity/Con
 - Base16 encoding/decoding for Hash, PublicKey, Signature (no `read`)
 - LogitBias JSON key ordering fix
 
+### Completed (Phase 5 - Lean4 Proofs)
+- `proofs/lakefile.lean`: Lake project configuration
+- `proofs/Straylight/Coeffect.lean`: Coeffect types and proofs
+  - Hash, PublicKey, Signature types with length invariants
+  - Coeffect ADT (Network, Filesystem, Auth, Pure, Combined)
+  - NetworkAccess, FilesystemAccess, AuthUsage types
+  - DischargeProof with isPure, isSigned, hasEvidence
+  - Coeffect monoid structure (tensor product, associativity, identity)
+- `proofs/Straylight/Gateway.lean`: Gateway types and proofs
+  - Provider, ProviderError types with error classification
+  - FallbackChain with bounded length invariant
+  - FallbackState with step function and termination proofs
+  - RetryState with termination proof
+  - Cache key determinism
+  - Gateway configuration bounds
+- `proofs/Straylight/Hermetic.lean`: **Meaningful hermetic proofs**
+  - `IsHermetic`: accessed ⊆ declared (the core hermeticity property)
+  - `hermetic_trans`: hermeticity is transitive
+  - `provider_in_chain_resources`: provider membership proof
+  - `cache_isolation`: disjoint cache domains have no shared keys
+  - `gateway_provider_hermetic`: accessing declared providers is hermetic
+  - `gateway_endpoint_hermetic`: accessing declared endpoints is hermetic
+  - `gateway_hermetic_main`: main theorem combining bounds + hermeticity
+- **No `sorry`, no `axiom` escapes** — all proofs complete
+
 ### Remaining Phases
-- **Phase 5**: Add Lean4 proofs (no `sorry`, no `axiom` escapes)
 - **Phase 6**: PureScript/Halogen frontend
 - **Phase 7**: Integration (Dhall, DICE, e2e, security, SearXNG + gVisor sandbox)
 

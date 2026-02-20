@@ -1,0 +1,29 @@
+{"synthetic": false,
+ "schemaVersion": "2025-09-10",
+ "outputs":
+ {"o": ["b4409181d64a40e3.olean"],
+  "i": "4a9be66aeeac4a14.ilean",
+  "c": "2f03a5633877a8c7.c"},
+ "log":
+ [{"message":
+   ".> LEAN_PATH=/home/justin/jpyxal/straylight-llm/proofs/.lake/build/lib/lean /nix/store/75c91mcn5ric5m141r7hbf3hf8f12r7x-lean4-4.28.0/bin/lean /home/justin/jpyxal/straylight-llm/proofs/Straylight/Coeffect.lean -o /home/justin/jpyxal/straylight-llm/proofs/.lake/build/lib/lean/Straylight/Coeffect.olean -i /home/justin/jpyxal/straylight-llm/proofs/.lake/build/lib/lean/Straylight/Coeffect.ilean -c /home/justin/jpyxal/straylight-llm/proofs/.lake/build/ir/Straylight/Coeffect.c --setup /home/justin/jpyxal/straylight-llm/proofs/.lake/build/ir/Straylight/Coeffect.setup.json --json",
+   "level": "trace"}],
+ "inputs":
+ [["Straylight.Coeffect:deps",
+   [["deps",
+     [["straylight/Straylight:extraDep",
+       [["@straylight:extraDep", "00000000000006bb"]]],
+      ["imports", "00000000000006bb"]]],
+    ["libs",
+     [["import dynlibs", "00000000000006bb"],
+      ["package external libraries", "00000000000006bb"],
+      ["module dynlibs", "00000000000006bb"],
+      ["module plugins", "00000000000006bb"]]]]],
+  ["Lean 4.28.0, commit v4.28.0", "f336884a5afab07d"],
+  ["/home/justin/jpyxal/straylight-llm/proofs/Straylight/Coeffect.lean",
+   "1bb8d1c58097b7a4"],
+  ["options",
+   [["-DrelaxedAutoImplicit=false", "74a2b5546b55be80"],
+    ["-DautoImplicit=false", "4a85acb881fd49d0"]]],
+  ["Module.leanArgs: #[]", "00000000000006bb"]],
+ "depHash": "eb0ea3318bbd0780"}

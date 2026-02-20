@@ -1,0 +1,7 @@
+{"plugins": [],
+ "package": "straylight",
+ "options": {"relaxedAutoImplicit": false, "autoImplicit": false},
+ "name": "Straylight.Coeffect",
+ "isModule": false,
+ "importArts": {},
+ "dynlibs": []}

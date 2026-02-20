@@ -1,0 +1,859 @@
+/* ============================================================================
+   THEME DEFINITIONS
+   ============================================================================
+   Each theme overrides CSS custom properties from style.css
+   Applied via: document.documentElement.dataset.theme = "theme-name"
+   ============================================================================ */
+
+/* ============================================================================
+   DARK THEMES
+   ============================================================================ */
+
+/* ----------------------------------------------------------------------------
+   One Dark Pro - Based on Atom's iconic One Dark theme
+   ---------------------------------------------------------------------------- */
+[data-theme="one-dark"] {
+  --gray-1: #282c34;
+  --gray-2: #21252b;
+  --gray-3: #2c313a;
+  --gray-4: #333842;
+  --gray-5: #3e4451;
+  --gray-6: #4b5263;
+  --gray-7: #5c6370;
+  --gray-8: #636d83;
+  --gray-9: #7f848e;
+  --gray-10: #9da5b4;
+  --gray-11: #abb2bf;
+  --gray-12: #dcdfe4;
+
+  --bg: var(--gray-1);
+  --bg-surface: var(--gray-2);
+  --bg-elevated: var(--gray-3);
+  --bg-hover: var(--gray-4);
+  --bg-active: var(--gray-5);
+  --fg: var(--gray-12);
+  --fg-secondary: var(--gray-11);
+  --fg-muted: var(--gray-9);
+  --fg-dim: var(--gray-7);
+  --accent: #61afef;
+  --accent-dim: #528bcc;
+  --error: #e06c75;
+  --error-muted: rgba(224, 108, 117, 0.15);
+  --warning: #e5c07b;
+  --border: var(--gray-4);
+  --border-subtle: var(--gray-3);
+  --border-focus: var(--gray-6);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* ----------------------------------------------------------------------------
+   Dracula - Popular elegant dark theme with purple/pink accents
+   ---------------------------------------------------------------------------- */
+[data-theme="dracula"] {
+  --gray-1: #282a36;
+  --gray-2: #21222c;
+  --gray-3: #2d2f3d;
+  --gray-4: #343746;
+  --gray-5: #3d4051;
+  --gray-6: #4d5066;
+  --gray-7: #6272a4;
+  --gray-8: #7284b8;
+  --gray-9: #8794bf;
+  --gray-10: #a5adc9;
+  --gray-11: #bfc7d5;
+  --gray-12: #f8f8f2;
+
+  --bg: var(--gray-1);
+  --bg-surface: var(--gray-2);
+  --bg-elevated: var(--gray-3);
+  --bg-hover: var(--gray-4);
+  --bg-active: var(--gray-5);
+  --fg: var(--gray-12);
+  --fg-secondary: var(--gray-11);
+  --fg-muted: var(--gray-9);
+  --fg-dim: var(--gray-7);
+  --accent: #bd93f9;
+  --accent-dim: #9d79d9;
+  --error: #ff5555;
+  --error-muted: rgba(255, 85, 85, 0.15);
+  --warning: #f1fa8c;
+  --border: var(--gray-4);
+  --border-subtle: var(--gray-3);
+  --border-focus: #6272a4;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* ----------------------------------------------------------------------------
+   GitHub Dark - GitHub's official dark theme
+   ---------------------------------------------------------------------------- */
+[data-theme="github-dark"] {
+  --gray-1: #0d1117;
+  --gray-2: #161b22;
+  --gray-3: #21262d;
+  --gray-4: #30363d;
+  --gray-5: #3d444d;
+  --gray-6: #484f58;
+  --gray-7: #6e7681;
+  --gray-8: #8b949e;
+  --gray-9: #9ea7b3;
+  --gray-10: #b1bac4;
+  --gray-11: #c9d1d9;
+  --gray-12: #f0f6fc;
+
+  --bg: var(--gray-1);
+  --bg-surface: var(--gray-2);
+  --bg-elevated: var(--gray-3);
+  --bg-hover: var(--gray-4);
+  --bg-active: var(--gray-5);
+  --fg: var(--gray-12);
+  --fg-secondary: var(--gray-11);
+  --fg-muted: var(--gray-8);
+  --fg-dim: var(--gray-7);
+  --accent: #58a6ff;
+  --accent-dim: #388bfd;
+  --error: #f85149;
+  --error-muted: rgba(248, 81, 73, 0.15);
+  --warning: #d29922;
+  --border: var(--gray-4);
+  --border-subtle: var(--gray-3);
+  --border-focus: var(--gray-5);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* ----------------------------------------------------------------------------
+   Tokyo Night - Inspired by Tokyo's vibrant nighttime skyline
+   ---------------------------------------------------------------------------- */
+[data-theme="tokyo-night"] {
+  --gray-1: #1a1b26;
+  --gray-2: #16161e;
+  --gray-3: #1f2029;
+  --gray-4: #292e42;
+  --gray-5: #3b4261;
+  --gray-6: #414868;
+  --gray-7: #565f89;
+  --gray-8: #6b7394;
+  --gray-9: #9aa5ce;
+  --gray-10: #a9b1d6;
+  --gray-11: #c0caf5;
+  --gray-12: #cfc9c2;
+
+  --bg: var(--gray-1);
+  --bg-surface: var(--gray-2);
+  --bg-elevated: var(--gray-3);
+  --bg-hover: var(--gray-4);
+  --bg-active: var(--gray-5);
+  --fg: var(--gray-11);
+  --fg-secondary: var(--gray-10);
+  --fg-muted: var(--gray-9);
+  --fg-dim: var(--gray-7);
+  --accent: #7aa2f7;
+  --accent-dim: #5d7bd5;
+  --error: #f7768e;
+  --error-muted: rgba(247, 118, 142, 0.15);
+  --warning: #e0af68;
+  --border: var(--gray-4);
+  --border-subtle: var(--gray-3);
+  --border-focus: var(--gray-6);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* ----------------------------------------------------------------------------
+   Monokai - Classic Sublime Text theme
+   ---------------------------------------------------------------------------- */
+[data-theme="monokai"] {
+  --gray-1: #272822;
+  --gray-2: #1e1f1c;
+  --gray-3: #2d2e2a;
+  --gray-4: #383930;
+  --gray-5: #454640;
+  --gray-6: #57584f;
+  --gray-7: #75715e;
+  --gray-8: #908d7e;
+  --gray-9: #a6a28f;
+  --gray-10: #c5c2af;
+  --gray-11: #d8d5c4;
+  --gray-12: #f8f8f2;
+
+  --bg: var(--gray-1);
+  --bg-surface: var(--gray-2);
+  --bg-elevated: var(--gray-3);
+  --bg-hover: var(--gray-4);
+  --bg-active: var(--gray-5);
+  --fg: var(--gray-12);
+  --fg-secondary: var(--gray-11);
+  --fg-muted: var(--gray-9);
+  --fg-dim: var(--gray-7);
+  --accent: #66d9ef;
+  --accent-dim: #52b8cb;
+  --error: #f92672;
+  --error-muted: rgba(249, 38, 114, 0.15);
+  --warning: #e6db74;
+  --border: var(--gray-4);
+  --border-subtle: var(--gray-3);
+  --border-focus: var(--gray-6);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* ----------------------------------------------------------------------------
+   Nord - Arctic, north-bluish color palette
+   ---------------------------------------------------------------------------- */
+[data-theme="nord"] {
+  --gray-1: #2e3440;
+  --gray-2: #292e39;
+  --gray-3: #3b4252;
+  --gray-4: #434c5e;
+  --gray-5: #4c566a;
+  --gray-6: #5e6779;
+  --gray-7: #616e88;
+  --gray-8: #7b88a1;
+  --gray-9: #98a4b8;
+  --gray-10: #b5bcc9;
+  --gray-11: #d8dee9;
+  --gray-12: #eceff4;
+
+  --bg: var(--gray-1);
+  --bg-surface: var(--gray-2);
+  --bg-elevated: var(--gray-3);
+  --bg-hover: var(--gray-4);
+  --bg-active: var(--gray-5);
+  --fg: var(--gray-12);
+  --fg-secondary: var(--gray-11);
+  --fg-muted: var(--gray-9);
+  --fg-dim: var(--gray-7);
+  --accent: #88c0d0;
+  --accent-dim: #6ea8b8;
+  --error: #bf616a;
+  --error-muted: rgba(191, 97, 106, 0.15);
+  --warning: #ebcb8b;
+  --border: var(--gray-4);
+  --border-subtle: var(--gray-3);
+  --border-focus: var(--gray-5);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.45);
+}
+
+/* ----------------------------------------------------------------------------
+   Solarized Dark - Precision colors with scientific basis
+   ---------------------------------------------------------------------------- */
+[data-theme="solarized-dark"] {
+  --gray-1: #002b36;
+  --gray-2: #00252f;
+  --gray-3: #073642;
+  --gray-4: #0d4654;
+  --gray-5: #1a5666;
+  --gray-6: #2b6677;
+  --gray-7: #586e75;
+  --gray-8: #657b83;
+  --gray-9: #839496;
+  --gray-10: #93a1a1;
+  --gray-11: #bac5c6;
+  --gray-12: #fdf6e3;
+
+  --bg: var(--gray-1);
+  --bg-surface: var(--gray-2);
+  --bg-elevated: var(--gray-3);
+  --bg-hover: var(--gray-4);
+  --bg-active: var(--gray-5);
+  --fg: var(--gray-12);
+  --fg-secondary: var(--gray-11);
+  --fg-muted: var(--gray-9);
+  --fg-dim: var(--gray-7);
+  --accent: #268bd2;
+  --accent-dim: #1a6ea8;
+  --error: #dc322f;
+  --error-muted: rgba(220, 50, 47, 0.15);
+  --warning: #b58900;
+  --border: var(--gray-4);
+  --border-subtle: var(--gray-3);
+  --border-focus: var(--gray-5);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.45);
+}
+
+/* ----------------------------------------------------------------------------
+   Catppuccin Mocha - Soothing pastel dark theme
+   ---------------------------------------------------------------------------- */
+[data-theme="catppuccin"] {
+  --gray-1: #1e1e2e;
+  --gray-2: #181825;
+  --gray-3: #27273a;
+  --gray-4: #313244;
+  --gray-5: #3b3c50;
+  --gray-6: #45475a;
+  --gray-7: #585b70;
+  --gray-8: #6c7086;
+  --gray-9: #9399b2;
+  --gray-10: #a6adc8;
+  --gray-11: #bac2de;
+  --gray-12: #cdd6f4;
+
+  --bg: var(--gray-1);
+  --bg-surface: var(--gray-2);
+  --bg-elevated: var(--gray-3);
+  --bg-hover: var(--gray-4);
+  --bg-active: var(--gray-5);
+  --fg: var(--gray-12);
+  --fg-secondary: var(--gray-11);
+  --fg-muted: var(--gray-9);
+  --fg-dim: var(--gray-7);
+  --accent: #89b4fa;
+  --accent-dim: #6a9be0;
+  --error: #f38ba8;
+  --error-muted: rgba(243, 139, 168, 0.15);
+  --warning: #f9e2af;
+  --border: var(--gray-4);
+  --border-subtle: var(--gray-3);
+  --border-focus: var(--gray-6);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* ----------------------------------------------------------------------------
+   OmegaCode - Cyan terminal aesthetic from omega-website
+   ---------------------------------------------------------------------------- */
+[data-theme="omegacode"] {
+  /* Sand-tinted dark grays matching OmegaCode site */
+  --gray-1: #111110;
+  --gray-2: #191918;
+  --gray-3: #222221;
+  --gray-4: #2a2a28;
+  --gray-5: #3b3a37;
+  --gray-6: #494844;
+  --gray-7: #62605b;
+  --gray-8: #717069;
+  --gray-9: #86857f;
+  --gray-10: #a09f98;
+  --gray-11: #c9c8c2;
+  --gray-12: #eeeeec;
+
+  --bg: var(--gray-1);
+  --bg-surface: var(--gray-2);
+  --bg-elevated: var(--gray-3);
+  --bg-hover: var(--gray-4);
+  --bg-active: var(--gray-5);
+  --fg: var(--gray-12);
+  --fg-secondary: var(--gray-11);
+  --fg-muted: var(--gray-9);
+  --fg-dim: var(--gray-7);
+  
+  /* Cyan accent - the signature OmegaCode color */
+  --accent: #4ccce6;
+  --accent-dim: #3aa8bd;
+  --accent-bright: #b6ecf7;
+  
+  --error: #ff9592;
+  --error-muted: rgba(255, 149, 146, 0.15);
+  --warning: #ffb224;
+  --success: #30a46c;
+  --border: var(--gray-4);
+  --border-subtle: var(--gray-3);
+  --border-focus: var(--gray-6);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+  
+  /* Chrome gradient for headings */
+  --chrome-gradient: linear-gradient(
+    180deg,
+    #aaa 0%,
+    #fff 10%,
+    #ccc 22%,
+    #888 34%,
+    #ddd 46%,
+    #fff 54%,
+    #999 66%,
+    #ddd 78%,
+    #fff 86%,
+    #bbb 94%,
+    #999 100%
+  );
+}
+
+/* OmegaCode theme enhancements */
+[data-theme="omegacode"] .status-icon.healthy,
+[data-theme="omegacode"] .health-status.healthy {
+  color: var(--success);
+}
+
+[data-theme="omegacode"] .status-icon.degraded,
+[data-theme="omegacode"] .health-status.degraded {
+  color: var(--warning);
+}
+
+[data-theme="omegacode"] .status-icon.down,
+[data-theme="omegacode"] .health-status.down {
+  color: var(--error);
+}
+
+/* Chrome text effect for titles */
+[data-theme="omegacode"] .chrome-text {
+  background: var(--chrome-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 1px 2px rgba(255, 255, 255, 0.1));
+}
+
+/* Cyan glow for accent elements */
+[data-theme="omegacode"] .glow-accent {
+  box-shadow: 0 0 20px rgba(76, 204, 230, 0.15);
+}
+
+/* Terminal-style code blocks */
+[data-theme="omegacode"] .code-block,
+[data-theme="omegacode"] pre {
+  border-left: 2px solid var(--accent);
+}
+
+/* Accent links */
+[data-theme="omegacode"] a:not(.titlebar-btn):not(.nav-link) {
+  color: var(--accent-bright);
+}
+
+[data-theme="omegacode"] a:not(.titlebar-btn):not(.nav-link):hover {
+  color: var(--fg);
+}
+
+/* ----------------------------------------------------------------------------
+   Ono-Sendai - Cyberpunk terminal theme inspired by Neuromancer
+   ---------------------------------------------------------------------------- */
+[data-theme="ono-sendai"] {
+  --gray-1: #0a0e14;
+  --gray-2: #0d1219;
+  --gray-3: #121820;
+  --gray-4: #1a222d;
+  --gray-5: #242e3b;
+  --gray-6: #2e3a4a;
+  --gray-7: #3d4f63;
+  --gray-8: #4e657d;
+  --gray-9: #6a8599;
+  --gray-10: #8fa4b5;
+  --gray-11: #b0c4d1;
+  --gray-12: #d4e5ef;
+
+  --bg: var(--gray-1);
+  --bg-surface: var(--gray-2);
+  --bg-elevated: var(--gray-3);
+  --bg-hover: var(--gray-4);
+  --bg-active: var(--gray-5);
+  --fg: var(--gray-12);
+  --fg-secondary: var(--gray-11);
+  --fg-muted: var(--gray-9);
+  --fg-dim: var(--gray-7);
+  --accent: #00ff9f;
+  --accent-dim: #00cc7f;
+  --error: #ff3366;
+  --error-muted: rgba(255, 51, 102, 0.15);
+  --warning: #ffcc00;
+  --border: var(--gray-4);
+  --border-subtle: var(--gray-3);
+  --border-focus: var(--gray-6);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+/* ----------------------------------------------------------------------------
+   Maas-Neotek - Dark neon cyberpunk theme from Neuromancer
+   ---------------------------------------------------------------------------- */
+[data-theme="maas-neotek"] {
+  --gray-1: #0c0c14;
+  --gray-2: #101018;
+  --gray-3: #161620;
+  --gray-4: #1e1e2a;
+  --gray-5: #282836;
+  --gray-6: #353548;
+  --gray-7: #45455c;
+  --gray-8: #5a5a76;
+  --gray-9: #7878a0;
+  --gray-10: #9999bb;
+  --gray-11: #bbbbdd;
+  --gray-12: #e0e0ff;
+
+  --bg: var(--gray-1);
+  --bg-surface: var(--gray-2);
+  --bg-elevated: var(--gray-3);
+  --bg-hover: var(--gray-4);
+  --bg-active: var(--gray-5);
+  --fg: var(--gray-12);
+  --fg-secondary: var(--gray-11);
+  --fg-muted: var(--gray-9);
+  --fg-dim: var(--gray-7);
+  --accent: #ff00ff;
+  --accent-dim: #cc00cc;
+  --error: #ff4466;
+  --error-muted: rgba(255, 68, 102, 0.15);
+  --warning: #ffaa00;
+  --border: var(--gray-4);
+  --border-subtle: var(--gray-3);
+  --border-focus: var(--gray-6);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+/* ============================================================================
+   LIGHT THEMES
+   ============================================================================ */
+
+/* ----------------------------------------------------------------------------
+   GitHub Light - GitHub's official light theme
+   ---------------------------------------------------------------------------- */
+[data-theme="github-light"] {
+  --gray-1: #ffffff;
+  --gray-2: #f6f8fa;
+  --gray-3: #eaeef2;
+  --gray-4: #d0d7de;
+  --gray-5: #afb8c1;
+  --gray-6: #8c959f;
+  --gray-7: #6e7781;
+  --gray-8: #57606a;
+  --gray-9: #424a53;
+  --gray-10: #32383f;
+  --gray-11: #24292f;
+  --gray-12: #1f2328;
+
+  --bg: var(--gray-1);
+  --bg-surface: var(--gray-2);
+  --bg-elevated: var(--gray-1);
+  --bg-hover: var(--gray-3);
+  --bg-active: var(--gray-4);
+  --fg: var(--gray-12);
+  --fg-secondary: var(--gray-11);
+  --fg-muted: var(--gray-8);
+  --fg-dim: var(--gray-6);
+  --accent: #0969da;
+  --accent-dim: #0550ae;
+  --error: #cf222e;
+  --error-muted: rgba(207, 34, 46, 0.1);
+  --warning: #9a6700;
+  --border: var(--gray-4);
+  --border-subtle: var(--gray-3);
+  --border-focus: var(--gray-5);
+  --shadow-sm: 0 1px 2px rgba(31, 35, 40, 0.1);
+  --shadow-md: 0 4px 12px rgba(31, 35, 40, 0.15);
+  --shadow-lg: 0 8px 32px rgba(31, 35, 40, 0.2);
+}
+
+/* Light theme icon overrides - remove invert, use opacity */
+[data-theme="github-light"] .icon,
+[data-theme="ayu-light"] .icon,
+[data-theme="solarized-light"] .icon,
+[data-theme="high-contrast-light"] .icon {
+  filter: invert(0) brightness(0.35) !important;
+}
+
+[data-theme="github-light"] .titlebar-btn:hover .icon,
+[data-theme="ayu-light"] .titlebar-btn:hover .icon,
+[data-theme="solarized-light"] .titlebar-btn:hover .icon,
+[data-theme="high-contrast-light"] .titlebar-btn:hover .icon,
+[data-theme="github-light"] .window-control:hover .icon,
+[data-theme="ayu-light"] .window-control:hover .icon,
+[data-theme="solarized-light"] .window-control:hover .icon,
+[data-theme="high-contrast-light"] .window-control:hover .icon {
+  filter: invert(0) brightness(0.15) !important;
+}
+
+[data-theme="github-light"] .titlebar-btn.active .icon,
+[data-theme="ayu-light"] .titlebar-btn.active .icon,
+[data-theme="solarized-light"] .titlebar-btn.active .icon,
+[data-theme="high-contrast-light"] .titlebar-btn.active .icon {
+  filter: invert(0) brightness(0.1) !important;
+}
+
+[data-theme="github-light"] .settings-nav-item .icon,
+[data-theme="ayu-light"] .settings-nav-item .icon,
+[data-theme="solarized-light"] .settings-nav-item .icon,
+[data-theme="high-contrast-light"] .settings-nav-item .icon {
+  filter: invert(0) brightness(0.45) !important;
+}
+
+[data-theme="github-light"] .settings-nav-item:hover .icon,
+[data-theme="github-light"] .settings-nav-item.active .icon,
+[data-theme="ayu-light"] .settings-nav-item:hover .icon,
+[data-theme="ayu-light"] .settings-nav-item.active .icon,
+[data-theme="solarized-light"] .settings-nav-item:hover .icon,
+[data-theme="solarized-light"] .settings-nav-item.active .icon,
+[data-theme="high-contrast-light"] .settings-nav-item:hover .icon,
+[data-theme="high-contrast-light"] .settings-nav-item.active .icon {
+  filter: invert(0) brightness(0.15) !important;
+}
+
+[data-theme="github-light"] .new-session-btn .icon,
+[data-theme="ayu-light"] .new-session-btn .icon,
+[data-theme="solarized-light"] .new-session-btn .icon,
+[data-theme="high-contrast-light"] .new-session-btn .icon {
+  filter: invert(0) brightness(0.4) !important;
+}
+
+[data-theme="github-light"] .rp-tab-icon .icon,
+[data-theme="ayu-light"] .rp-tab-icon .icon,
+[data-theme="solarized-light"] .rp-tab-icon .icon,
+[data-theme="high-contrast-light"] .rp-tab-icon .icon {
+  filter: invert(0) brightness(0.45) !important;
+}
+
+[data-theme="github-light"] .rp-tab-icon:hover .icon,
+[data-theme="github-light"] .rp-tab-icon.active .icon,
+[data-theme="ayu-light"] .rp-tab-icon:hover .icon,
+[data-theme="ayu-light"] .rp-tab-icon.active .icon,
+[data-theme="solarized-light"] .rp-tab-icon:hover .icon,
+[data-theme="solarized-light"] .rp-tab-icon.active .icon,
+[data-theme="high-contrast-light"] .rp-tab-icon:hover .icon,
+[data-theme="high-contrast-light"] .rp-tab-icon.active .icon {
+  filter: invert(0) brightness(0.15) !important;
+}
+
+[data-theme="github-light"] .ft-chevron .icon,
+[data-theme="ayu-light"] .ft-chevron .icon,
+[data-theme="solarized-light"] .ft-chevron .icon,
+[data-theme="high-contrast-light"] .ft-chevron .icon {
+  filter: invert(0) brightness(0.5) !important;
+}
+
+/* Light theme send button */
+[data-theme="github-light"] .prompt-send,
+[data-theme="ayu-light"] .prompt-send,
+[data-theme="solarized-light"] .prompt-send,
+[data-theme="high-contrast-light"] .prompt-send {
+  background: var(--gray-12);
+  color: var(--gray-1);
+}
+
+[data-theme="github-light"] .prompt-send .icon,
+[data-theme="ayu-light"] .prompt-send .icon,
+[data-theme="solarized-light"] .prompt-send .icon,
+[data-theme="high-contrast-light"] .prompt-send .icon {
+  filter: invert(1) brightness(1) !important;
+}
+
+[data-theme="github-light"] .prompt-send:disabled,
+[data-theme="ayu-light"] .prompt-send:disabled,
+[data-theme="solarized-light"] .prompt-send:disabled,
+[data-theme="high-contrast-light"] .prompt-send:disabled {
+  background: var(--gray-5);
+}
+
+[data-theme="github-light"] .prompt-send:disabled .icon,
+[data-theme="ayu-light"] .prompt-send:disabled .icon,
+[data-theme="solarized-light"] .prompt-send:disabled .icon,
+[data-theme="high-contrast-light"] .prompt-send:disabled .icon {
+  filter: invert(0) brightness(0.6) !important;
+}
+
+/* ----------------------------------------------------------------------------
+   Ayu Light - Modern minimalistic light theme
+   ---------------------------------------------------------------------------- */
+[data-theme="ayu-light"] {
+  --gray-1: #fafafa;
+  --gray-2: #f3f3f3;
+  --gray-3: #e8e8e8;
+  --gray-4: #d4d4d4;
+  --gray-5: #b8b8b8;
+  --gray-6: #9c9c9c;
+  --gray-7: #8a9199;
+  --gray-8: #6c7680;
+  --gray-9: #5c6166;
+  --gray-10: #4c5155;
+  --gray-11: #3c4044;
+  --gray-12: #1a1f29;
+
+  --bg: var(--gray-1);
+  --bg-surface: var(--gray-2);
+  --bg-elevated: var(--gray-1);
+  --bg-hover: var(--gray-3);
+  --bg-active: var(--gray-4);
+  --fg: var(--gray-12);
+  --fg-secondary: var(--gray-11);
+  --fg-muted: var(--gray-8);
+  --fg-dim: var(--gray-6);
+  --accent: #ff9940;
+  --accent-dim: #e88330;
+  --error: #f51818;
+  --error-muted: rgba(245, 24, 24, 0.1);
+  --warning: #f2ae49;
+  --border: var(--gray-4);
+  --border-subtle: var(--gray-3);
+  --border-focus: var(--gray-5);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.15);
+}
+
+/* ----------------------------------------------------------------------------
+   Solarized Light - Light variant of precision colors
+   ---------------------------------------------------------------------------- */
+[data-theme="solarized-light"] {
+  --gray-1: #fdf6e3;
+  --gray-2: #eee8d5;
+  --gray-3: #e4ddc8;
+  --gray-4: #d3cbb7;
+  --gray-5: #b8b19f;
+  --gray-6: #93a1a1;
+  --gray-7: #839496;
+  --gray-8: #657b83;
+  --gray-9: #586e75;
+  --gray-10: #475b62;
+  --gray-11: #2f4346;
+  --gray-12: #002b36;
+
+  --bg: var(--gray-1);
+  --bg-surface: var(--gray-2);
+  --bg-elevated: var(--gray-1);
+  --bg-hover: var(--gray-3);
+  --bg-active: var(--gray-4);
+  --fg: var(--gray-12);
+  --fg-secondary: var(--gray-11);
+  --fg-muted: var(--gray-8);
+  --fg-dim: var(--gray-6);
+  --accent: #268bd2;
+  --accent-dim: #1a6ea8;
+  --error: #dc322f;
+  --error-muted: rgba(220, 50, 47, 0.1);
+  --warning: #b58900;
+  --border: var(--gray-4);
+  --border-subtle: var(--gray-3);
+  --border-focus: var(--gray-5);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.15);
+}
+
+/* ----------------------------------------------------------------------------
+   High Contrast Light - Accessibility focused
+   ---------------------------------------------------------------------------- */
+[data-theme="high-contrast-light"] {
+  --gray-1: #ffffff;
+  --gray-2: #f5f5f5;
+  --gray-3: #e0e0e0;
+  --gray-4: #c0c0c0;
+  --gray-5: #a0a0a0;
+  --gray-6: #707070;
+  --gray-7: #505050;
+  --gray-8: #404040;
+  --gray-9: #303030;
+  --gray-10: #202020;
+  --gray-11: #101010;
+  --gray-12: #000000;
+
+  --bg: var(--gray-1);
+  --bg-surface: var(--gray-2);
+  --bg-elevated: var(--gray-1);
+  --bg-hover: var(--gray-3);
+  --bg-active: var(--gray-4);
+  --fg: var(--gray-12);
+  --fg-secondary: var(--gray-11);
+  --fg-muted: var(--gray-8);
+  --fg-dim: var(--gray-6);
+  --accent: #0066cc;
+  --accent-dim: #004d99;
+  --error: #cc0000;
+  --error-muted: rgba(204, 0, 0, 0.1);
+  --warning: #996600;
+  --border: var(--gray-4);
+  --border-subtle: var(--gray-3);
+  --border-focus: var(--gray-6);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.15);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+/* ============================================================================
+   THEME PICKER UI STYLES
+   ============================================================================ */
+
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.theme-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.theme-option:hover {
+  border-color: var(--border-focus);
+  background: var(--bg-hover);
+}
+
+.theme-option.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg));
+}
+
+.theme-preview {
+  width: 100%;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+}
+
+.theme-preview-bg {
+  flex: 2;
+}
+
+.theme-preview-surface {
+  flex: 1;
+}
+
+.theme-preview-accent {
+  flex: 0.5;
+}
+
+.theme-name {
+  font-size: var(--font-size-xs);
+  color: var(--fg-muted);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+.theme-option.active .theme-name {
+  color: var(--fg);
+  font-weight: 500;
+}
+
+.theme-section-label {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--fg-dim);
+  padding: 0 0 8px;
+}
+
+.theme-section {
+  margin-bottom: 16px;
+}
+
+.theme-section:last-child {
+  margin-bottom: 0;
+}

@@ -159,9 +159,14 @@ test-suite straylight-llm-test
     "-with-rtsopts=-N"
 
   other-modules:
+    -- // property tests
     Property.TypesProps
     Property.CoeffectProps
     Property.Generators
+    -- // integration tests
+    Integration.TestServer
+    Integration.ApiTests
+    Integration.ProofTests
 
   build-depends:
     , aeson
@@ -169,12 +174,19 @@ test-suite straylight-llm-test
     , bytestring
     , containers
     , hedgehog            >=1.0
+    , http-client
+    , http-client-tls
+    , http-types
+    , servant-server
     , straylight-llm
     , tasty               >=1.4
     , tasty-hedgehog      >=1.4
+    , tasty-hunit         >=0.10
     , text
     , time
     , vector
+    , wai
+    , warp
 
   default-extensions:
     OverloadedStrings

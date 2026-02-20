@@ -1,0 +1,43 @@
+package:
+  name: straylight-frontend
+  dependencies:
+    - prelude
+    - effect
+    - aff
+    - halogen
+    - halogen-vdom
+    - halogen-subscriptions
+    - affjax
+    - affjax-web
+    - argonaut
+    - argonaut-codecs
+    - either
+    - maybe
+    - arrays
+    - ordered-collections
+    - tuples
+    - refs
+    - web-dom
+    - web-html
+    - web-events
+    - web-uievents
+    - foreign
+    - foreign-object
+    - newtype
+    - strings
+    - foldable-traversable
+    - transformers
+    - media-types
+    - console
+    - unsafe-coerce
+    - nullable
+    - aff-promise
+    - hydrogen
+
+workspace:
+  packageSet:
+    registry: 73.2.0
+  extraPackages:
+    hydrogen:
+      git: https://github.com/weyl-ai-machine-city/hydrogen-jpyxal.git
+      ref: main

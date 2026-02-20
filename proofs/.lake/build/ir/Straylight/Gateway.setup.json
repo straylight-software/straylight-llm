@@ -1,0 +1,9 @@
+{"plugins": [],
+ "package": "straylight",
+ "options": {"relaxedAutoImplicit": false, "autoImplicit": false},
+ "name": "Straylight.Gateway",
+ "isModule": false,
+ "importArts":
+ {"Straylight.Coeffect":
+  ["/home/justin/jpyxal/straylight-llm/proofs/.lake/build/lib/lean/Straylight/Coeffect.olean"]},
+ "dynlibs": []}
