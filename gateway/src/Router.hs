@@ -57,6 +57,7 @@ import Provider.Venice (makeVeniceProvider)
 import Provider.Vertex (makeVertexProvider)
 import Provider.Baseten (makeBasetenProvider)
 import Provider.OpenRouter (makeOpenRouterProvider)
+import Provider.Anthropic (makeAnthropicProvider)
 import Types
 
 
@@ -84,12 +85,14 @@ data Router = Router
     , routerVertexConfig :: IORef ProviderConfig
     , routerBasetenConfig :: IORef ProviderConfig
     , routerOpenRouterConfig :: IORef ProviderConfig
+    , routerAnthropicConfig :: IORef ProviderConfig  -- Direct Anthropic API (last in chain)
     , routerProofCache :: IORef ProofCache
     }
 
 -- | Default provider chain order
+-- Anthropic is last: direct API access, used when explicitly requested or all others fail
 defaultChain :: [ProviderName]
-defaultChain = [Venice, Vertex, Baseten, OpenRouter]
+defaultChain = [Venice, Vertex, Baseten, OpenRouter, Anthropic]
 
 
 -- ════════════════════════════════════════════════════════════════════════════
@@ -111,15 +114,17 @@ makeRouter config = do
     vertexRef <- newIORef (cfgVertex config)
     basetenRef <- newIORef (cfgBaseten config)
     openrouterRef <- newIORef (cfgOpenRouter config)
+    anthropicRef <- newIORef (cfgAnthropic config)
 
     -- Create providers
     let veniceProvider = makeVeniceProvider veniceRef
     vertexProvider <- makeVertexProvider vertexRef
     let basetenProvider = makeBasetenProvider basetenRef
     let openrouterProvider = makeOpenRouterProvider openrouterRef
+    let anthropicProvider = makeAnthropicProvider anthropicRef
 
-    -- Build chain in priority order
-    let providers = [veniceProvider, vertexProvider, basetenProvider, openrouterProvider]
+    -- Build chain in priority order (Anthropic last for direct API access)
+    let providers = [veniceProvider, vertexProvider, basetenProvider, openrouterProvider, anthropicProvider]
 
     -- Create proof cache
     proofCacheRef <- newIORef Map.empty
@@ -132,6 +137,7 @@ makeRouter config = do
         , routerVertexConfig = vertexRef
         , routerBasetenConfig = basetenRef
         , routerOpenRouterConfig = openrouterRef
+        , routerAnthropicConfig = anthropicRef
         , routerProofCache = proofCacheRef
         }
 

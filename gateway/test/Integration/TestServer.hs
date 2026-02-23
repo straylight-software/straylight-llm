@@ -63,6 +63,7 @@ disabledConfig = Config
     , cfgVertex = disabledProvider
     , cfgBaseten = disabledProvider
     , cfgOpenRouter = disabledProvider
+    , cfgAnthropic = disabledProvider
     , cfgLogLevel = "warn"
     , cfgRequestTimeout = 5
     , cfgMaxRetries = 1

@@ -47,8 +47,9 @@ import Types (ChatRequest, ChatResponse, EmbeddingRequest, EmbeddingResponse, Mo
 -- ════════════════════════════════════════════════════════════════════════════
 
 -- | Provider names for the fallback chain
--- Priority: Venice -> Vertex -> Baseten -> OpenRouter
-data ProviderName = Venice | Vertex | Baseten | OpenRouter
+-- Priority: Venice -> Vertex -> Baseten -> OpenRouter -> Anthropic
+-- Anthropic is last: direct API access, used when explicitly requested
+data ProviderName = Venice | Vertex | Baseten | OpenRouter | Anthropic
     deriving (Eq, Show, Ord, Enum, Bounded)
 
 -- | Errors that can occur when calling a provider

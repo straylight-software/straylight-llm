@@ -36,7 +36,7 @@ module Api
     , HealthResponse (..)
     ) where
 
-import Data.Aeson (ToJSON (..), object, (.=))
+import Data.Aeson (ToJSON (..), FromJSON (..), object, (.=), (.:), withObject)
 import Data.Text (Text)
 import Servant
 
@@ -62,6 +62,11 @@ instance ToJSON HealthResponse where
         [ "status" .= hrStatus hr
         , "version" .= hrVersion hr
         ]
+
+instance FromJSON HealthResponse where
+    parseJSON = withObject "HealthResponse" $ \v -> HealthResponse
+        <$> v .: "status"
+        <*> v .: "version"
 
 -- | Chat completions endpoint
 -- POST /v1/chat/completions

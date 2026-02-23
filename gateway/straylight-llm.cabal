@@ -56,6 +56,9 @@ library
     Provider.Vertex
     Provider.Baseten
     Provider.OpenRouter
+    Provider.Anthropic
+    -- // provider types
+    Types.Anthropic
 
   hs-source-dirs:     src
   default-language:   GHC2021

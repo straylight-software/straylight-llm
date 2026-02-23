@@ -71,6 +71,7 @@ data Config = Config
     , cfgVertex :: ProviderConfig
     , cfgBaseten :: ProviderConfig
     , cfgOpenRouter :: ProviderConfig
+    , cfgAnthropic :: ProviderConfig  -- Direct Anthropic API (last in chain)
     , cfgLogLevel :: Text             -- "debug" | "info" | "warn" | "error"
     , cfgRequestTimeout :: Int        -- Seconds
     , cfgMaxRetries :: Int
@@ -115,6 +116,13 @@ defaultConfig = Config
     , cfgOpenRouter = ProviderConfig
         { pcEnabled = True
         , pcBaseUrl = "https://openrouter.ai/api/v1"
+        , pcApiKeyPath = Nothing
+        , pcApiKey = Nothing
+        , pcVertexConfig = Nothing
+        }
+    , cfgAnthropic = ProviderConfig
+        { pcEnabled = True
+        , pcBaseUrl = "https://api.anthropic.com/v1"
         , pcApiKeyPath = Nothing
         , pcApiKey = Nothing
         , pcVertexConfig = Nothing
@@ -171,6 +179,9 @@ loadApiKey mPath mDirect envVar = do
 --
 --   OPENROUTER_API_KEY        - OpenRouter API key
 --   OPENROUTER_API_KEY_FILE   - Path to OpenRouter API key file
+--
+--   ANTHROPIC_API_KEY         - Anthropic API key
+--   ANTHROPIC_API_KEY_FILE    - Path to Anthropic API key file
 loadConfigFromEnv :: IO Config
 loadConfigFromEnv = do
     -- Server settings (use readMaybe, never partial read)
@@ -194,6 +205,10 @@ loadConfigFromEnv = do
     -- OpenRouter
     openrouterKeyFile <- lookupEnv "OPENROUTER_API_KEY_FILE"
     openrouterKey <- loadApiKey openrouterKeyFile Nothing "OPENROUTER_API_KEY"
+
+    -- Anthropic (direct API - last in fallback chain)
+    anthropicKeyFile <- lookupEnv "ANTHROPIC_API_KEY_FILE"
+    anthropicKey <- loadApiKey anthropicKeyFile Nothing "ANTHROPIC_API_KEY"
 
     let vertexBaseUrl = if T.null gcpProject
             then ""
@@ -233,6 +248,13 @@ loadConfigFromEnv = do
             , pcBaseUrl = "https://openrouter.ai/api/v1"
             , pcApiKeyPath = openrouterKeyFile
             , pcApiKey = openrouterKey
+            , pcVertexConfig = Nothing
+            }
+        , cfgAnthropic = ProviderConfig
+            { pcEnabled = anthropicKey /= Nothing
+            , pcBaseUrl = "https://api.anthropic.com/v1"
+            , pcApiKeyPath = anthropicKeyFile
+            , pcApiKey = anthropicKey
             , pcVertexConfig = Nothing
             }
         , cfgLogLevel = logLevel
