@@ -1,11 +1,8 @@
 packages:
   .
+  /home/justin/jpyxal/straylight-repos/haskemathesis
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- // haskemathesis - OpenAPI property testing
 -- ════════════════════════════════════════════════════════════════════════════
--- n.b. haskemathesis is available via flake input but not on Hackage.
--- For development, reference the local checkout.
-
-optional-packages:
-  /home/justin/jpyxal/straylight-repos/haskemathesis
+-- n.b. haskemathesis is not on Hackage. Using local checkout for development.

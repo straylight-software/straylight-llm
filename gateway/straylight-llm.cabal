@@ -208,6 +208,7 @@ test-suite straylight-llm-test
     , base                        >=4.17 && <5
     , bytestring
     , containers
+    , haskemathesis
     , hedgehog                    >=1.0
     , http-client
     , http-client-tls
@@ -227,9 +228,8 @@ test-suite straylight-llm-test
     , warp
     , yaml                        >=0.11
 
-  -- n.b. haskemathesis is available via flake input for full OpenAPI
-  -- conformance testing. Run via separate test target or in CI.
-  -- See test/Integration/OpenApiSpec.hs for setup.
+  -- n.b. haskemathesis is included via cabal.project local path.
+  -- For CI without local checkout, use flake input or source-repository-package.
 
   default-extensions:
     OverloadedStrings
