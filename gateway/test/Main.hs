@@ -15,6 +15,7 @@ module Main where
 import Adversarial.InjectionEdgeCases qualified as InjectionEdgeCases
 import Adversarial.ProviderErrors qualified as ProviderErrors
 import Adversarial.RaceConditions qualified as RaceConditions
+import Adversarial.XSSVectors qualified as XSSVectors
 import Formal.ProofCorrespondence qualified as ProofCorrespondence
 import Integration.ApiTests qualified as ApiTests
 import Integration.LifecycleTests qualified as LifecycleTests
@@ -48,6 +49,7 @@ main = defaultMain $
             [ RaceConditions.tests
             , InjectionEdgeCases.tests
             , ProviderErrors.tests
+            , XSSVectors.tests
             ]
         , testGroup "Formal Tests"
             [ ProofCorrespondence.tests

@@ -211,6 +211,7 @@ test-suite straylight-llm-test
     Adversarial.RaceConditions
     Adversarial.InjectionEdgeCases
     Adversarial.ProviderErrors
+    Adversarial.XSSVectors
     -- // formal tests
     Formal.ProofCorrespondence
 
