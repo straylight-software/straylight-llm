@@ -9,6 +9,15 @@ dist-newstyle/
 # Nix
 result
 result-*
+.direnv/
+
+# direnv (local environment)
+.envrc
+
+# Buck2
+buck-out/
+.buckconfig.local
+nix/build/
 
 # Editor
 *.swp

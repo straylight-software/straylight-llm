@@ -1,0 +1,26 @@
+# .buckconfig - Buck2 configuration for straylight-llm
+#
+# "The sky above the port was the color of television, tuned to a dead channel."
+#
+# This file configures Buck2 for the straylight-llm gateway.
+# Toolchain paths are provided by sensenet via .buckconfig.local
+
+[cells]
+root = .
+prelude = nix/build/prelude
+toolchains = toolchains
+
+[cell_aliases]
+config = prelude
+fbcode = prelude
+fbsource = prelude
+buck = prelude
+
+[external_cells]
+prelude = bundled
+
+[buildfile]
+name = BUCK
+
+[parser]
+target_platform_detector_spec = target:root//...->prelude//platforms:default

@@ -55,13 +55,33 @@
       inputs.nimi.follows = "nimi";
     };
 
-    # TODO: Sensenet — nix-compile infrastructure for Straylight stack
-    # Provides LLVM/CUDA build infrastructure, TensorRT integration
-    # Re-enable when repo is available:
-    # sensenet = {
-    #   url = "github:straylight-software/sensenet/nix-compile/strict-straylight";
-    #   inputs.nixpkgs.follows = "nixpkgs";
-    # };
+    # Sensenet — aleph cube build system with Buck2 + Dhall
+    # Provides typed BUILD files, remote execution, hermetic builds
+    sensenet = {
+      url = "git+ssh://git@github.com/straylight-software/sensenet";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.nix-compile.follows = "nix-compile";
+      inputs.buck2-prelude.follows = "buck2-prelude";
+      inputs.nvidia-sdk.follows = "nvidia-sdk";
+    };
+
+    # nix-compile — type inference for Nix (sensenet dependency)
+    nix-compile = {
+      url = "git+ssh://git@github.com/straylight-software/nix-compile";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    # Buck2 prelude (sensenet dependency)
+    buck2-prelude = {
+      url = "git+ssh://git@github.com/weyl-ai/straylight-buck2-prelude";
+      flake = false;
+    };
+
+    # NVIDIA SDK (sensenet dependency, optional)
+    nvidia-sdk = {
+      url = "git+ssh://git@github.com/weyl-ai/nvidia-sdk";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   nixConfig = {
@@ -79,6 +99,8 @@
       imports = [
         inputs.treefmt-nix.flakeModule
         inputs.nix2gpu.flakeModule
+        # Use our fixed sensenet module (patches lowercase function calls bug)
+        (import ./nix/modules/sensenet-fixed.nix { inherit inputs; })
         (import-tree [
           ./examples
           ./dev
@@ -106,6 +128,63 @@
 
         in
         {
+          # ════════════════════════════════════════════════════════════════════
+          #                                              // sensenet project
+          # ════════════════════════════════════════════════════════════════════
+
+          sensenet.projects.gateway = {
+            src = ./.;
+            targets = [
+              "//gateway:straylight-llm"
+              "//gateway:straylight-llm-test"
+            ];
+            toolchain = {
+              haskell = {
+                enable = true;
+                ghcpackages = hpkgs;
+                packages = hp: [
+                  # Core
+                  hp.aeson
+                  hp.base16-bytestring
+                  hp.bytestring
+                  hp.containers
+                  hp.text
+                  hp.time
+                  hp.stm
+                  hp.mtl
+                  hp.transformers
+                  hp.vector
+                  # Parsing
+                  hp.megaparsec
+                  # HTTP
+                  hp.http-client
+                  hp.http-client-tls
+                  hp.http-types
+                  hp.wai
+                  hp.warp
+                  # Servant
+                  hp.servant
+                  hp.servant-server
+                  # Crypto (for discharge proofs)
+                  hp.crypton
+                  hp.memory
+                  # UUID
+                  hp.uuid
+                  # Testing
+                  hp.hedgehog
+                  hp.tasty
+                  hp.tasty-hedgehog
+                  hp.tasty-hunit
+                ];
+              };
+            };
+            devshellpackages = [
+              pkgs.dhall
+              pkgs.dhall-json
+              pkgs.buck2
+            ];
+          };
+
           # ════════════════════════════════════════════════════════════════════
           #                                              // packages
           # ════════════════════════════════════════════════════════════════════

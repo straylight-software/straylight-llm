@@ -1,0 +1,164 @@
+# gateway/BUCK - Buck2 build rules for straylight-llm gateway
+#
+# "The sky above the port was the color of television, tuned to a dead channel."
+#
+# This file defines the build targets for the gateway using sensenet's
+# Haskell toolchain. All source files are explicitly listed (no globs).
+
+load("@toolchains//:haskell.bzl", "haskell_binary", "haskell_library", "haskell_test")
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Library: Core gateway modules
+# ═══════════════════════════════════════════════════════════════════════════════
+
+haskell_library(
+    name = "straylight-llm-lib",
+    srcs = [
+        # Core
+        "src/Api.hs",
+        "src/Config.hs",
+        "src/Handlers.hs",
+        "src/Router.hs",
+        "src/Types.hs",
+        # Coeffects (proof system)
+        "src/Coeffect/Discharge.hs",
+        "src/Coeffect/Types.hs",
+        # Effects (graded monad)
+        "src/Effects/Graded.hs",
+        # Evring (event ring / state machine abstraction)
+        "src/Evring/Event.hs",
+        "src/Evring/Handle.hs",
+        "src/Evring/Machine.hs",
+        "src/Evring/Ring.hs",
+        "src/Evring/Sigil.hs",
+        "src/Evring/Trace.hs",
+        # Providers (LLM backends)
+        "src/Provider/Anthropic.hs",
+        "src/Provider/Baseten.hs",
+        "src/Provider/ModelRegistry.hs",
+        "src/Provider/OpenRouter.hs",
+        "src/Provider/Types.hs",
+        "src/Provider/Venice.hs",
+        "src/Provider/Vertex.hs",
+        # Resilience (circuit breaker, retry, etc.)
+        "src/Resilience/Backpressure.hs",
+        "src/Resilience/Cache.hs",
+        "src/Resilience/CircuitBreaker.hs",
+        "src/Resilience/Metrics.hs",
+        "src/Resilience/Retry.hs",
+        # Slide (wire protocol)
+        "src/Slide/Parse.hs",
+        "src/Slide/Wire/Types.hs",
+        "src/Slide/Wire/Varint.hs",
+        # Types
+        "src/Types/Anthropic.hs",
+    ],
+    packages = [
+        "base",
+        "aeson",
+        "base16-bytestring",
+        "bytestring",
+        "containers",
+        "crypton",
+        "http-client",
+        "http-client-tls",
+        "http-types",
+        "megaparsec",
+        "memory",
+        "mtl",
+        "servant",
+        "servant-server",
+        "stm",
+        "text",
+        "time",
+        "transformers",
+        "uuid",
+        "vector",
+        "wai",
+        "warp",
+    ],
+    language_extensions = [
+        "BangPatterns",
+        "DataKinds",
+        "DeriveGeneric",
+        "DerivingStrategies",
+        "LambdaCase",
+        "NamedFieldPuns",
+        "OverloadedStrings",
+        "StrictData",
+        "TypeOperators",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Binary: Main gateway executable
+# ═══════════════════════════════════════════════════════════════════════════════
+
+haskell_binary(
+    name = "straylight-llm",
+    srcs = ["app/Main.hs"],
+    main = "Main",
+    deps = [":straylight-llm-lib"],
+    packages = ["base"],
+    language_extensions = [
+        "BangPatterns",
+        "DataKinds",
+        "DeriveGeneric",
+        "DerivingStrategies",
+        "LambdaCase",
+        "NamedFieldPuns",
+        "OverloadedStrings",
+        "StrictData",
+        "TypeOperators",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Test: Property and integration tests
+# ═══════════════════════════════════════════════════════════════════════════════
+
+haskell_test(
+    name = "straylight-llm-test",
+    srcs = [
+        "test/Main.hs",
+        # Property tests
+        "test/Property/Generators.hs",
+        "test/Property/TypesProps.hs",
+        "test/Property/CoeffectProps.hs",
+        "test/Property/GradedMonadProps.hs",
+        "test/Property/StreamingProps.hs",
+        # Integration tests
+        "test/Integration/ApiTests.hs",
+        "test/Integration/LifecycleTests.hs",
+        "test/Integration/ProofTests.hs",
+        "test/Integration/TestServer.hs",
+        # Adversarial tests
+        "test/Adversarial/RaceConditions.hs",
+        "test/Adversarial/InjectionEdgeCases.hs",
+        "test/Adversarial/ProviderErrors.hs",
+        # Formal tests
+        "test/Formal/ProofCorrespondence.hs",
+    ],
+    main = "Main",
+    deps = [":straylight-llm-lib"],
+    packages = [
+        "base",
+        "aeson",
+        "bytestring",
+        "containers",
+        "hedgehog",
+        "stm",
+        "tasty",
+        "tasty-hedgehog",
+        "tasty-hunit",
+        "text",
+        "time",
+    ],
+    language_extensions = [
+        "OverloadedStrings",
+        "RecordWildCards",
+    ],
+    visibility = ["PUBLIC"],
+)

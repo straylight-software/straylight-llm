@@ -1,0 +1,19 @@
+# toolchains/BUCK - Toolchain definitions for straylight-llm
+#
+# These are provided by sensenet's Nix devshell via .buckconfig.local
+# The actual GHC/clang paths are generated from Nix store paths.
+
+load("@toolchains//:haskell.bzl", "haskell_toolchain")
+
+haskell_toolchain(
+    name = "haskell",
+    compiler_flags = [
+        "-Wall",
+        "-Werror",
+        "-XGHC2021",
+        "-XOverloadedStrings",
+        "-XStrictData",
+    ],
+    linker_flags = ["-threaded", "-rtsopts"],
+    visibility = ["PUBLIC"],
+)

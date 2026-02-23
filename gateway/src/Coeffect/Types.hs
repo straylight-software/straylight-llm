@@ -128,18 +128,18 @@ data NetworkAccess = NetworkAccess
     deriving stock (Eq, Show, Generic)
 
 instance NFData NetworkAccess where
-    rnf NetworkAccess{..} =
-        rnf naUrl `seq`
-        rnf naMethod `seq`
-        rnf naContentHash `seq`
-        rnf naTimestamp
+    rnf na =
+        rnf (naUrl na) `seq`
+        rnf (naMethod na) `seq`
+        rnf (naContentHash na) `seq`
+        rnf (naTimestamp na)
 
 instance ToJSON NetworkAccess where
-    toJSON NetworkAccess{..} = object
-        [ "url" .= naUrl
-        , "method" .= naMethod
-        , "contentHash" .= naContentHash
-        , "timestamp" .= naTimestamp
+    toJSON na = object
+        [ "url" .= naUrl na
+        , "method" .= naMethod na
+        , "contentHash" .= naContentHash na
+        , "timestamp" .= naTimestamp na
         ]
 
 instance FromJSON NetworkAccess where
@@ -181,18 +181,18 @@ data FilesystemAccess = FilesystemAccess
     deriving stock (Eq, Show, Generic)
 
 instance NFData FilesystemAccess where
-    rnf FilesystemAccess{..} =
-        rnf faPath `seq`
-        rnf faMode `seq`
-        rnf faContentHash `seq`
-        rnf faTimestamp
+    rnf fa =
+        rnf (faPath fa) `seq`
+        rnf (faMode fa) `seq`
+        rnf (faContentHash fa) `seq`
+        rnf (faTimestamp fa)
 
 instance ToJSON FilesystemAccess where
-    toJSON FilesystemAccess{..} = object
-        [ "path" .= faPath
-        , "mode" .= faMode
-        , "contentHash" .= faContentHash
-        , "timestamp" .= faTimestamp
+    toJSON fa = object
+        [ "path" .= faPath fa
+        , "mode" .= faMode fa
+        , "contentHash" .= faContentHash fa
+        , "timestamp" .= faTimestamp fa
         ]
 
 instance FromJSON FilesystemAccess where
@@ -212,16 +212,16 @@ data AuthUsage = AuthUsage
     deriving stock (Eq, Show, Generic)
 
 instance NFData AuthUsage where
-    rnf AuthUsage{..} =
-        rnf auProvider `seq`
-        rnf auScope `seq`
-        rnf auTimestamp
+    rnf au =
+        rnf (auProvider au) `seq`
+        rnf (auScope au) `seq`
+        rnf (auTimestamp au)
 
 instance ToJSON AuthUsage where
-    toJSON AuthUsage{..} = object
-        [ "provider" .= auProvider
-        , "scope" .= auScope
-        , "timestamp" .= auTimestamp
+    toJSON au = object
+        [ "provider" .= auProvider au
+        , "scope" .= auScope au
+        , "timestamp" .= auTimestamp au
         ]
 
 instance FromJSON AuthUsage where
@@ -296,12 +296,12 @@ data OutputHash = OutputHash
     deriving stock (Eq, Show, Generic)
 
 instance NFData OutputHash where
-    rnf OutputHash{..} = rnf ohName `seq` rnf ohHash
+    rnf oh = rnf (ohName oh) `seq` rnf (ohHash oh)
 
 instance ToJSON OutputHash where
-    toJSON OutputHash{..} = object
-        [ "name" .= ohName
-        , "hash" .= ohHash
+    toJSON oh = object
+        [ "name" .= ohName oh
+        , "hash" .= ohHash oh
         ]
 
 instance FromJSON OutputHash where
@@ -340,30 +340,30 @@ data DischargeProof = DischargeProof
     deriving stock (Eq, Show, Generic)
 
 instance NFData DischargeProof where
-    rnf DischargeProof{..} =
-        rnf dpCoeffects `seq`
-        rnf dpNetworkAccess `seq`
-        rnf dpFilesystemAccess `seq`
-        rnf dpAuthUsage `seq`
-        rnf dpBuildId `seq`
-        rnf dpDerivationHash `seq`
-        rnf dpOutputHashes `seq`
-        rnf dpStartTime `seq`
-        rnf dpEndTime `seq`
-        rnf dpSignature
+    rnf dp =
+        rnf (dpCoeffects dp) `seq`
+        rnf (dpNetworkAccess dp) `seq`
+        rnf (dpFilesystemAccess dp) `seq`
+        rnf (dpAuthUsage dp) `seq`
+        rnf (dpBuildId dp) `seq`
+        rnf (dpDerivationHash dp) `seq`
+        rnf (dpOutputHashes dp) `seq`
+        rnf (dpStartTime dp) `seq`
+        rnf (dpEndTime dp) `seq`
+        rnf (dpSignature dp)
 
 instance ToJSON DischargeProof where
-    toJSON DischargeProof{..} = object
-        [ "coeffects" .= dpCoeffects
-        , "networkAccess" .= dpNetworkAccess
-        , "filesystemAccess" .= dpFilesystemAccess
-        , "authUsage" .= dpAuthUsage
-        , "buildId" .= dpBuildId
-        , "derivationHash" .= dpDerivationHash
-        , "outputHashes" .= dpOutputHashes
-        , "startTime" .= dpStartTime
-        , "endTime" .= dpEndTime
-        , "signature" .= fmap formatSig dpSignature
+    toJSON dp = object
+        [ "coeffects" .= dpCoeffects dp
+        , "networkAccess" .= dpNetworkAccess dp
+        , "filesystemAccess" .= dpFilesystemAccess dp
+        , "authUsage" .= dpAuthUsage dp
+        , "buildId" .= dpBuildId dp
+        , "derivationHash" .= dpDerivationHash dp
+        , "outputHashes" .= dpOutputHashes dp
+        , "startTime" .= dpStartTime dp
+        , "endTime" .= dpEndTime dp
+        , "signature" .= fmap formatSig (dpSignature dp)
         ]
       where
         formatSig (pk, sig) = object ["publicKey" .= pk, "signature" .= sig]
