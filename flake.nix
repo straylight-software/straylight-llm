@@ -101,11 +101,22 @@
         inputs.nix2gpu.flakeModule
         # Use our fixed sensenet module (patches lowercase function calls bug)
         (import ./nix/modules/sensenet-fixed.nix { inherit inputs; })
+        # Dhall BUILD file integration (typed build configs)
+        (import ./nix/modules/dhall-build.nix { inherit inputs; })
         (import-tree [
           ./examples
           ./dev
         ])
       ];
+
+      # ════════════════════════════════════════════════════════════════════════════
+      #                                              // nixos modules
+      # ════════════════════════════════════════════════════════════════════════════
+
+      flake = {
+        nixosModules.default = ./nix/modules/straylight-llm.nix;
+        nixosModules.straylight-llm = ./nix/modules/straylight-llm.nix;
+      };
 
       perSystem =
         {
@@ -246,6 +257,11 @@
               # Lean4
               pkgs.lean4
 
+              # Dhall (typed build configs)
+              pkgs.dhall
+              pkgs.dhall-json
+              pkgs.dhall-lsp-server
+
               # General
               pkgs.pkg-config
               pkgs.curl
@@ -295,6 +311,14 @@
               echo ""
               echo "  cd frontend && npm run tauri:dev    Run Tauri dev mode"
               echo "  cd frontend && npm run tauri:build  Build desktop app"
+              echo ""
+              echo "════════════════════════════════════════════════════════════════════════════════"
+              echo "                                                  // dhall commands //"
+              echo "════════════════════════════════════════════════════════════════════════════════"
+              echo ""
+              echo "  cd dhall && dhall type < straylight-llm.dhall    Type-check BUILD config"
+              echo "  cd dhall && dhall-to-json < straylight-llm.dhall Export to JSON"
+              echo "  nix build .#dhall-verify                         Verify source manifest"
               echo ""
               echo "════════════════════════════════════════════════════════════════════════════════"
               echo "                                                      // other commands //"

@@ -51,6 +51,8 @@ tags:
     description: Discharge proofs for auditability
   - name: Health
     description: Service health
+  - name: Observability
+    description: Metrics, provider status, and request history
 
 paths:
   /v1/chat/completions:
@@ -233,12 +235,127 @@ paths:
               schema:
                 $ref: '#/components/schemas/HealthResponse'
 
+  /v1/admin/providers/status:
+    get:
+      operationId: getProvidersStatus
+      summary: Get provider status (admin only)
+      description: |
+        Returns provider health, circuit breaker states, and statistics.
+        
+        **Security**: Requires admin API key set via ADMIN_API_KEY environment variable.
+        Rate limited to 10 concurrent requests.
+      tags: [Observability]
+      security:
+        - AdminAuth: []
+      responses:
+        '200':
+          description: Provider status information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProvidersStatusResponse'
+        '401':
+          description: Unauthorized (missing or invalid admin API key)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '503':
+          description: Rate limited (too many concurrent admin requests)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /v1/admin/metrics:
+    get:
+      operationId: getMetrics
+      summary: Get metrics (admin only)
+      description: |
+        Returns aggregated metrics snapshot including request counts, latencies, and error rates.
+        
+        **Security**: Requires admin API key set via ADMIN_API_KEY environment variable.
+        Rate limited to 10 concurrent requests.
+      tags: [Observability]
+      security:
+        - AdminAuth: []
+      responses:
+        '200':
+          description: Metrics snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricsResponse'
+        '401':
+          description: Unauthorized (missing or invalid admin API key)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '503':
+          description: Rate limited (too many concurrent admin requests)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /v1/admin/requests:
+    get:
+      operationId: getRequests
+      summary: Get request history (admin only)
+      description: |
+        Returns recent request history for audit trail. Limited to most recent N requests.
+        
+        **Security**: Requires admin API key set via ADMIN_API_KEY environment variable.
+        Rate limited to 10 concurrent requests.
+        
+        **Warning**: Contains potentially sensitive information (request IDs, models, providers, latencies).
+      tags: [Observability]
+      security:
+        - AdminAuth: []
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+          description: Maximum number of requests to return
+      responses:
+        '200':
+          description: Request history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestsResponse'
+        '401':
+          description: Unauthorized (missing or invalid admin API key)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '503':
+          description: Rate limited (too many concurrent admin requests)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
 components:
   securitySchemes:
     BearerAuth:
       type: http
       scheme: bearer
       description: API key passed as Bearer token
+    
+    AdminAuth:
+      type: http
+      scheme: bearer
+      description: |
+        Admin API key for observability endpoints. Must be set via ADMIN_API_KEY environment variable.
+        Pass as Bearer token in Authorization header.
 
   responses:
     BadRequest:
@@ -828,6 +945,194 @@ components:
                 type: boolean
               latency_ms:
                 type: integer
+
+    ProvidersStatusResponse:
+      type: object
+      required: [providers]
+      properties:
+        providers:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProviderStatus'
+
+    ProviderStatus:
+      type: object
+      required: [name, circuit_state, stats]
+      properties:
+        name:
+          type: string
+          enum: [Venice, Vertex, Baseten, OpenRouter, Anthropic]
+        circuit_state:
+          type: string
+          enum: [Closed, Open, HalfOpen]
+          description: |
+            - Closed: Circuit is healthy, requests are allowed
+            - Open: Circuit is broken, requests are rejected
+            - HalfOpen: Circuit is recovering, limited requests allowed
+        stats:
+          $ref: '#/components/schemas/CircuitStats'
+
+    CircuitStats:
+      type: object
+      required: [state, failure_count, success_count, consecutive_failures, consecutive_successes, last_failure_time, last_success_time, last_state_change]
+      properties:
+        state:
+          type: string
+          enum: [Closed, Open, HalfOpen]
+        failure_count:
+          type: integer
+          format: int64
+        success_count:
+          type: integer
+          format: int64
+        consecutive_failures:
+          type: integer
+        consecutive_successes:
+          type: integer
+        last_failure_time:
+          type: string
+          format: date-time
+          nullable: true
+        last_success_time:
+          type: string
+          format: date-time
+          nullable: true
+        last_state_change:
+          type: string
+          format: date-time
+
+    MetricsResponse:
+      type: object
+      required: [metrics]
+      properties:
+        metrics:
+          $ref: '#/components/schemas/Metrics'
+
+    Metrics:
+      type: object
+      required: [total_requests, successful_requests, failed_requests, provider_metrics, latency_buckets]
+      properties:
+        total_requests:
+          type: integer
+          format: int64
+        successful_requests:
+          type: integer
+          format: int64
+        failed_requests:
+          type: integer
+          format: int64
+        provider_metrics:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/ProviderMetrics'
+        latency_buckets:
+          $ref: '#/components/schemas/LatencyBuckets'
+
+    ProviderMetrics:
+      type: object
+      required: [requests, successes, failures, avg_latency_ms, p50_latency_ms, p95_latency_ms, p99_latency_ms]
+      properties:
+        requests:
+          type: integer
+          format: int64
+        successes:
+          type: integer
+          format: int64
+        failures:
+          type: integer
+          format: int64
+        avg_latency_ms:
+          type: number
+          format: double
+        p50_latency_ms:
+          type: number
+          format: double
+        p95_latency_ms:
+          type: number
+          format: double
+        p99_latency_ms:
+          type: number
+          format: double
+
+    LatencyBuckets:
+      type: object
+      required: [under_10ms, under_50ms, under_100ms, under_200ms, under_500ms, under_1s, under_2s, under_5s, under_10s, under_30s, under_60s, under_2m, under_5m, over_5m]
+      properties:
+        under_10ms:
+          type: integer
+          format: int64
+        under_50ms:
+          type: integer
+          format: int64
+        under_100ms:
+          type: integer
+          format: int64
+        under_200ms:
+          type: integer
+          format: int64
+        under_500ms:
+          type: integer
+          format: int64
+        under_1s:
+          type: integer
+          format: int64
+        under_2s:
+          type: integer
+          format: int64
+        under_5s:
+          type: integer
+          format: int64
+        under_10s:
+          type: integer
+          format: int64
+        under_30s:
+          type: integer
+          format: int64
+        under_60s:
+          type: integer
+          format: int64
+        under_2m:
+          type: integer
+          format: int64
+        under_5m:
+          type: integer
+          format: int64
+        over_5m:
+          type: integer
+          format: int64
+
+    RequestsResponse:
+      type: object
+      required: [requests, total]
+      properties:
+        requests:
+          type: array
+          items:
+            $ref: '#/components/schemas/RequestHistory'
+        total:
+          type: integer
+          description: Total number of requests returned
+
+    RequestHistory:
+      type: object
+      required: [request_id, model, success, latency_ms, timestamp]
+      properties:
+        request_id:
+          type: string
+        model:
+          type: string
+        provider:
+          type: string
+          enum: [Venice, Vertex, Baseten, OpenRouter, Anthropic]
+          nullable: true
+        success:
+          type: boolean
+        latency_ms:
+          type: number
+          format: double
+        timestamp:
+          type: string
+          format: date-time
 
     ApiError:
       type: object

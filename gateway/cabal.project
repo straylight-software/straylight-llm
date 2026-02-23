@@ -1,6 +1,6 @@
 packages:
   .
-  /home/justin/jpyxal/straylight-repos/haskemathesis
+  ../haskemathesis-reference
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- // haskemathesis - OpenAPI property testing

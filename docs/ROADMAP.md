@@ -164,18 +164,27 @@
 - [x] `dhall/examples/action-graph.dhall` - Action graph example
 - [x] All Dhall files type-check with `dhall type`
 
-### Phase 7: PureScript Frontend (Future)
-- [ ] Set up PureScript + Halogen project
-- [ ] Provider status dashboard
+### Phase 7: PureScript Frontend (Partial)
+- [x] Set up PureScript + Halogen project in `frontend/`
+- [x] Main app shell with tab navigation (`App.purs`)
+- [x] API client with full type definitions (`API/Client.purs`)
+- [x] Health status component (`Components/HealthStatus.purs`)
+- [x] Models panel component (`Components/ModelsPanel.purs`)
+- [x] Basic proof viewer component (`Components/ProofViewer.purs`)
+- [x] 14 themes (`themes.css`)
+- [x] Tauri desktop builds (`src-tauri/`)
+- [ ] Provider status dashboard (real-time health, circuit breaker)
 - [ ] Request/response timeline
-- [ ] Coeffect visualization
-- [ ] Discharge proof viewer
+- [ ] WebSocket/SSE real-time updates
+- [ ] Coeffect graph visualization
+- [ ] Enhanced proof inspector
 
-### Phase 8: Integration (Future)
+### Phase 8: Integration (Partial)
+- [x] Dhall BUILD files complete
 - [ ] Integrate Dhall with flake.nix
 - [ ] E2E tests with Playwright
 - [ ] Memory/performance benchmarks
-- [ ] Security audit automation
+- [ ] SearXNG + gVisor sandbox integration
 
 ---
 

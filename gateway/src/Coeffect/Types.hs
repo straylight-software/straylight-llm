@@ -28,6 +28,7 @@ module Coeffect.Types
     ( -- * Coeffect Types
       Coeffect (..)
     , combineCoeffects
+    , coeffectToText
     
       -- * Access Witnesses
     , NetworkAccess (..)
@@ -111,6 +112,15 @@ combineCoeffects (Combined cs1) (Combined cs2) = Combined (cs1 ++ cs2)
 combineCoeffects (Combined cs) c = Combined (cs ++ [c])
 combineCoeffects c (Combined cs) = Combined (c : cs)
 combineCoeffects c1 c2 = Combined [c1, c2]
+
+-- | Convert coeffect to text representation for SSE events
+coeffectToText :: Coeffect -> Text
+coeffectToText Pure = "pure"
+coeffectToText Network = "network"
+coeffectToText (Auth provider) = "auth:" <> provider
+coeffectToText (Sandbox path) = "sandbox:" <> path
+coeffectToText (Filesystem path) = "filesystem:" <> path
+coeffectToText (Combined cs) = "combined(" <> mconcat (map coeffectToText cs) <> ")"
 
 
 -- ════════════════════════════════════════════════════════════════════════════

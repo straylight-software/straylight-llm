@@ -67,6 +67,7 @@ disabledConfig = Config
     , cfgLogLevel = "warn"
     , cfgRequestTimeout = 5
     , cfgMaxRetries = 1
+    , cfgAdminApiKey = Nothing
     }
 
 -- | Test configuration with OpenRouter pointing to non-existent server

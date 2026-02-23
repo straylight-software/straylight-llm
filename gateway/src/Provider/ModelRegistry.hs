@@ -43,8 +43,9 @@ module Provider.ModelRegistry
 
 import Control.Concurrent (ThreadId, forkIO, killThread, threadDelay)
 import Control.Concurrent.STM
-import Control.Exception (try, SomeException)
+import Control.Exception (IOException, try)
 import Control.Monad (forever, forM_, when)
+import System.Timeout (timeout)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
 import Data.Set (Set)
@@ -96,6 +97,9 @@ data ModelRegistry = ModelRegistry
 
 -- | Create a model registry and start background sync
 -- syncIntervalSec: how often to refresh model lists (0 = no background sync)
+-- 
+-- Initial sync is async to avoid blocking server startup. The registry starts
+-- empty and populates as providers respond (graceful degradation).
 makeModelRegistry :: Manager -> [Provider] -> Int -> IO ModelRegistry
 makeModelRegistry manager providers syncIntervalSec = do
     cacheVar <- newTVarIO Map.empty
@@ -108,8 +112,12 @@ makeModelRegistry manager providers syncIntervalSec = do
             , mrSyncInterval = syncIntervalSec
             }
     
-    -- Initial sync (blocking)
-    syncAll registry
+    -- Initial sync (async with timeout to avoid blocking startup)
+    -- Runs in background so server can start immediately
+    _ <- forkIO $ do
+        -- 10 second timeout for initial sync of all providers
+        _ <- timeout (10 * 1000000) (syncAll registry)
+        pure ()
     
     -- Start background sync if interval > 0
     if syncIntervalSec > 0
@@ -142,7 +150,7 @@ syncAll registry =
     forM_ (mrProviders registry) $ \provider ->
         syncProvider registry provider
 
--- | Sync a single provider
+-- | Sync a single provider (with timeout per provider)
 syncProvider :: ModelRegistry -> Provider -> IO ()
 syncProvider registry provider = do
     let name = providerName provider
@@ -155,24 +163,30 @@ syncProvider registry provider = do
     -- Check if provider is enabled first
     (enabledResult, _, _, _) <- runGatewayM (providerEnabled provider)
     when enabledResult $ do
-        -- Fetch models
-        result <- try @SomeException $ do
-            (modelsResult, _, _, _) <- runGatewayM (providerModels provider ctx)
-            pure modelsResult
+        -- Fetch models with 5s timeout per provider
+        -- Uses IOException instead of SomeException for precise error handling
+        mResult <- timeout (5 * 1000000) $ do
+            result <- try @IOException $ do
+                (modelsResult, _, _, _) <- runGatewayM (providerModels provider ctx)
+                pure modelsResult
+            pure result
         
-        case result of
-            Left _err -> 
-                -- Provider unreachable, keep existing cache
+        case mResult of
+            Nothing ->
+                -- Timeout, keep existing cache
                 pure ()
-            Right (Success modelList) -> do
+            Just (Left _err) -> 
+                -- IO error (network), keep existing cache
+                pure ()
+            Just (Right (Success modelList)) -> do
                 let modelIds = Set.fromList $ map (unModelId . modelId) $ mlData modelList
                 now <- getCurrentTime
                 atomically $ modifyTVar' (mrCache registry) $ 
                     Map.insert name (CacheEntry modelIds now)
-            Right (Failure _) ->
+            Just (Right (Failure _)) ->
                 -- Provider returned error, keep existing cache
                 pure ()
-            Right (Retry _) ->
+            Just (Right (Retry _)) ->
                 -- Temporary error, keep existing cache
                 pure ()
 

@@ -22,18 +22,19 @@
 
 module Provider.Types
     ( -- * Provider Interface
-      Provider (..)
-    , ProviderName (..)
-    , ProviderResult (..)
-    , ProviderError (..)
+      Provider (Provider, providerName, providerEnabled, providerChat, providerChatStream, providerEmbeddings, providerModels, providerSupportsModel)
+    , ProviderName (Venice, Vertex, Baseten, OpenRouter, Anthropic)
+    , ProviderResult (Success, Failure, Retry)
+    , ProviderError (AuthError, RateLimitError, QuotaExceededError, ModelNotFoundError, ProviderUnavailable, InvalidRequestError, InternalError, TimeoutError, UnknownError)
 
       -- * Request Context
-    , RequestContext (..)
+    , RequestContext (RequestContext, rcManager, rcRequestId, rcClientIp)
 
       -- * Streaming
     , StreamCallback
     ) where
 
+import Data.Aeson (ToJSON (toJSON), FromJSON (parseJSON), Value (String))
 import Data.ByteString (ByteString)
 import Data.Text (Text)
 import Network.HTTP.Client (Manager)
@@ -51,6 +52,21 @@ import Types (ChatRequest, ChatResponse, EmbeddingRequest, EmbeddingResponse, Mo
 -- Anthropic is last: direct API access, used when explicitly requested
 data ProviderName = Venice | Vertex | Baseten | OpenRouter | Anthropic
     deriving (Eq, Show, Ord, Enum, Bounded)
+
+instance ToJSON ProviderName where
+    toJSON Venice = "venice"
+    toJSON Vertex = "vertex"
+    toJSON Baseten = "baseten"
+    toJSON OpenRouter = "openrouter"
+    toJSON Anthropic = "anthropic"
+
+instance FromJSON ProviderName where
+    parseJSON (String "venice") = pure Venice
+    parseJSON (String "vertex") = pure Vertex
+    parseJSON (String "baseten") = pure Baseten
+    parseJSON (String "openrouter") = pure OpenRouter
+    parseJSON (String "anthropic") = pure Anthropic
+    parseJSON _ = fail "Invalid provider name"
 
 -- | Errors that can occur when calling a provider
 data ProviderError

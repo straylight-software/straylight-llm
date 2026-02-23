@@ -78,6 +78,15 @@ library
     Resilience.CircuitBreaker
     Resilience.Metrics
     Resilience.Retry
+    -- // security
+    Security.ConstantTime
+    Security.ObservabilitySanitization
+    Security.PromptInjection
+    Security.RequestLimits
+    Security.RequestSanitization
+    Security.ResponseSanitization
+    -- // streaming (SSE events)
+    Streaming.Events
 
   hs-source-dirs:     src
   default-language:   GHC2021
@@ -188,6 +197,7 @@ test-suite straylight-llm-test
     Property.CoeffectProps
     Property.GradedMonadProps
     Property.Generators
+    Property.SecurityProps
     Property.StreamingProps
     -- // integration tests
     Integration.TestServer
@@ -232,5 +242,55 @@ test-suite straylight-llm-test
   -- For CI without local checkout, use flake input or source-repository-package.
 
   default-extensions:
+    OverloadedStrings
+    RecordWildCards
+
+-- ════════════════════════════════════════════════════════════════════════════
+--                                                              // benchmarks
+-- ════════════════════════════════════════════════════════════════════════════
+
+benchmark straylight-llm-bench
+  type:             exitcode-stdio-1.0
+  main-is:          Main.hs
+  hs-source-dirs:   bench
+  default-language: GHC2021
+
+  ghc-options:
+    -Wall
+    -Wcompat
+    -O2
+    -threaded
+    -rtsopts
+    "-with-rtsopts=-N -T"
+
+  other-modules:
+    Bench.Router
+    Bench.CircuitBreaker
+    Bench.SSEBroadcaster
+    Bench.Coeffect
+    Bench.E2ELatency
+
+  build-depends:
+    , aeson
+    , async                       >=2.2
+    , base                        >=4.17 && <5
+    , bytestring
+    , containers
+    , criterion                   >=1.6
+    , deepseq                     >=1.4
+    , http-client
+    , http-client-tls
+    , http-types                  >=0.12
+    , random                      >=1.2
+    , stm                         >=2.5
+    , straylight-llm
+    , text
+    , time
+    , vector
+    , wai                         >=3.2
+    , warp                        >=3.3
+
+  default-extensions:
+    BangPatterns
     OverloadedStrings
     RecordWildCards

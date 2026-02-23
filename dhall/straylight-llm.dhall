@@ -55,10 +55,19 @@ let sourceManifest : T.SourceManifest =
         , T.path "${srcDir}/Resilience/CircuitBreaker.hs"
         , T.path "${srcDir}/Resilience/Metrics.hs"
         , T.path "${srcDir}/Resilience/Retry.hs"
+          -- Security (sanitization, injection detection)
+        , T.path "${srcDir}/Security/ConstantTime.hs"
+        , T.path "${srcDir}/Security/ObservabilitySanitization.hs"
+        , T.path "${srcDir}/Security/PromptInjection.hs"
+        , T.path "${srcDir}/Security/RequestLimits.hs"
+        , T.path "${srcDir}/Security/RequestSanitization.hs"
+        , T.path "${srcDir}/Security/ResponseSanitization.hs"
           -- Slide (wire protocol)
         , T.path "${srcDir}/Slide/Parse.hs"
         , T.path "${srcDir}/Slide/Wire/Types.hs"
         , T.path "${srcDir}/Slide/Wire/Varint.hs"
+          -- Streaming (SSE events)
+        , T.path "${srcDir}/Streaming/Events.hs"
           -- Types
         , T.path "${srcDir}/Types/Anthropic.hs"
         ]
@@ -95,10 +104,19 @@ let sourceManifest : T.SourceManifest =
         , "Resilience.CircuitBreaker"
         , "Resilience.Metrics"
         , "Resilience.Retry"
+          -- Security
+        , "Security.ConstantTime"
+        , "Security.ObservabilitySanitization"
+        , "Security.PromptInjection"
+        , "Security.RequestLimits"
+        , "Security.RequestSanitization"
+        , "Security.ResponseSanitization"
           -- Slide
         , "Slide.Parse"
         , "Slide.Wire.Types"
         , "Slide.Wire.Varint"
+          -- Streaming
+        , "Streaming.Events"
           -- Types
         , "Types.Anthropic"
         ]
@@ -111,7 +129,7 @@ let sourceManifest : T.SourceManifest =
 let haskellOpts : T.HaskellOpts =
     T.defaults.haskell
         -- Override specific options
-        // { ghcVersion = T.GhcVersion.GHC9103
+        // { ghcVersion = T.GhcVersion.GHC912
            , optLevel = T.OptLevel.O2
            , warnings =
                [ T.WarningFlag.Wall

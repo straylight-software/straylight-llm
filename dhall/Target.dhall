@@ -133,7 +133,7 @@ let Target =
 
 let defaults =
     { haskell =
-        { ghcVersion = GhcVersion.GHC9103
+        { ghcVersion = GhcVersion.GHC912
         , optLevel = OptLevel.O2
         , warnings = [ WarningFlag.Wall, WarningFlag.Wcompat, WarningFlag.Werror ]
         , extensions =

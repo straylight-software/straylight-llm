@@ -1,0 +1,135 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#                                                        // straylight-llm //
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#
+#     "The sky above the port was the color of television,
+#      tuned to a dead channel."
+#
+#                                                               — Neuromancer
+#
+# Build and push container to GitHub Container Registry.
+#
+# Triggers:
+#   - Push to main branch
+#   - Manual dispatch
+#   - Release published
+#
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+name: Build Container
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/**'
+      - 'services/**'
+      - 'examples/**'
+      - 'flake.nix'
+      - 'flake.lock'
+      - '.github/workflows/build-container.yml'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Container tag (default: latest)'
+        required: false
+        default: 'latest'
+  release:
+    types: [published]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            accept-flake-config = true
+
+      - name: Setup Cachix
+        uses: cachix/cachix-action@v15
+        with:
+          name: weyl-ai
+          skipPush: true
+
+      - name: Build container
+        run: |
+          nix build .#production --print-out-paths | tee /tmp/container-path
+          echo "CONTAINER_PATH=$(cat /tmp/container-path)" >> $GITHUB_ENV
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Determine tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            TAG="${{ github.event.release.tag_name }}"
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ github.event.inputs.tag }}"
+          else
+            TAG="latest"
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Using tag: $TAG"
+
+      - name: Push to GHCR
+        run: |
+          # Get skopeo from nix
+          nix develop --impure -c skopeo copy \
+            --insecure-policy \
+            --dest-creds="${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" \
+            "nix:${{ env.CONTAINER_PATH }}" \
+            "docker://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }}"
+
+      - name: Push latest tag (on release)
+        if: github.event_name == 'release'
+        run: |
+          nix develop --impure -c skopeo copy \
+            --insecure-policy \
+            --dest-creds="${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" \
+            "nix:${{ env.CONTAINER_PATH }}" \
+            "docker://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+
+  # Run tests before pushing (optional, can be made blocking)
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            accept-flake-config = true
+
+      - name: Setup Cachix
+        uses: cachix/cachix-action@v15
+        with:
+          name: weyl-ai
+          skipPush: true
+
+      - name: Run tests
+        run: |
+          cd gateway && nix develop --impure ..#default -c cabal test

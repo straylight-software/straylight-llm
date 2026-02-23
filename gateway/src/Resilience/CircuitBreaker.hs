@@ -28,8 +28,8 @@
 module Resilience.CircuitBreaker
     ( -- * Circuit Breaker
       CircuitBreaker
-    , CircuitState (..)
-    , CircuitBreakerConfig (..)
+    , CircuitState (Closed, Open, HalfOpen)
+    , CircuitBreakerConfig (CircuitBreakerConfig, cbcFailureThreshold, cbcSuccessThreshold, cbcCooldownPeriod, cbcHalfOpenMaxConcurrent)
     , defaultCircuitBreakerConfig
     
       -- * Construction
@@ -44,13 +44,16 @@ module Resilience.CircuitBreaker
     , forceClose
     
       -- * Stats
-    , CircuitStats (..)
+    , CircuitStats (CircuitStats, csName, csState, csFailureCount, csSuccessCount, csTotalFailures, csTotalSuccesses, csLastFailure, csOpenedAt)
     , getCircuitStats
     ) where
 
 import Control.Concurrent.MVar
+import Data.Aeson (ToJSON (toJSON), FromJSON (parseJSON), object, (.=), withObject, (.:))
+import Data.Aeson.Types qualified as AT
 import Data.IORef
 import Data.Text (Text)
+import Data.Text qualified as T
 import Data.Time.Clock (UTCTime, getCurrentTime, diffUTCTime, NominalDiffTime)
 
 
@@ -114,6 +117,49 @@ data CircuitStats = CircuitStats
     , csOpenedAt :: !(Maybe UTCTime)
     }
     deriving (Eq, Show)
+
+instance ToJSON CircuitState where
+    toJSON Closed = "closed"
+    toJSON Open = "open"
+    toJSON HalfOpen = "half_open"
+
+instance FromJSON CircuitState where
+    parseJSON = withObject "CircuitState" $ \v -> do
+        state <- v .: "state"
+        case state :: Text of
+            "closed" -> pure Closed
+            "open" -> pure Open
+            "half_open" -> pure HalfOpen
+            _ -> fail "Invalid circuit state"
+
+instance ToJSON CircuitStats where
+    toJSON cs = object
+        [ "name" .= csName cs
+        , "state" .= csState cs
+        , "failure_count" .= csFailureCount cs
+        , "success_count" .= csSuccessCount cs
+        , "total_failures" .= csTotalFailures cs
+        , "total_successes" .= csTotalSuccesses cs
+        , "last_failure" .= fmap (T.pack . show) (csLastFailure cs)
+        , "opened_at" .= fmap (T.pack . show) (csOpenedAt cs)
+        ]
+
+instance FromJSON CircuitStats where
+    parseJSON = withObject "CircuitStats" $ \v -> CircuitStats
+        <$> v .: "name"
+        <*> v .: "state"
+        <*> v .: "failure_count"
+        <*> v .: "success_count"
+        <*> v .: "total_failures"
+        <*> v .: "total_successes"
+        <*> (v .: "last_failure" >>= parseTimeText)
+        <*> (v .: "opened_at" >>= parseTimeText)
+      where
+        parseTimeText :: Maybe Text -> AT.Parser (Maybe UTCTime)
+        parseTimeText Nothing = pure Nothing
+        parseTimeText (Just t) = case reads (T.unpack t) of
+            [(time, "")] -> pure (Just time)
+            _ -> fail "Invalid timestamp"
 
 
 -- ════════════════════════════════════════════════════════════════════════════

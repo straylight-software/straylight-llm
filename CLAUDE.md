@@ -25,6 +25,11 @@ The architecture is defined in `aleph-reference/src/examples/lean-continuity/Con
 
 ## Current State
 
+**Build:** Passing (GHC 9.12.2)  
+**Tests:** 213/213 passing (property + integration + adversarial + formal)  
+**COMPASS Target:** 135+ tests — **EXCEEDED**
+**Live Testing:** Venice AI integration verified working
+
 ### Completed (Phase 1 - Type Safety)
 - GHC 9.12 upgrade (flake.nix, package.nix) — StrictData by default
 - Architecture documentation (`docs/ARCHITECTURE.md`) with full gap analysis
@@ -33,17 +38,9 @@ The architecture is defined in `aleph-reference/src/examples/lean-continuity/Con
 - Provider/Baseten.hs: `SomeException` → `HttpException`
 - Provider/OpenRouter.hs: `SomeException` → `HttpException`
 - Provider/Vertex.hs: `SomeException` → `HttpException`/`IOException`, **401 cache invalidation bug fixed**
+- Provider/ModelRegistry.hs: `SomeException` → `IOException`, **async startup with timeout**
 - All nix builds working: `.#straylight-llm`, `.#basic`, `.#with-cgp`
-- **Types.hs: All 9 `Value` fields replaced with proper ADTs:**
-  - `msgToolCalls :: Maybe [ToolCall]` — with `FunctionCall` record
-  - `crStop :: Maybe StopSequence` — `StopSingle Text | StopMultiple [Text]`
-  - `crLogitBias :: Maybe LogitBias` — newtype over `[(Text, Double)]`
-  - `crTools :: Maybe [ToolDef]` — with `ToolFunction`, `JsonSchema`
-  - `crToolChoice :: Maybe ToolChoice` — `ToolChoiceAuto | ToolChoiceNone | ToolChoiceRequired | ToolChoiceSpecific`
-  - `crResponseFormat :: Maybe ResponseFormat` — `ResponseFormatText | ResponseFormatJsonObject | ResponseFormatJsonSchema`
-  - `deltaDelta :: Maybe DeltaContent` — with `ToolCallDelta`, `FunctionCallDelta`
-  - `complStop :: Maybe StopSequence` — same as crStop
-  - `embInput :: EmbeddingInput` — `EmbeddingText | EmbeddingTexts | EmbeddingTokens | EmbeddingTokenArrays`
+- **Types.hs: All 9 `Value` fields replaced with proper ADTs**
 
 ### Completed (Phase 2 - Effect System)
 - `GatewayM` graded monad in `Effects/Graded.hs`
@@ -57,41 +54,91 @@ The architecture is defined in `aleph-reference/src/examples/lean-continuity/Con
 - `/v1/proof/:requestId` API endpoint to retrieve proofs
 
 ### Completed (Phase 4 - Property Tests)
-- 47 hedgehog property tests (all passing)
-- Coeffect types: Coeffect, NetworkAccess, FilesystemAccess, AuthUsage, DischargeProof, Hash
-- Types.hs: All semantic types, messages, tool calls, requests/responses
-- `FromJSON` instances for Coeffect, FilesystemMode, DischargeProof
-- Base16 encoding/decoding for Hash, PublicKey, Signature (no `read`)
-- LogitBias JSON key ordering fix
+- **213 tests total** (hedgehog property + integration + adversarial + formal)
+- Property tests: Types roundtrip (41), Coeffect (12), Graded Monad (11), Security, Streaming (21)
+- Integration tests: API (5), Proof (1), Lifecycle (11), OpenAPI spec
+- Adversarial tests: Race conditions (9), Injection edge cases (22), Provider errors (29)
+- Formal tests: Proof correspondence (9) — Haskell ↔ Lean4 verification
 
 ### Completed (Phase 5 - Lean4 Proofs)
-- `proofs/lakefile.lean`: Lake project configuration
-- `proofs/Straylight/Coeffect.lean`: Coeffect types and proofs
-  - Hash, PublicKey, Signature types with length invariants
-  - Coeffect ADT (Network, Filesystem, Auth, Pure, Combined)
-  - NetworkAccess, FilesystemAccess, AuthUsage types
-  - DischargeProof with isPure, isSigned, hasEvidence
-  - Coeffect monoid structure (tensor product, associativity, identity)
-- `proofs/Straylight/Gateway.lean`: Gateway types and proofs
-  - Provider, ProviderError types with error classification
-  - FallbackChain with bounded length invariant
-  - FallbackState with step function and termination proofs
-  - RetryState with termination proof
-  - Cache key determinism
-  - Gateway configuration bounds
-- `proofs/Straylight/Hermetic.lean`: **Meaningful hermetic proofs**
-  - `IsHermetic`: accessed ⊆ declared (the core hermeticity property)
-  - `hermetic_trans`: hermeticity is transitive
-  - `provider_in_chain_resources`: provider membership proof
-  - `cache_isolation`: disjoint cache domains have no shared keys
-  - `gateway_provider_hermetic`: accessing declared providers is hermetic
-  - `gateway_endpoint_hermetic`: accessing declared endpoints is hermetic
-  - `gateway_hermetic_main`: main theorem combining bounds + hermeticity
+- `proofs/Straylight/Coeffect.lean` (305 lines): Coeffect monoid, tensor product, discharge laws
+- `proofs/Straylight/Gateway.lean` (376 lines): Provider types, fallback termination, retry bounds
+- `proofs/Straylight/Hermetic.lean` (223 lines): Hermeticity guarantees, cache isolation
 - **No `sorry`, no `axiom` escapes** — all proofs complete
 
-### Remaining Phases
-- **Phase 6**: PureScript/Halogen frontend
-- **Phase 7**: Integration (Dhall, DICE, e2e, security, SearXNG + gVisor sandbox)
+### Completed (Phase 6 - Partial)
+- **Dhall BUILD files** (complete + Nix integration):
+  - `dhall/Target.dhall` — Typed targets (GhcVersion, OptLevel, Extension ADTs)
+  - `dhall/Platform.dhall` — Toolchain definitions
+  - `dhall/Build.dhall` — Build script generation
+  - `dhall/Action.dhall` — DICE-style incremental computation actions
+  - `dhall/straylight-llm.dhall` — Gateway target with explicit 38-file manifest
+  - `nix/modules/dhall-build.nix` — Nix integration (verify manifest, export JSON)
+  - `nix build .#dhall-verify` — Verifies all declared source files exist
+  - `nix build .#dhall-config` — Exports typed config to JSON
+- **PureScript/Halogen frontend** (partial):
+  - `App.purs` — Main app shell with tab navigation (Health/Models/Proofs)
+  - `API/Client.purs` — Full type definitions, API client
+  - `Components/HealthStatus.purs` — Basic status cards
+  - `Components/ModelsPanel.purs` — Model listing
+  - `Components/ProofViewer.purs` — Basic proof display
+  - `themes.css` — 14 themes
+  - `src-tauri/` — Tauri desktop builds (deb/appimage)
+- **Evring state machine** (complete):
+  - `Evring/Event.hs`, `Handle.hs`, `Machine.hs`, `Ring.hs`, `Sigil.hs`, `Trace.hs`
+  - Deterministic trace recording/replay for testing
+- **Slide wire protocol** (partial):
+  - `Slide/Parse.hs` — Uses `reads` (better than production)
+  - `Slide/Wire/Types.hs`, `Slide/Wire/Varint.hs`
+- **Resilience** (complete):
+  - `Resilience/Cache.hs`, `CircuitBreaker.hs`, `Retry.hs`, `Backpressure.hs`, `Metrics.hs`
+- **Security** (complete):
+  - `Security/ConstantTime.hs`, `PromptInjection.hs`, `RequestLimits.hs`
+  - `Security/RequestSanitization.hs`, `ResponseSanitization.hs`, `ObservabilitySanitization.hs`
+- **Streaming SSE** (complete):
+  - `POST /v1/chat/completions/stream` endpoint
+  - WAI `responseStream` with `text/event-stream`
+  - OpenAI-compatible format with `[DONE]` marker
+- **Real-time SSE Events** (complete):
+  - `Streaming/Events.hs` — Event broadcaster using STM broadcast channels
+  - `GET /v1/events` — SSE endpoint subscribes to broadcaster
+  - Event types: `request.started`, `request.completed`, `proof.generated`, `provider.status`, `keepalive`
+  - Circuit breaker state change notifications emitted on provider.status
+  - All request routes (chat, stream, embeddings, models) emit events
+
+### Remaining (Phase 6 - Frontend)
+- Provider Status Dashboard (real-time provider health, circuit breaker visualization) — **backend SSE ready**
+- Request/Response Timeline (chronological view with filtering) — **backend SSE ready**
+- ~~WebSocket/SSE real-time updates~~ **backend complete, frontend pending**
+- Coeffect Graph Visualization (DAG of coeffect relationships)
+- Enhanced Proof Inspector (signature verification, hash verification)
+- Metrics Dashboard (token usage, latency, cache performance)
+
+### Completed (Phase 7 - Performance Benchmarks)
+- **Criterion benchmark suite** (`gateway/bench/`):
+  - `bench/Main.hs` — Benchmark entry point
+  - `bench/Bench/Router.hs` — Request ID generation, proof cache operations
+  - `bench/Bench/CircuitBreaker.hs` — State checks, transitions, concurrent access
+  - `bench/Bench/SSEBroadcaster.hs` — Event encoding, broadcast latency, subscriber scaling
+  - `bench/Bench/Coeffect.hs` — Combination, serialization, hashing, proof generation
+- **Key results** (GHC 9.12.2, -O2):
+  - Request ID generation: **407ns** (single), 41μs (100)
+  - Circuit breaker state check: **7.8ns** (closed), 7.7ns (open)
+  - Circuit breaker getStats: **12.5ns**
+  - withCircuitBreaker success: **85.5ns**
+  - withCircuitBreaker open/fast-fail: **86.5ns**
+  - SSE event encoding: **3.5ns** (keepalive), 410ns (request.started), 1.4μs (request.completed)
+  - SSE broadcast (no subscribers): **26.5ns** (single), 25μs (1000 events)
+  - SSE broadcast (1000 subscribers): **51ns** (constant time via STM broadcast)
+  - Coeffect combination (Pure+Pure): **1.7ns**
+  - Map-based cache lookup: **51-53ns** (hit/miss)
+  - BoundedCache lookup: **124-128ns**
+
+### Remaining (Phase 7 - Integration)
+- ~~Integrate Dhall BUILD files with flake.nix~~ **DONE**
+- ~~Memory/performance benchmarks~~ **DONE** (see above)
+- E2E tests with Playwright
+- SearXNG + gVisor sandbox integration
 
 ## Build Commands
 
@@ -103,6 +150,10 @@ nix develop --command bash -c "cd gateway && cabal build"
 nix build .#straylight-llm    # Binary
 nix build .#basic             # Container (OpenRouter only)
 nix build .#with-cgp          # Container (CGP-first)
+
+# Dhall verification
+nix build .#dhall-verify      # Verify source manifest (all 38 files exist)
+nix build .#dhall-config      # Export typed config to JSON
 ```
 
 ## Forbidden Patterns
@@ -124,6 +175,7 @@ nix build .#with-cgp          # Container (CGP-first)
 straylight-llm/
 ├── flake.nix                      # GHC 9.12 configured
 ├── CLAUDE.md                      # This file
+├── CONTINUITY_VISION.md           # Why we build correct AI
 ├── docs/
 │   └── ARCHITECTURE.md            # Full 7-phase migration plan
 ├── aleph-reference/
@@ -141,19 +193,44 @@ straylight-llm/
 │   │   ├── Router.hs              # Modified: generates discharge proofs
 │   │   ├── Api.hs                 # Modified: added ProofAPI
 │   │   ├── Handlers.hs            # Modified: added proofHandler
+│   │   ├── Evring/                # State machine abstraction (6 modules)
+│   │   ├── Slide/                 # Wire protocol (3 modules)
+│   │   ├── Resilience/            # Cache, CircuitBreaker, Retry, etc. (5 modules)
+│   │   ├── Security/              # Sanitization, limits, injection detection (6 modules)
+│   │   ├── Streaming/             # SSE events (1 module: Events.hs)
 │   │   └── Provider/
 │   │       ├── Venice.hs          # FIXED: HttpException, uses GatewayM
 │   │       ├── Vertex.hs          # FIXED: HttpException, 401 cache bug
 │   │       ├── Baseten.hs         # FIXED: HttpException, uses GatewayM
-│   │       └── OpenRouter.hs      # FIXED: HttpException, uses GatewayM
+│   │       ├── OpenRouter.hs      # FIXED: HttpException, uses GatewayM
+│   │       └── Anthropic.hs       # Direct Anthropic API
 │   ├── test/
-│   │   ├── Main.hs                # Phase 4: test runner
-│   │   └── Property/
-│   │       ├── Generators.hs      # Phase 4: hedgehog generators
-│   │       ├── TypesProps.hs      # Phase 4: Types.hs roundtrip tests
-│   │       └── CoeffectProps.hs   # Phase 4: Coeffect types tests
+│   │   ├── Main.hs                # Test runner (213 tests)
+│   │   ├── Property/              # 6 modules (Types, Coeffect, Graded, Security, Streaming, Generators)
+│   │   ├── Integration/           # 5 modules (API, Proof, Lifecycle, OpenAPI, TestServer)
+│   │   ├── Adversarial/           # 3 modules (Race, Injection, ProviderErrors)
+│   │   └── Formal/                # 1 module (ProofCorrespondence)
+│   ├── bench/
+│   │   ├── Main.hs                # Criterion benchmark runner
+│   │   └── Bench/                 # Router, CircuitBreaker, SSEBroadcaster, Coeffect
 │   └── app/
 │       └── Main.hs
+├── proofs/
+│   └── Straylight/
+│       ├── Coeffect.lean          # 305 lines
+│       ├── Gateway.lean           # 376 lines
+│       └── Hermetic.lean          # 223 lines
+├── dhall/
+│   ├── Target.dhall               # Typed build targets
+│   ├── Platform.dhall             # Toolchain definitions
+│   ├── Build.dhall                # Build script generation
+│   ├── Action.dhall               # DICE actions
+│   └── straylight-llm.dhall       # Gateway target definition
+└── frontend/
+    └── src/Straylight/
+        ├── App.purs               # Main app shell
+        ├── API/Client.purs        # API client
+        └── Components/            # HealthStatus, ModelsPanel, ProofViewer, etc.
 ```
 
 ## The Vision

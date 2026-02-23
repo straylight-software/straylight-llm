@@ -72,9 +72,10 @@ data Config = Config
     , cfgBaseten :: ProviderConfig
     , cfgOpenRouter :: ProviderConfig
     , cfgAnthropic :: ProviderConfig  -- Direct Anthropic API (last in chain)
-    , cfgLogLevel :: Text             -- "debug" | "info" | "warn" | "error"
+    , cfgLogLevel :: Text             -- \"debug\" | \"info\" | \"warn\" | \"error\"
     , cfgRequestTimeout :: Int        -- Seconds
     , cfgMaxRetries :: Int
+    , cfgAdminApiKey :: Maybe Text    -- Admin API key for observability endpoints
     }
     deriving (Eq, Show)
 
@@ -130,6 +131,7 @@ defaultConfig = Config
     , cfgLogLevel = "info"
     , cfgRequestTimeout = 120
     , cfgMaxRetries = 3
+    , cfgAdminApiKey = Nothing  -- Must be set via ADMIN_API_KEY env var
     }
 
 
@@ -166,6 +168,8 @@ loadApiKey mPath mDirect envVar = do
 --   STRAYLIGHT_PORT           - Server port (default: 8080)
 --   STRAYLIGHT_HOST           - Server host (default: 0.0.0.0)
 --   STRAYLIGHT_LOG_LEVEL      - Log level (default: info)
+--
+--   ADMIN_API_KEY             - Admin API key for observability endpoints
 --
 --   VENICE_API_KEY            - Venice AI API key
 --   VENICE_API_KEY_FILE       - Path to Venice API key file
@@ -209,6 +213,9 @@ loadConfigFromEnv = do
     -- Anthropic (direct API - last in fallback chain)
     anthropicKeyFile <- lookupEnv "ANTHROPIC_API_KEY_FILE"
     anthropicKey <- loadApiKey anthropicKeyFile Nothing "ANTHROPIC_API_KEY"
+
+    -- Admin API key for observability endpoints
+    adminApiKey <- fmap T.pack <$> lookupEnv "ADMIN_API_KEY"
 
     let vertexBaseUrl = if T.null gcpProject
             then ""
@@ -260,6 +267,7 @@ loadConfigFromEnv = do
         , cfgLogLevel = logLevel
         , cfgRequestTimeout = 120
         , cfgMaxRetries = 3
+        , cfgAdminApiKey = adminApiKey
         }
 
 -- | Load configuration (currently just from env, could add file support)

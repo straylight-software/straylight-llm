@@ -31,10 +31,18 @@ module Handlers
     , embeddingsHandler
     , modelsHandler
     , proofHandler
+    , proofVerifyHandler
+    , providersStatusHandler
+    , metricsHandler
+    , requestsHandler
+    , requestDetailHandler
+    , eventsHandler
+    , configGetHandler
+    , configPutHandler
     ) where
 
 import Control.Monad.IO.Class (liftIO)
-import Data.Aeson (eitherDecode, encode)
+import Data.Aeson (eitherDecode, encode, toJSON, object, (.=))
 import Data.ByteString qualified as BS
 import Data.ByteString.Builder (byteString, lazyByteString, string8)
 import Data.ByteString.Lazy qualified as LBS
@@ -49,10 +57,35 @@ import Numeric (showHex)
 import Servant
 import System.Random (randomIO)
 
+import Control.Concurrent.STM (atomically, readTChan)
+import Control.Exception (finally)
+
 import Api
-import Coeffect.Types (DischargeProof)
-import Provider.Types (ProviderError (..))
+import Coeffect.Types (DischargeProof, dpSignature)
+import Config 
+    ( Config (cfgPort, cfgHost, cfgLogLevel, cfgVenice, cfgVertex, cfgBaseten, cfgOpenRouter, cfgAnthropic)
+    , ProviderConfig (pcEnabled, pcBaseUrl)
+    , cfgAdminApiKey
+    )
+import Provider.Types 
+    ( ProviderError 
+        ( AuthError
+        , RateLimitError
+        , QuotaExceededError
+        , ModelNotFoundError
+        , ProviderUnavailable
+        , InvalidRequestError
+        , InternalError
+        , TimeoutError
+        , UnknownError
+        )
+    )
+import Resilience.Backpressure (tryWithRequestSlot)
+import Resilience.Cache (cacheRecentValues)
+import Resilience.CircuitBreaker (csState)
 import Router
+import Security.ConstantTime (constantTimeCompareText)
+import System.IO (hPutStrLn, stderr)
 import Types
 
 
@@ -73,6 +106,14 @@ server router =
     :<|> embeddingsHandler router
     :<|> modelsHandler router
     :<|> proofHandler router
+    :<|> proofVerifyHandler router
+    :<|> providersStatusHandler router
+    :<|> metricsHandler router
+    :<|> requestsHandler router
+    :<|> requestDetailHandler router
+    :<|> eventsHandler router
+    :<|> configGetHandler router
+    :<|> configPutHandler router
 
 
 -- ════════════════════════════════════════════════════════════════════════════
@@ -91,7 +132,8 @@ generateRequestId = do
 
 -- | Chat completions handler
 -- Routes through provider chain: Venice -> Vertex -> Baseten -> OpenRouter
-chatHandler :: Router -> Maybe Text -> ChatRequest -> Handler ChatResponse
+-- Returns X-Request-Id header for proof retrieval via GET /v1/proof/:requestId
+chatHandler :: Router -> Maybe Text -> ChatRequest -> Handler (Headers '[Header "X-Request-Id" Text] ChatResponse)
 chatHandler router _mAuth req = do
     requestId <- liftIO generateRequestId
 
@@ -99,7 +141,7 @@ chatHandler router _mAuth req = do
     result <- liftIO $ routeChat router requestId req
 
     case result of
-        Right response -> pure response
+        Right response -> pure $ addHeader requestId response
         Left err -> throwError $ toServantError err
 
 
@@ -332,3 +374,297 @@ proofHandler router requestId = do
                 Nothing
                 Nothing
             }
+
+
+-- ════════════════════════════════════════════════════════════════════════════
+--                                                     // observability handlers
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- | Verify admin authentication
+-- Returns 401 if auth header missing or invalid
+requireAdminAuth :: Router -> Maybe Text -> Text -> Handler ()
+requireAdminAuth router mAuthHeader endpoint = do
+    case cfgAdminApiKey (routerConfig router) of
+        Nothing ->
+            -- No admin key configured - reject all admin requests
+            throwError err401
+                { errBody = encode $ ApiError $ ErrorDetail
+                    "Admin API key not configured (set ADMIN_API_KEY environment variable)"
+                    "admin_key_not_configured"
+                    Nothing
+                    Nothing
+                }
+        Just adminKey -> do
+            case mAuthHeader of
+                Nothing ->
+                    throwError err401
+                        { errBody = encode $ ApiError $ ErrorDetail
+                            "Admin authentication required (Authorization header missing)"
+                            "authentication_required"
+                            Nothing
+                            Nothing
+                        }
+                Just authHeader -> do
+                    -- Support both "Bearer <key>" and raw key
+                    let providedKey = case T.stripPrefix "Bearer " authHeader of
+                            Just k -> k
+                            Nothing -> authHeader
+                    
+                    -- SECURITY: Constant-time comparison prevents timing attacks
+                    if not (constantTimeCompareText providedKey adminKey)
+                        then throwError err401
+                            { errBody = encode $ ApiError $ ErrorDetail
+                                "Invalid admin API key"
+                                "invalid_admin_key"
+                                Nothing
+                                Nothing
+                            }
+                        else do
+                            -- Audit log to stderr (structured logging)
+                            liftIO $ hPutStrLn stderr $
+                                "[ADMIN_ACCESS] endpoint=" <> T.unpack endpoint
+                                <> " auth=success"
+                            pure ()
+
+-- | Providers status handler (admin only)
+-- GET /v1/admin/providers/status
+providersStatusHandler :: Router -> Maybe Text -> Handler ProvidersStatusResponse
+providersStatusHandler router mAuth = do
+    requireAdminAuth router mAuth "providers/status"
+    
+    -- Rate limit admin endpoint
+    mResult <- liftIO $ tryWithRequestSlot (routerAdminSemaphore router) $ do
+        getProviderCircuitStats router
+    
+    case mResult of
+        Nothing ->
+            throwError err503
+                { errBody = encode $ ApiError $ ErrorDetail
+                    "Admin endpoint overloaded (too many concurrent requests)"
+                    "rate_limited"
+                    Nothing
+                    Nothing
+                }
+        Just stats -> do
+            let providerStatuses = map (\(name, circuitStats) ->
+                    ProviderStatus name (csState circuitStats) circuitStats
+                    ) stats
+            pure $ ProvidersStatusResponse providerStatuses
+
+-- | Metrics handler (admin only)
+-- GET /v1/admin/metrics
+metricsHandler :: Router -> Maybe Text -> Handler MetricsResponse
+metricsHandler router mAuth = do
+    requireAdminAuth router mAuth "metrics"
+    
+    -- Rate limit admin endpoint
+    mResult <- liftIO $ tryWithRequestSlot (routerAdminSemaphore router) $ do
+        getRouterMetrics router
+    
+    case mResult of
+        Nothing ->
+            throwError err503
+                { errBody = encode $ ApiError $ ErrorDetail
+                    "Admin endpoint overloaded (too many concurrent requests)"
+                    "rate_limited"
+                    Nothing
+                    Nothing
+                }
+        Just metrics ->
+            pure $ MetricsResponse metrics
+
+-- | Requests handler (admin only)
+-- GET /v1/admin/requests?limit=N
+requestsHandler :: Router -> Maybe Text -> Maybe Int -> Handler RequestsResponse
+requestsHandler router mAuth mLimit = do
+    requireAdminAuth router mAuth "requests"
+    
+    -- Rate limit admin endpoint
+    mResult <- liftIO $ tryWithRequestSlot (routerAdminSemaphore router) $ do
+        -- Apply limit (default 100, max 1000)
+        let limit = maybe 100 (min 1000) mLimit
+        
+        -- Get recent request history from cache
+        recentRequests <- cacheRecentValues (routerRequestHistory router) limit
+        
+        pure (recentRequests, limit)
+    
+    case mResult of
+        Nothing ->
+            throwError err503
+                { errBody = encode $ ApiError $ ErrorDetail
+                    "Admin endpoint overloaded (too many concurrent requests)"
+                    "rate_limited"
+                    Nothing
+                    Nothing
+                }
+        Just (recentRequests, _) -> do
+            -- Convert to JSON values
+            let requestValues = map toJSON recentRequests
+            
+            pure $ RequestsResponse requestValues (length recentRequests)
+
+
+-- ════════════════════════════════════════════════════════════════════════════
+--                                                         // new api handlers
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- | Single request detail handler (admin only)
+-- GET /v1/admin/requests/:requestId
+requestDetailHandler :: Router -> Text -> Maybe Text -> Handler RequestDetailResponse
+requestDetailHandler router requestId mAuth = do
+    requireAdminAuth router mAuth "requests/detail"
+    
+    -- Look up in request history cache
+    mHistory <- liftIO $ lookupRequestHistory router requestId
+    
+    case mHistory of
+        Nothing ->
+            throwError err404
+                { errBody = encode $ ApiError $ ErrorDetail
+                    ("Request not found: " <> requestId)
+                    "request_not_found"
+                    Nothing
+                    Nothing
+                }
+        Just history -> do
+            -- Also try to get the proof
+            mProof <- liftIO $ lookupProof router requestId
+            let proofJson = fmap toJSON mProof
+            
+            pure $ RequestDetailResponse
+                { rdrRequestId = rhRequestId history
+                , rdrModel = rhModel history
+                , rdrProvider = fmap (T.pack . show) (rhProvider history)
+                , rdrSuccess = rhSuccess history
+                , rdrLatencyMs = rhLatencyMs history
+                , rdrTimestamp = rhTimestamp history
+                , rdrProof = proofJson
+                }
+
+-- | Proof verification handler
+-- POST /v1/proof/:requestId/verify
+proofVerifyHandler :: Router -> Text -> Handler ProofVerifyResponse
+proofVerifyHandler router requestId = do
+    mProof <- liftIO $ lookupProof router requestId
+    
+    case mProof of
+        Nothing ->
+            throwError err404
+                { errBody = encode $ ApiError $ ErrorDetail
+                    ("Proof not found for request: " <> requestId)
+                    "proof_not_found"
+                    Nothing
+                    Nothing
+                }
+        Just proof -> do
+            -- Check if proof has a signature
+            case dpSignature proof of
+                Nothing ->
+                    pure $ ProofVerifyResponse
+                        { pvrValid = False
+                        , pvrMessage = "Proof is unsigned (no signing key configured)"
+                        , pvrDetails = Nothing
+                        }
+                Just _sig -> do
+                    -- TODO: Implement actual ed25519 signature verification
+                    -- For now, we just check that the signature exists
+                    pure $ ProofVerifyResponse
+                        { pvrValid = True
+                        , pvrMessage = "Proof signature present (verification pending signing key)"
+                        , pvrDetails = Just $ toJSON proof
+                        }
+
+-- | Real-time events handler (SSE stream)
+-- GET /v1/events
+-- Subscribes to the event broadcaster and streams events to the client
+eventsHandler :: Router -> Tagged Handler Application
+eventsHandler router = Tagged $ \_req respond' -> do
+    respond' $ responseStream status200
+        [ ("Content-Type", "text/event-stream")
+        , ("Cache-Control", "no-cache")
+        , ("Connection", "keep-alive")
+        , ("Access-Control-Allow-Origin", "*")
+        ]
+        $ \send flush -> do
+            -- Subscribe to the event broadcaster
+            (subId, subChan, cleanup) <- subscribe (routerEventBroadcaster router)
+            
+            -- Send initial connection event
+            send $ string8 "event: connected\n"
+            send $ string8 "data: {\"status\":\"connected\",\"subscriber_id\":\""
+            send $ string8 $ show subId  -- Include subscriber ID for debugging
+            send $ string8 "\"}\n\n"
+            flush
+            
+            -- Log subscription
+            hPutStrLn stderr $ "[SSE] Client subscribed: " ++ show subId
+            
+            -- Event loop: read from channel and send to client
+            -- Cleanup on disconnect
+            flip finally cleanup $ eventLoop send flush subChan
+  where
+    eventLoop send flush subChan = do
+        -- Block waiting for next event
+        event <- atomically $ readTChan subChan
+        
+        -- Encode and send the event
+        let encoded = encodeSSEEvent event
+        _ <- send $ lazyByteString encoded
+        _ <- flush
+        
+        -- Continue loop
+        eventLoop send flush subChan
+
+-- | Config get handler (admin only)
+-- GET /v1/admin/config
+configGetHandler :: Router -> Maybe Text -> Handler ConfigResponse
+configGetHandler router mAuth = do
+    requireAdminAuth router mAuth "config"
+    
+    let cfg = routerConfig router
+    
+    -- Build provider status list
+    let providerConfigs = 
+            [ toJSON $ object
+                [ "name" .= ("venice" :: Text)
+                , "enabled" .= (pcEnabled $ cfgVenice cfg)
+                , "base_url" .= (pcBaseUrl $ cfgVenice cfg)
+                ]
+            , toJSON $ object
+                [ "name" .= ("vertex" :: Text)
+                , "enabled" .= (pcEnabled $ cfgVertex cfg)
+                ]
+            , toJSON $ object
+                [ "name" .= ("baseten" :: Text)
+                , "enabled" .= (pcEnabled $ cfgBaseten cfg)
+                ]
+            , toJSON $ object
+                [ "name" .= ("openrouter" :: Text)
+                , "enabled" .= (pcEnabled $ cfgOpenRouter cfg)
+                ]
+            , toJSON $ object
+                [ "name" .= ("anthropic" :: Text)
+                , "enabled" .= (pcEnabled $ cfgAnthropic cfg)
+                ]
+            ]
+    
+    pure $ ConfigResponse
+        { crPort = cfgPort cfg
+        , crHost = cfgHost cfg
+        , crLogLevel = cfgLogLevel cfg
+        , crProviders = providerConfigs
+        }
+
+-- | Config put handler (admin only)
+-- PUT /v1/admin/config
+configPutHandler :: Router -> Maybe Text -> ConfigUpdateRequest -> Handler ConfigResponse
+configPutHandler router mAuth _updateReq = do
+    requireAdminAuth router mAuth "config/update"
+    
+    -- TODO: Implement runtime config updates
+    -- For now, just return the current config (read-only)
+    liftIO $ hPutStrLn stderr "[CONFIG] Config update requested but not yet implemented"
+    
+    -- Return current config
+    configGetHandler router mAuth

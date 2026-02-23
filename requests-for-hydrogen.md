@@ -6,6 +6,116 @@ This document outlines all frontend components, features, and integration work n
 
 ---
 
+## UI Atoms & Components Needed
+
+These are the fundamental building blocks we need from hydrogen to construct the dashboard.
+
+### Layout Atoms
+
+| Atom | Description | Props |
+|------|-------------|-------|
+| `Container` | Max-width centered container | `size: sm/md/lg/xl/full` |
+| `Grid` | CSS Grid wrapper | `cols: 1-12`, `gap: sm/md/lg` |
+| `Flex` | Flexbox wrapper | `direction`, `justify`, `align`, `gap` |
+| `Stack` | Vertical stack with consistent spacing | `gap: sm/md/lg` |
+| `Sidebar` | Collapsible sidebar panel | `collapsed`, `onToggle` |
+| `Panel` | Content panel with optional header | `title`, `actions`, `collapsible` |
+| `Divider` | Horizontal/vertical divider | `orientation`, `label` |
+
+### Typography Atoms
+
+| Atom | Description | Props |
+|------|-------------|-------|
+| `Heading` | h1-h6 headings | `level: 1-6`, `size`, `weight` |
+| `Text` | Paragraph/span text | `size: xs/sm/md/lg`, `weight`, `color`, `truncate` |
+| `Code` | Inline code | `language` |
+| `CodeBlock` | Multi-line code with syntax highlighting | `language`, `lineNumbers`, `copyable` |
+| `Label` | Form label | `required`, `htmlFor` |
+| `Badge` | Status badge | `variant: success/warning/error/info`, `size` |
+| `Timestamp` | Relative/absolute time display | `value`, `format: relative/absolute` |
+
+### Form Atoms
+
+| Atom | Description | Props |
+|------|-------------|-------|
+| `Input` | Text input | `type`, `placeholder`, `disabled`, `error` |
+| `TextArea` | Multi-line input | `rows`, `resize` |
+| `Select` | Dropdown select | `options`, `multiple`, `searchable` |
+| `Checkbox` | Checkbox input | `checked`, `indeterminate` |
+| `Toggle` | Toggle switch | `checked`, `size` |
+| `Slider` | Range slider | `min`, `max`, `step`, `value` |
+| `Button` | Action button | `variant: primary/secondary/ghost/danger`, `size`, `loading`, `icon` |
+| `IconButton` | Icon-only button | `icon`, `label` (for a11y), `size` |
+| `ButtonGroup` | Grouped buttons | `attached` |
+
+### Data Display Atoms
+
+| Atom | Description | Props |
+|------|-------------|-------|
+| `Card` | Content card with shadow | `padding`, `hoverable`, `onClick` |
+| `Table` | Data table | `columns`, `data`, `sortable`, `selectable` |
+| `List` | Vertical list | `items`, `renderItem`, `dividers` |
+| `VirtualList` | Virtualized list for large datasets | `items`, `itemHeight`, `renderItem` |
+| `KeyValue` | Key-value pair display | `label`, `value`, `copyable` |
+| `Stat` | Statistic display | `label`, `value`, `change`, `changeType: up/down` |
+| `Progress` | Progress bar | `value`, `max`, `variant`, `showLabel` |
+| `Meter` | Gauge/meter display | `value`, `min`, `max`, `thresholds` |
+| `Avatar` | User/provider avatar | `src`, `fallback`, `size` |
+| `Icon` | SVG icon | `name`, `size`, `color` |
+
+### Feedback Atoms
+
+| Atom | Description | Props |
+|------|-------------|-------|
+| `Spinner` | Loading spinner | `size`, `label` |
+| `Skeleton` | Loading skeleton placeholder | `variant: text/circle/rect`, `width`, `height` |
+| `Toast` | Toast notification | `variant`, `title`, `message`, `action` |
+| `Alert` | Inline alert | `variant: info/success/warning/error`, `title`, `dismissible` |
+| `Tooltip` | Hover tooltip | `content`, `placement` |
+| `Popover` | Click popover | `content`, `trigger`, `placement` |
+| `Modal` | Modal dialog | `open`, `onClose`, `title`, `size` |
+| `Drawer` | Side drawer | `open`, `onClose`, `position: left/right`, `size` |
+| `EmptyState` | Empty state placeholder | `icon`, `title`, `description`, `action` |
+
+### Navigation Atoms
+
+| Atom | Description | Props |
+|------|-------------|-------|
+| `Tabs` | Tab navigation | `tabs`, `activeTab`, `onChange` |
+| `TabPanel` | Tab content panel | `value` |
+| `Breadcrumb` | Breadcrumb navigation | `items` |
+| `Menu` | Dropdown menu | `items`, `trigger` |
+| `MenuItem` | Menu item | `icon`, `label`, `shortcut`, `danger` |
+| `Nav` | Vertical navigation | `items`, `activeItem` |
+| `NavItem` | Navigation item | `icon`, `label`, `badge`, `active` |
+
+### Chart Atoms
+
+| Atom | Description | Props |
+|------|-------------|-------|
+| `LineChart` | Time series line chart | `data`, `xAxis`, `yAxis`, `series` |
+| `BarChart` | Bar chart | `data`, `orientation: horizontal/vertical` |
+| `PieChart` | Pie/donut chart | `data`, `donut` |
+| `Sparkline` | Inline sparkline | `data`, `color`, `type: line/bar` |
+| `Histogram` | Histogram distribution | `data`, `bins` |
+
+### Specialized Atoms (straylight-specific)
+
+| Atom | Description | Props |
+|------|-------------|-------|
+| `CircuitBreakerIndicator` | Circuit breaker state viz | `state: closed/open/half-open`, `failures`, `threshold` |
+| `ProviderCard` | LLM provider status card | `provider`, `status`, `metrics` |
+| `RequestRow` | Request history row | `request`, `onClick`, `selected` |
+| `ProofBadge` | Discharge proof indicator | `hasProof`, `verified` |
+| `LatencyBadge` | Latency with color coding | `ms`, `thresholds` |
+| `TokenUsage` | Token usage display | `prompt`, `completion`, `total` |
+| `ModelSelector` | Model picker dropdown | `models`, `selected`, `onChange` |
+| `SSEIndicator` | SSE connection status | `connected`, `reconnecting` |
+| `CoeffectNode` | Coeffect graph node | `type`, `label`, `active` |
+| `HashDisplay` | Truncated hash with copy | `hash`, `truncate` |
+
+---
+
 ## Current State
 
 ### What Exists
@@ -14,17 +124,34 @@ The PureScript/Halogen + Tauri frontend is **partially complete**:
 
 | Component | File | Status |
 |-----------|------|--------|
-| Main App Shell | `App.purs` | Complete - Tab navigation (Health/Models/Proofs) |
-| API Client | `API/Client.purs` | Complete - Full type definitions |
-| Health Status | `Components/HealthStatus.purs` | Complete - Basic status cards |
-| Models Panel | `Components/ModelsPanel.purs` | Complete - Model listing |
-| Proof Viewer | `Components/ProofViewer.purs` | Complete - Basic proof display |
-| Theme System | `themes.css` | Complete - 14 themes |
-| Tauri Desktop | `src-tauri/` | Complete - deb/appimage builds |
+| Main App Shell | `App.purs` | **Complete** - Tab navigation (Health/Models/Proofs) |
+| API Client | `API/Client.purs` | **Complete** - Full type definitions |
+| Health Status | `Components/HealthStatus.purs` | **Complete** - Basic status cards |
+| Models Panel | `Components/ModelsPanel.purs` | **Complete** - Model listing |
+| Proof Viewer | `Components/ProofViewer.purs` | **Complete** - Basic proof display |
+| Theme System | `themes.css` | **Complete** - 14 themes |
+| Tauri Desktop | `src-tauri/` | **Complete** - deb/appimage builds |
+| Icon Component | `Components/Icon.purs` | **Complete** - SVG icons |
+| Splash Screen | `Components/Splash.purs` | **Complete** - Loading splash |
+
+### Backend Support (Complete)
+
+| Endpoint | Status | Notes |
+|----------|--------|-------|
+| `GET /health` | **Complete** | Health check |
+| `GET /v1/models` | **Complete** | Model listing from all providers |
+| `GET /v1/proof/:requestId` | **Complete** | Discharge proof retrieval |
+| `POST /v1/chat/completions` | **Complete** | Returns `X-Request-Id` header |
+| `POST /v1/chat/completions/stream` | **Complete** | SSE streaming with `X-Request-Id` |
+| `POST /v1/completions` | **Complete** | Legacy completions |
+| `POST /v1/embeddings` | **Complete** | Embeddings |
+| `GET /v1/admin/providers/status` | **Complete** | Provider health + circuit breakers |
+| `GET /v1/admin/metrics` | **Complete** | Aggregated metrics |
+| `GET /v1/admin/requests?limit=N` | **Complete** | Request history |
 
 ### What's Missing
 
-The dashboard needs significant work to fully visualize the aleph cube architecture.
+The dashboard needs additional work to fully visualize the aleph cube architecture.
 
 ---
 
@@ -54,20 +181,7 @@ Display real-time status of all LLM providers with circuit breaker visualization
   - Fallback chain visualization
   - Active/disabled toggle per provider
 
-**Backend API needed:**
-```
-GET /v1/providers/status
-{
-  "providers": [
-    {
-      "name": "vertex",
-      "status": "healthy",
-      "circuitBreaker": { "state": "closed", "failures": 0, "threshold": 5 },
-      "metrics": { "latencyP50": 120, "latencyP95": 450, "errorRate": 0.02 }
-    }
-  ]
-}
-```
+**Backend API:** `GET /v1/admin/providers/status` — **Already implemented!**
 
 ---
 
@@ -101,11 +215,9 @@ Chronological view of gateway requests with filtering and drill-down.
   - Export filtered requests as JSON
   - Export as CSV for analysis
 
-**Backend API needed:**
-```
-GET /v1/requests?limit=50&offset=0&provider=vertex&status=success
-GET /v1/requests/:requestId
-```
+**Backend API:** 
+- `GET /v1/admin/requests?limit=N` — **Already implemented!**
+- `GET /v1/admin/requests/:requestId` — Still needed (single request detail)
 
 ---
 
@@ -133,11 +245,19 @@ Real-time updates without polling.
   - Toast notifications for errors
   - Sound/visual alert for critical events
 
-**Backend API needed:**
+**Backend API:** `GET /v1/events` (SSE stream) — **Complete**
 ```
-GET /v1/events (SSE stream)
+event: request.started
+data: {"request_id":"req_abc","model":"gpt-4","timestamp":"..."}
+
 event: request.completed
-data: {"requestId": "abc", "provider": "vertex", "status": "success"}
+data: {"request_id":"req_abc","model":"gpt-4","provider":"venice","success":true,"latency_ms":123.45}
+
+event: proof.generated
+data: {"request_id":"req_abc","coeffects":["network","auth:venice"],"signed":true}
+
+event: provider.status
+data: {"provider":"vertex","state":"open","failures":5,"threshold":5}
 ```
 
 ---
@@ -227,15 +347,7 @@ Observability and performance monitoring.
   - Explanation of current grade
   - Improvement suggestions
 
-**Backend API needed:**
-```
-GET /v1/metrics
-{
-  "tokenUsage": { "prompt": 10000, "completion": 5000 },
-  "cacheHitRate": 0.75,
-  "latency": { "p50": 120, "p95": 450, "p99": 1200 }
-}
-```
+**Backend API:** `GET /v1/admin/metrics` — **Already implemented!**
 
 ---
 
@@ -354,20 +466,29 @@ Integrate with gVisor-sandboxed SearXNG for web search.
 
 ---
 
-## Backend API Additions Required
+## Backend API Status
 
-The following backend endpoints are needed to support the frontend:
+### All Endpoints Implemented
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/v1/providers/status` | GET | Provider health, circuit breaker state, metrics |
-| `/v1/requests` | GET | Paginated request history with filters |
-| `/v1/requests/:id` | GET | Single request detail with full context |
-| `/v1/events` | GET (SSE) | Real-time event stream |
-| `/v1/metrics` | GET | Aggregated metrics (tokens, latency, cache) |
-| `/v1/config` | GET/PUT | Gateway configuration |
-| `/v1/models` | GET | Available models with metadata |
-| `/v1/proofs/:id/verify` | POST | Server-side signature verification |
+| `/health` | GET | Health check |
+| `/v1/chat/completions` | POST | Chat completion (returns `X-Request-Id` header) |
+| `/v1/chat/completions/stream` | POST | SSE streaming chat |
+| `/v1/completions` | POST | Legacy completions |
+| `/v1/embeddings` | POST | Embeddings |
+| `/v1/models` | GET | Available models from all providers |
+| `/v1/proof/:requestId` | GET | Discharge proof retrieval |
+| `/v1/proof/:requestId/verify` | POST | Signature verification |
+| `/v1/admin/providers/status` | GET | Provider health, circuit breaker state |
+| `/v1/admin/metrics` | GET | Aggregated metrics |
+| `/v1/admin/requests?limit=N` | GET | Request history with pagination |
+| `/v1/admin/requests/:id` | GET | Single request detail with embedded proof |
+| `/v1/admin/config` | GET | Current gateway configuration |
+| `/v1/admin/config` | PUT | Update config (stub - logs but no-op) |
+| `/v1/events` | GET (SSE) | Real-time event stream (keepalive only for now) |
+
+**Note:** Admin endpoints require `Authorization: Bearer <ADMIN_API_KEY>` header.
 
 ---
 
@@ -476,6 +597,55 @@ frontend/
 - Use Argonaut for JSON, not simple-json
 - SSE parsing can use `purescript-web-events` or similar
 
+### Dhall Typed Config Available
+The backend now exports typed build configuration via Dhall:
+```bash
+nix build .#dhall-config   # Exports straylight-llm.json with all typed config
+nix build .#dhall-verify   # Verifies 37 source files match manifest
+```
+
+The Dhall config includes:
+- GHC version (GHC912)
+- Optimization level (O2)
+- All extensions and warning flags
+- Complete source manifest (no globs)
+
 ---
 
-*Last updated: 2026-02-23*
+*Last updated: February 23, 2026*
+
+---
+
+## Summary
+
+### Backend (Complete)
+- All core endpoints: health, models, chat, stream, embeddings, completions
+- Admin endpoints: providers/status, metrics, requests, requests/:id, config
+- Proof endpoints: retrieval, verification
+- SSE events endpoint with keepalive
+- `X-Request-Id` header on all chat responses
+- Discharge proof generation with ed25519 signing
+- 213 tests passing, Venice AI live integration verified
+
+### Frontend Components Needed
+| Priority | Component | Backend Ready? |
+|----------|-----------|----------------|
+| HIGH | Provider Status Dashboard | Yes |
+| HIGH | Request/Response Timeline | Yes |
+| HIGH | SSE Real-Time Updates | Yes |
+| MEDIUM | Coeffect Graph Visualization | Yes |
+| MEDIUM | Enhanced Proof Inspector | Yes |
+| MEDIUM | Metrics Dashboard | Yes |
+| LOW | Configuration Panel | Yes (read-only, PUT is stub) |
+| LOW | Model Registry Browser | Yes |
+| LOW | Playwright Test Runner | N/A |
+| LOW | Lean4 Proof Browser | N/A (static files) |
+| LOW | SearXNG Integration | No (separate service) |
+
+### UI Atoms Needed from Hydrogen
+See "UI Atoms & Components Needed" section above for the full list. Key categories:
+- **Layout:** Container, Grid, Flex, Stack, Panel, Sidebar
+- **Data Display:** Card, Table, VirtualList, Stat, Badge, KeyValue
+- **Feedback:** Toast, Modal, Skeleton, Spinner, Alert
+- **Charts:** LineChart, Sparkline, Histogram
+- **Specialized:** CircuitBreakerIndicator, ProviderCard, RequestRow, ProofBadge

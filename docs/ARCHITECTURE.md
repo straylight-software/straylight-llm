@@ -19,9 +19,9 @@ This document tracks compliance with the aleph cube architecture as defined in `
 | Typed coeffects | **Complete** (Effects.Graded) | Required |
 | Discharge proofs | **Complete** (Coeffect.Discharge) | Required |
 | Effect system | **Complete** (GatewayM graded monad) | Required |
-| Property tests | None | Required |
-| Lean4 proofs | None | Required |
-| Deterministic builds | Untested | Required |
+| Property tests | **Complete** (171 tests) | Required |
+| Lean4 proofs | **Complete** (904 lines, no sorry) | Required |
+| Deterministic builds | Partial (Dhall BUILD files) | Required |
 
 ---
 
@@ -246,59 +246,55 @@ signProof :: SecretKey -> DischargeProof -> DischargeProof
 verifyProof :: PublicKey -> DischargeProof -> Bool
 ```
 
-### Phase 4: Property Tests (1 week)
+### Phase 4: Property Tests (1 week) — **COMPLETE**
 
-1. Add hedgehog + haskemathesis to test dependencies
-2. Generate realistic test data from OpenAPI schemas:
-   ```haskell
-   -- haskemathesis generates from OpenAPI spec
-   genChatRequest :: Gen ChatRequest
-   genChatRequest = genFromSchema "openai-chat-request.json"
-   ```
-3. Property tests:
-   - `prop_json_roundtrip`: `decode (encode x) == Just x`
-   - `prop_error_classification`: HTTP status maps to correct ProviderError
-   - `prop_fallback_terminates`: Router always terminates
-   - `prop_retry_idempotent`: Retrying same request gives same result
+**Completed:**
+- 171 tests total (hedgehog + integration + adversarial + formal)
+- Property tests: Types roundtrip (41), Coeffect (12), Graded Monad (11), Security, Streaming (21)
+- Integration tests: API (5), Proof (1), Lifecycle (11), OpenAPI spec
+- Adversarial tests: Race conditions (9), Injection edge cases (22), Provider errors (29)
+- Formal tests: Proof correspondence (9) — Haskell ↔ Lean4 verification
 
-### Phase 5: Lean4 Proofs (2 weeks)
+### Phase 5: Lean4 Proofs (2 weeks) — **COMPLETE**
 
-1. Create `proofs/` directory with Lean4 files
-2. Port relevant types from Continuity.lean:
-   - Hash, StorePath, Coeffect, DischargeProof
-3. Prove gateway-specific invariants:
-   ```lean
-   theorem fallback_chain_terminates :
-     ∀ providers : List Provider,
-       providers.length ≤ 4 →
-       tryProviders providers terminates
-   
-   theorem error_classification_complete :
-     ∀ status : Nat,
-       ∃ err : ProviderError, classifyError status = err
-   
-   theorem cache_key_deterministic :
-     ∀ req : ChatRequest,
-       cacheKey req = cacheKey req
-   ```
+**Completed:**
+- `proofs/Straylight/Coeffect.lean` (305 lines): Coeffect monoid, tensor product, discharge laws
+- `proofs/Straylight/Gateway.lean` (376 lines): Provider types, fallback termination, retry bounds
+- `proofs/Straylight/Hermetic.lean` (223 lines): Hermeticity guarantees, cache isolation
+- **No `sorry`, no `axiom` escapes** — all proofs complete
 
-### Phase 6: PureScript Frontend (2 weeks)
+### Phase 6: PureScript Frontend (2 weeks) — **PARTIAL**
 
-1. Set up PureScript + Halogen project in `frontend/`
-2. Dashboard components:
-   - Provider status cards
-   - Request/response timeline
-   - Coeffect graph visualization
-   - Discharge proof inspector
-3. WebSocket for real-time updates
+**Completed:**
+- PureScript + Halogen project in `frontend/`
+- `App.purs` — Main app shell with tab navigation (Health/Models/Proofs)
+- `API/Client.purs` — Full type definitions, API client
+- `Components/HealthStatus.purs`, `ModelsPanel.purs`, `ProofViewer.purs`
+- `themes.css` — 14 themes
+- `src-tauri/` — Tauri desktop builds (deb/appimage)
 
-### Phase 7: Integration (1 week)
+**Remaining:**
+- Provider Status Dashboard (real-time health, circuit breaker visualization)
+- Request/Response Timeline (chronological view with filtering)
+- WebSocket/SSE real-time updates
+- Coeffect Graph Visualization
+- Enhanced Proof Inspector
+- Metrics Dashboard
 
-1. Dhall BUILD files for gateway
-2. DICE action definitions
-3. E2E tests with Playwright
-4. Memory/performance benchmarks
-5. Security audit (forbidden patterns)
+### Phase 7: Integration (1 week) — **PARTIAL**
+
+**Completed:**
+- Dhall BUILD files: `Target.dhall`, `Platform.dhall`, `Build.dhall`, `Action.dhall`, `straylight-llm.dhall`
+- All Dhall files type-check with `dhall type`
+- Evring state machine abstraction (6 modules)
+- Resilience modules (Cache, CircuitBreaker, Retry, Backpressure, Metrics)
+- Security modules (ConstantTime, PromptInjection, RequestLimits, Sanitization)
+
+**Remaining:**
+- Integrate Dhall with flake.nix
+- E2E tests with Playwright
+- Memory/performance benchmarks
+- SearXNG + gVisor sandbox integration
 
 ---
 

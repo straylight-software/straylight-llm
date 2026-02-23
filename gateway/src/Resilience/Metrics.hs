@@ -25,7 +25,7 @@
 
 module Resilience.Metrics
     ( -- * Metrics Store
-      MetricsStore (..)
+      MetricsStore (MetricsStore, msRequestsTotal, msRequestsActive, msLatency, msProviders, msStartTime)
     , newMetricsStore
 
       -- * Recording
@@ -34,18 +34,23 @@ module Resilience.Metrics
     , recordProviderRequest
     , recordProviderError
     , recordLatency
+    , recordProviderSuccess
 
       -- * Reading
     , getMetrics
     , renderPrometheus
+    , getProviderAvgLatency
+    , getProviderLatencies
 
       -- * Types
-    , Metrics (..)
-    , ProviderMetrics (..)
-    , LatencyBuckets (..)
+    , Metrics (Metrics, mRequestsTotal, mRequestsActive, mLatency, mProviders, mStartTime)
+    , ProviderMetrics (ProviderMetrics, pmRequestsTotal, pmErrorsAuth, pmErrorsRateLimit, pmErrorsTimeout, pmErrorsUnavailable, pmErrorsOther, pmLatency)
+    , LatencyBuckets (LatencyBuckets, lbLe005, lbLe01, lbLe025, lbLe05, lbLe1, lbLe25, lbLe5, lbLe10, lbLe25s, lbLe50s, lbLe100s, lbInf, lbSum, lbCount)
     ) where
 
 import Control.Concurrent.MVar (MVar, newMVar, modifyMVar_, readMVar)
+import Data.Aeson (ToJSON (toJSON), FromJSON (parseJSON), object, (.=), withObject, (.:))
+import Data.Aeson.Types qualified as AT
 import Data.IORef (IORef, newIORef, atomicModifyIORef', readIORef)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
@@ -54,7 +59,7 @@ import Data.Text qualified as T
 import Data.Time.Clock (UTCTime, getCurrentTime, diffUTCTime)
 import Data.Word (Word64)
 
-import Provider.Types (ProviderName(..), ProviderError(..))
+import Provider.Types (ProviderName (Venice, Vertex, Baseten, OpenRouter, Anthropic), ProviderError (AuthError, RateLimitError, ProviderUnavailable, TimeoutError))
 
 
 -- ════════════════════════════════════════════════════════════════════════════
@@ -129,6 +134,107 @@ data Metrics = Metrics
     , mStartTime :: !UTCTime              -- Server start time
     }
     deriving (Eq, Show)
+
+instance ToJSON LatencyBuckets where
+    toJSON lb = object
+        [ "le_005" .= lbLe005 lb
+        , "le_01" .= lbLe01 lb
+        , "le_025" .= lbLe025 lb
+        , "le_05" .= lbLe05 lb
+        , "le_1" .= lbLe1 lb
+        , "le_25" .= lbLe25 lb
+        , "le_5" .= lbLe5 lb
+        , "le_10" .= lbLe10 lb
+        , "le_25s" .= lbLe25s lb
+        , "le_50s" .= lbLe50s lb
+        , "le_100s" .= lbLe100s lb
+        , "inf" .= lbInf lb
+        , "sum" .= lbSum lb
+        , "count" .= lbCount lb
+        ]
+
+instance FromJSON LatencyBuckets where
+    parseJSON = withObject "LatencyBuckets" $ \v -> LatencyBuckets
+        <$> v .: "le_005"
+        <*> v .: "le_01"
+        <*> v .: "le_025"
+        <*> v .: "le_05"
+        <*> v .: "le_1"
+        <*> v .: "le_25"
+        <*> v .: "le_5"
+        <*> v .: "le_10"
+        <*> v .: "le_25s"
+        <*> v .: "le_50s"
+        <*> v .: "le_100s"
+        <*> v .: "inf"
+        <*> v .: "sum"
+        <*> v .: "count"
+
+instance ToJSON ProviderMetrics where
+    toJSON pm = object
+        [ "requests_total" .= pmRequestsTotal pm
+        , "errors_auth" .= pmErrorsAuth pm
+        , "errors_rate_limit" .= pmErrorsRateLimit pm
+        , "errors_timeout" .= pmErrorsTimeout pm
+        , "errors_unavailable" .= pmErrorsUnavailable pm
+        , "errors_other" .= pmErrorsOther pm
+        , "latency" .= pmLatency pm
+        ]
+
+instance FromJSON ProviderMetrics where
+    parseJSON = withObject "ProviderMetrics" $ \v -> ProviderMetrics
+        <$> v .: "requests_total"
+        <*> v .: "errors_auth"
+        <*> v .: "errors_rate_limit"
+        <*> v .: "errors_timeout"
+        <*> v .: "errors_unavailable"
+        <*> v .: "errors_other"
+        <*> v .: "latency"
+
+instance ToJSON Metrics where
+    toJSON m = object
+        [ "requests_total" .= mRequestsTotal m
+        , "requests_active" .= mRequestsActive m
+        , "latency" .= mLatency m
+        , "providers" .= providersToJson (mProviders m)
+        , "start_time" .= T.pack (show $ mStartTime m)
+        ]
+      where
+        providersToJson :: Map ProviderName ProviderMetrics -> Map Text ProviderMetrics
+        providersToJson = Map.mapKeys providerNameToText
+        
+        providerNameToText :: ProviderName -> Text
+        providerNameToText Venice = "venice"
+        providerNameToText Vertex = "vertex"
+        providerNameToText Baseten = "baseten"
+        providerNameToText OpenRouter = "openrouter"
+        providerNameToText Anthropic = "anthropic"
+
+instance FromJSON Metrics where
+    parseJSON = withObject "Metrics" $ \v -> do
+        requestsTotal <- v .: "requests_total"
+        requestsActive <- v .: "requests_active"
+        latency <- v .: "latency"
+        providersMap <- v .: "providers" :: AT.Parser (Map Text ProviderMetrics)
+        startTimeText <- v .: "start_time"
+        
+        -- Parse providers map with Text keys back to ProviderName keys
+        let providers = Map.mapKeys textToProviderName providersMap
+        
+        -- Parse start time
+        startTime <- case reads (T.unpack startTimeText) of
+            [(time, "")] -> pure time
+            _ -> fail "Invalid start_time"
+        
+        pure $ Metrics requestsTotal requestsActive latency providers startTime
+      where
+        textToProviderName :: Text -> ProviderName
+        textToProviderName "venice" = Venice
+        textToProviderName "vertex" = Vertex
+        textToProviderName "baseten" = Baseten
+        textToProviderName "openrouter" = OpenRouter
+        textToProviderName "anthropic" = Anthropic
+        textToProviderName _ = Venice  -- Default fallback
 
 
 -- ════════════════════════════════════════════════════════════════════════════
@@ -209,6 +315,12 @@ recordLatency MetricsStore{..} provider latencySeconds =
         let pm' = pm { pmLatency = recordBucket latencySeconds (pmLatency pm) }
         pure $ Map.insert provider pm' m
 
+-- | Record a successful provider request with latency
+recordProviderSuccess :: MetricsStore -> ProviderName -> Double -> IO ()
+recordProviderSuccess store provider latencySeconds = do
+    recordProviderRequest store provider
+    recordLatency store provider latencySeconds
+
 
 -- ════════════════════════════════════════════════════════════════════════════
 --                                                                 // reading
@@ -228,6 +340,39 @@ getMetrics MetricsStore{..} = do
         , mProviders = providers
         , mStartTime = msStartTime
         }
+
+-- | Get average latency for a specific provider (in seconds)
+-- Returns Nothing if no requests recorded yet
+getProviderAvgLatency :: MetricsStore -> ProviderName -> IO (Maybe Double)
+getProviderAvgLatency MetricsStore{..} provider = do
+    providers <- readMVar msProviders
+    pure $ case Map.lookup provider providers of
+        Nothing -> Nothing
+        Just pm -> 
+            let lb = pmLatency pm
+                count = lbCount lb
+            in if count == 0 
+               then Nothing
+               else Just (lbSum lb / fromIntegral count)
+
+-- | Get latencies for all providers (sorted by average latency, fastest first)
+-- Returns list of (provider, avgLatencySeconds, requestCount)
+getProviderLatencies :: MetricsStore -> IO [(ProviderName, Double, Word64)]
+getProviderLatencies MetricsStore{..} = do
+    providers <- readMVar msProviders
+    let latencies = 
+          [ (name, lbSum (pmLatency pm) / fromIntegral (lbCount (pmLatency pm)), lbCount (pmLatency pm))
+          | (name, pm) <- Map.toList providers
+          , lbCount (pmLatency pm) > 0  -- Only include providers with data
+          ]
+    -- Sort by average latency (ascending = fastest first)
+    pure $ sortByLatency latencies
+  where
+    sortByLatency = foldr insertSorted []
+    insertSorted x [] = [x]
+    insertSorted x@(_, lat1, _) (y@(_, lat2, _):ys)
+        | lat1 <= lat2 = x : y : ys
+        | otherwise = y : insertSorted x ys
 
 -- | Render metrics in Prometheus text format
 renderPrometheus :: Metrics -> Text
