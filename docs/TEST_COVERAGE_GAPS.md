@@ -303,7 +303,7 @@ prop_modelNameSanitized = property $ do
 | Gap | Tests Needed | Tests Written | Status |
 |-----|--------------|---------------|--------|
 | Race conditions | ~10 | 9 | COMPLETE |
-| Provider errors | ~10 | 0 | NOT STARTED |
+| Provider errors | ~10 | 29 | COMPLETE |
 | Streaming/SSE | ~6 | 0 | NOT STARTED |
 | Injection variants | ~10 | 22 | COMPLETE |
 | Boundary conditions | ~8 | (included in injection) | COMPLETE |
@@ -312,9 +312,9 @@ prop_modelNameSanitized = property $ do
 | Proof correspondence | ~5 | 0 | NOT STARTED |
 | Property algebra | ~10 | 6 | COMPLETE |
 
-**Total new tests added**: 37  
-**Current tests**: 101 (was 64)  
-**Target**: 135+ tests
+**Total new tests added**: 66  
+**Current tests**: 130 (was 64)  
+**Target**: 135+ tests (NEARLY COMPLETE)
 
 ### Tests Added This Session
 
@@ -335,6 +335,14 @@ prop_modelNameSanitized = property $ do
    - Coeffect monoid laws (left identity, right identity, associativity)
    - Pure identity properties
    - Network absorption test
+
+4. **Adversarial/ProviderErrors.hs** (29 tests)
+   - ProviderResult pattern matching (Success/Failure/Retry)
+   - Error type semantics (all 7 error types)
+   - Error classification contract (404→Retry, 401→Failure, etc.)
+   - Fallback chain logic simulation (7 scenarios)
+   - Error message preservation (empty, long, unicode)
+   - ProviderResult structure tests
 
 ---
 

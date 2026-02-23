@@ -5,7 +5,7 @@
 ## Current Status
 
 **Build:** Passing (GHC 9.10.3, cabal build)  
-**Tests:** 101/101 passing (property + integration + adversarial)  
+**Tests:** 130/130 passing (property + integration + adversarial)  
 **Nix:** `.#straylight-llm` builds successfully  
 
 ---
@@ -200,7 +200,8 @@
 | Integration: Proof | 1 | Passing |
 | Adversarial: Race Conditions | 9 | Passing |
 | Adversarial: Injection Edge Cases | 22 | Passing |
-| **Total** | **101** | **Passing** |
+| Adversarial: Provider Errors | 29 | Passing |
+| **Total** | **130** | **Passing** |
 
 ---
 

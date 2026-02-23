@@ -178,6 +178,7 @@ test-suite straylight-llm-test
     -- // adversarial tests
     Adversarial.RaceConditions
     Adversarial.InjectionEdgeCases
+    Adversarial.ProviderErrors
 
   build-depends:
     , aeson
