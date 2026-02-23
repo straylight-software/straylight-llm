@@ -15,6 +15,7 @@ module Main where
 import Integration.ApiTests qualified as ApiTests
 import Integration.ProofTests qualified as ProofTests
 import Property.CoeffectProps qualified as CoeffectProps
+import Property.GradedMonadProps qualified as GradedMonadProps
 import Property.TypesProps qualified as TypesProps
 import Test.Tasty
 
@@ -25,6 +26,7 @@ main = defaultMain $
         [ testGroup "Property Tests"
             [ TypesProps.tests
             , CoeffectProps.tests
+            , GradedMonadProps.tests
             ]
         , testGroup "Integration Tests"
             [ ApiTests.tests
