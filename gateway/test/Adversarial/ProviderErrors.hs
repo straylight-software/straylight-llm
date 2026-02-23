@@ -155,10 +155,12 @@ test_errorClassificationContract = testGroup "Error Classification Contract"
         let result = Retry (TimeoutError "timed out") :: ProviderResult ()
         assertBool "Timeout should be Retry" (isRetryable result)
     
-    , testCase "QuotaExceeded should be retryable" $ do
-        -- Quota on this provider, another might have quota
-        let result = Retry (QuotaExceededError "out of credits") :: ProviderResult ()
-        assertBool "QuotaExceeded should be Retry" (isRetryable result)
+    , testCase "QuotaExceeded should NOT be retryable" $ do
+        -- Credits exhausted is an account-level issue, not provider-specific
+        -- Changed from Retry to Failure — don't cascade to other providers
+        let result = Failure (QuotaExceededError "out of credits") :: ProviderResult ()
+        assertBool "QuotaExceeded should be Failure" (isFailure result)
+        assertBool "QuotaExceeded should NOT be Retry" (not $ isRetryable result)
     ]
 
 
