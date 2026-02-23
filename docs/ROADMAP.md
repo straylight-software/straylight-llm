@@ -9,6 +9,7 @@
 **Nix:** `.#straylight-llm` builds successfully  
 **COMPASS Target:** 135+ tests - **EXCEEDED**  
 **Streaming:** SSE endpoint implemented (`/v1/chat/completions/stream`)  
+**Dhall BUILD:** Complete - typed targets, DICE actions, no globs  
 
 ---
 
@@ -70,6 +71,18 @@
 - [x] **libevring safety patch** (`patches/libevring-safe-uncons.patch`)
   - Replaces `BS.head`/`BS.tail` with total `BS.uncons`
   - 6 files, no functional changes
+- [x] **Dhall BUILD files** (Phase 6 - aleph cube architecture)
+  - `dhall/Target.dhall` - Typed targets (GhcVersion, OptLevel, Extension ADTs)
+  - `dhall/Platform.dhall` - Toolchain definitions
+  - `dhall/Build.dhall` - Build script generation
+  - `dhall/Action.dhall` - DICE-style incremental computation actions
+  - `dhall/straylight-llm.dhall` - Gateway target with explicit 30-file manifest
+  - All files type-check with `dhall type`
+- [x] **Evring completion** (state machine abstraction)
+  - `Evring/Ring.hs` - Runner abstraction (connects machines to I/O)
+  - `Evring/Trace.hs` - Deterministic trace recording/replay for testing
+  - Serialization with `packHandle`/`unpackHandle` for proper handle encoding
+  - All 171 tests still passing
 
 ---
 
@@ -132,20 +145,34 @@
 
 ### Low Priority
 
-#### Full Evring Integration
-- [ ] Add `Evring/Ring.hs` (io_uring runner) if kernel-level ops needed
-- [ ] Add `Evring/Trace.hs` for trace recording
+#### Full Evring Integration (Complete)
+- [x] `Evring/Ring.hs` - Runner abstraction (connects machines to I/O)
+- [x] `Evring/Trace.hs` - Deterministic trace recording/replay
+- [x] All Evring modules compile and pass tests
 
-### Phase 6: PureScript Frontend (Future)
+### Phase 6: Dhall BUILD Files (Complete)
+- [x] `dhall/Target.dhall` - Typed build targets (no string flags)
+- [x] `dhall/Platform.dhall` - Toolchain definitions (GHC, Cabal, containers)
+- [x] `dhall/Build.dhall` - Build script generation for Haskell/Cabal
+- [x] `dhall/Action.dhall` - DICE-style incremental computation actions
+- [x] `dhall/straylight-llm.dhall` - Complete gateway target definition
+  - Explicit source manifest (28 files, no globs)
+  - Typed HaskellOpts (GHC version, extensions, warnings)
+  - Typed dependencies (Nix flake refs)
+  - Test and container targets
+- [x] `dhall/examples/generate-build.dhall` - Build script generation example
+- [x] `dhall/examples/action-graph.dhall` - Action graph example
+- [x] All Dhall files type-check with `dhall type`
+
+### Phase 7: PureScript Frontend (Future)
 - [ ] Set up PureScript + Halogen project
 - [ ] Provider status dashboard
 - [ ] Request/response timeline
 - [ ] Coeffect visualization
 - [ ] Discharge proof viewer
 
-### Phase 7: Integration (Future)
-- [ ] Dhall BUILD files
-- [ ] DICE action definitions
+### Phase 8: Integration (Future)
+- [ ] Integrate Dhall with flake.nix
 - [ ] E2E tests with Playwright
 - [ ] Memory/performance benchmarks
 - [ ] Security audit automation
@@ -175,15 +202,27 @@
 | `Slide/Parse.hs` | 188 | Complete (better than prod) |
 | `Slide/Wire/Types.hs` | ~60 | Complete |
 | `Slide/Wire/Varint.hs` | ~70 | Partial (missing `pokeVarint`) |
-| `Evring/Event.hs` | 113 | Simplified (gateway-only ops) |
-| `Evring/Handle.hs` | ~50 | Complete |
-| `Evring/Machine.hs` | ~100 | Complete |
-| `Evring/Sigil.hs` | 474 | Complete (better than prod) |
+| `Evring/Event.hs` | 113 | Complete (gateway-only ops) |
+| `Evring/Handle.hs` | 68 | Complete |
+| `Evring/Machine.hs` | 111 | Complete |
+| `Evring/Ring.hs` | 230 | Complete (runner abstraction) |
+| `Evring/Sigil.hs` | 527 | Complete (better than prod) |
+| `Evring/Trace.hs` | 230 | Complete (deterministic replay) |
 | `Resilience/Cache.hs` | ~100 | Complete |
 | `Resilience/CircuitBreaker.hs` | ~100 | Complete |
 | `Resilience/Retry.hs` | ~100 | Complete |
 | `Resilience/Backpressure.hs` | ~100 | Complete |
 | `Resilience/Metrics.hs` | ~100 | Complete |
+
+### Dhall BUILD Files
+| File | Lines | Status |
+|------|-------|--------|
+| `dhall/Target.dhall` | 177 | Complete (typed targets, no globs) |
+| `dhall/Platform.dhall` | 95 | Complete (toolchains) |
+| `dhall/Build.dhall` | 214 | Complete (script generation) |
+| `dhall/Action.dhall` | 218 | Complete (DICE actions) |
+| `dhall/straylight-llm.dhall` | 233 | Complete (gateway definition) |
+| `dhall/examples/*.dhall` | 70 | Complete (examples) |
 
 ### Missing (may not be needed)
 | Module | Priority | Notes |
@@ -194,8 +233,6 @@
 | `Slide/Chunk.hs` | Medium | Semantic chunking |
 | `Slide/HotTable.hs` | Medium | Hot token compression |
 | `Slide/Model.hs` | Low | Model abstraction |
-| `Evring/Ring.hs` | Low | io_uring (uses HTTP client instead) |
-| `Evring/Trace.hs` | Low | Trace recording |
 
 ---
 

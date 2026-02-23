@@ -62,6 +62,22 @@ library
     Provider.Anthropic
     -- // provider types
     Types.Anthropic
+    -- // evring (state machine abstraction)
+    Evring.Event
+    Evring.Handle
+    Evring.Machine
+    Evring.Ring
+    Evring.Sigil
+    Evring.Trace
+    -- // slide (wire protocol)
+    Slide.Parse
+    Slide.Wire.Types
+    Slide.Wire.Varint
+    -- // resilience (additional)
+    Resilience.Backpressure
+    Resilience.CircuitBreaker
+    Resilience.Metrics
+    Resilience.Retry
 
   hs-source-dirs:     src
   default-language:   GHC2021
@@ -91,6 +107,7 @@ library
     , http-client
     , http-client-tls
     , http-types          >=0.12
+    , megaparsec          >=9.0
     , memory              >=0.18
     , mtl                 >=2.2
     , process             >=1.6
