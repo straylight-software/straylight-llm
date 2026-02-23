@@ -109,7 +109,7 @@ genDischargeProof = DischargeProof
 
 
 -- ════════════════════════════════════════════════════════════════════════════
---                                                                // properties
+--                                                      // roundtrip properties
 -- ════════════════════════════════════════════════════════════════════════════
 
 prop_coeffectRoundtrip :: Property
@@ -144,15 +144,83 @@ prop_hashRoundtrip = property $ do
 
 
 -- ════════════════════════════════════════════════════════════════════════════
+--                                                    // algebraic properties
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- | Left identity: Pure `combineCoeffects` c ≡ c
+prop_coeffectLeftIdentity :: Property
+prop_coeffectLeftIdentity = property $ do
+    c <- forAll genCoeffect
+    combineCoeffects Pure c === c
+
+-- | Right identity: c `combineCoeffects` Pure ≡ c
+prop_coeffectRightIdentity :: Property
+prop_coeffectRightIdentity = property $ do
+    c <- forAll genCoeffect
+    combineCoeffects c Pure === c
+
+-- | Associativity: (a `combineCoeffects` b) `combineCoeffects` c ≡ a `combineCoeffects` (b `combineCoeffects` c)
+-- Note: We test structural equivalence, which requires normalization for Combined
+prop_coeffectAssociativity :: Property
+prop_coeffectAssociativity = property $ do
+    a <- forAll genCoeffect
+    b <- forAll genCoeffect
+    c <- forAll genCoeffect
+    -- Flatten both sides to compare
+    flattenCoeffect (combineCoeffects (combineCoeffects a b) c) 
+        === flattenCoeffect (combineCoeffects a (combineCoeffects b c))
+
+-- | Helper to flatten nested Combined into a single Combined list
+flattenCoeffect :: Coeffect -> [Coeffect]
+flattenCoeffect Pure = []
+flattenCoeffect (Combined cs) = concatMap flattenCoeffect cs
+flattenCoeffect c = [c]
+
+-- | Pure is identity - combining with pure gives back the other
+prop_pureIsIdentity :: Property
+prop_pureIsIdentity = property $ do
+    -- Pure combined with Pure is Pure
+    combineCoeffects Pure Pure === Pure
+
+-- | Network absorbed into combined
+prop_networkAbsorbed :: Property
+prop_networkAbsorbed = property $ do
+    -- Network + Network should just be Combined [Network, Network]
+    let combined = combineCoeffects Network Network
+    case combined of
+        Combined cs -> length cs === 2
+        _ -> failure
+
+-- | Coeffect equivalence: Pure is identity for combine
+prop_coeffectPureIdentity :: Property
+prop_coeffectPureIdentity = property $ do
+    c <- forAll genCoeffect
+    -- Left identity
+    combineCoeffects Pure c === c
+    -- Right identity
+    combineCoeffects c Pure === c
+
+
+-- ════════════════════════════════════════════════════════════════════════════
 --                                                                 // test tree
 -- ════════════════════════════════════════════════════════════════════════════
 
 tests :: TestTree
 tests = testGroup "Coeffect Property Tests"
-    [ testProperty "Coeffect round-trip" prop_coeffectRoundtrip
-    , testProperty "NetworkAccess round-trip" prop_networkAccessRoundtrip
-    , testProperty "FilesystemAccess round-trip" prop_filesystemAccessRoundtrip
-    , testProperty "AuthUsage round-trip" prop_authUsageRoundtrip
-    , testProperty "DischargeProof round-trip" prop_dischargeProofRoundtrip
-    , testProperty "Hash round-trip" prop_hashRoundtrip
+    [ testGroup "JSON Roundtrip"
+        [ testProperty "Coeffect round-trip" prop_coeffectRoundtrip
+        , testProperty "NetworkAccess round-trip" prop_networkAccessRoundtrip
+        , testProperty "FilesystemAccess round-trip" prop_filesystemAccessRoundtrip
+        , testProperty "AuthUsage round-trip" prop_authUsageRoundtrip
+        , testProperty "DischargeProof round-trip" prop_dischargeProofRoundtrip
+        , testProperty "Hash round-trip" prop_hashRoundtrip
+        ]
+    , testGroup "Algebraic Laws"
+        [ testProperty "Left identity (Pure)" prop_coeffectLeftIdentity
+        , testProperty "Right identity (Pure)" prop_coeffectRightIdentity
+        , testProperty "Associativity" prop_coeffectAssociativity
+        , testProperty "Pure is identity (combine)" prop_pureIsIdentity
+        , testProperty "Network absorbed" prop_networkAbsorbed
+        , testProperty "Pure identity both sides" prop_coeffectPureIdentity
+        ]
     ]

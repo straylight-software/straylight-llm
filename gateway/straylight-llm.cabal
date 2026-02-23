@@ -50,6 +50,8 @@ library
     -- // coeffects (Phase 3)
     Coeffect.Types
     Coeffect.Discharge
+    -- // resilience
+    Resilience.Cache
     -- // providers
     Provider.Types
     Provider.ModelRegistry
@@ -173,9 +175,13 @@ test-suite straylight-llm-test
     Integration.TestServer
     Integration.ApiTests
     Integration.ProofTests
+    -- // adversarial tests
+    Adversarial.RaceConditions
+    Adversarial.InjectionEdgeCases
 
   build-depends:
     , aeson
+    , async               >=2.2
     , base                >=4.17 && <5
     , bytestring
     , containers
@@ -184,6 +190,7 @@ test-suite straylight-llm-test
     , http-client-tls
     , http-types
     , servant-server
+    , stm                 >=2.5
     , straylight-llm
     , tasty               >=1.4
     , tasty-hedgehog      >=1.4

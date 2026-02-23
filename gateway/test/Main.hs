@@ -12,6 +12,8 @@
 
 module Main where
 
+import Adversarial.InjectionEdgeCases qualified as InjectionEdgeCases
+import Adversarial.RaceConditions qualified as RaceConditions
 import Integration.ApiTests qualified as ApiTests
 import Integration.ProofTests qualified as ProofTests
 import Property.CoeffectProps qualified as CoeffectProps
@@ -31,5 +33,9 @@ main = defaultMain $
         , testGroup "Integration Tests"
             [ ApiTests.tests
             , ProofTests.tests
+            ]
+        , testGroup "Adversarial Tests"
+            [ RaceConditions.tests
+            , InjectionEdgeCases.tests
             ]
         ]

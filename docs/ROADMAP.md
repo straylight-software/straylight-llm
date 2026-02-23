@@ -5,7 +5,7 @@
 ## Current Status
 
 **Build:** Passing (GHC 9.10.3, cabal build)  
-**Tests:** 53/53 passing (property + integration)  
+**Tests:** 101/101 passing (property + integration + adversarial)  
 **Nix:** `.#straylight-llm` builds successfully  
 
 ---
@@ -49,6 +49,13 @@
 - [x] `Anthropic` added to `ProviderName` enum
 - [x] Config/Router updated with `cfgAnthropic`/`routerAnthropicConfig`
 - [x] `FromJSON HealthResponse` for test support
+- [x] Dynamic ModelRegistry with realtime provider sync
+- [x] 404 → Retry fix for all providers
+- [x] Anthropic models API integration
+- [x] COMPASS-style adversarial test suite (37 new tests)
+  - Race condition tests (STM atomicity, cache concurrency)
+  - Injection edge case tests (Unicode, path traversal, JSON attacks)
+  - Coeffect algebraic property tests
 
 ---
 
@@ -182,14 +189,18 @@
 
 | Category | Tests | Status |
 |----------|-------|--------|
-| Property: Types.hs | 20 | Passing |
-| Property: Coeffect | 27 | Passing |
+| Property: Types.hs | 41 | Passing |
+| Property: Coeffect (roundtrip) | 6 | Passing |
+| Property: Coeffect (algebraic) | 6 | Passing |
+| Property: Graded Monad | 11 | Passing |
 | Integration: Health | 2 | Passing |
 | Integration: Models | 1 | Passing |
 | Integration: Chat | 1 | Passing |
 | Integration: Embeddings | 1 | Passing |
 | Integration: Proof | 1 | Passing |
-| **Total** | **53** | **Passing** |
+| Adversarial: Race Conditions | 9 | Passing |
+| Adversarial: Injection Edge Cases | 22 | Passing |
+| **Total** | **101** | **Passing** |
 
 ---
 
