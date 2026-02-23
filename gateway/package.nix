@@ -50,6 +50,7 @@ hp.mkDerivation {
     hp.http-client-tls
     hp.http-types
     hp.katip
+    hp.megaparsec # Evring.Sigil parser
     hp.memory
     hp.mtl
     hp.network
@@ -65,6 +66,7 @@ hp.mkDerivation {
     hp.unix
     hp.unliftio-core
     hp.uuid
+    hp.vector # Types.hs embedding vectors
     hp.wai
     hp.wai-websockets
     hp.warp
