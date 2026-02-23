@@ -87,6 +87,7 @@ library
     Security.RequestSanitization
     Security.ResponseSanitization
     Security.WalletExfiltration
+    Security.OutputValidation
     -- // streaming (SSE events)
     Streaming.Events
 
@@ -202,6 +203,7 @@ test-suite straylight-llm-test
     Property.Generators
     Property.SecurityProps
     Property.StreamingProps
+    Property.OutputValidationProps
     -- // integration tests
     Integration.TestServer
     Integration.ApiTests

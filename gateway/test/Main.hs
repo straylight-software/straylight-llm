@@ -23,6 +23,7 @@ import Integration.OpenApiSpec qualified as OpenApiSpec
 import Integration.ProofTests qualified as ProofTests
 import Property.CoeffectProps qualified as CoeffectProps
 import Property.GradedMonadProps qualified as GradedMonadProps
+import Property.OutputValidationProps qualified as OutputValidationProps
 import Property.SecurityProps qualified as SecurityProps
 import Property.StreamingProps qualified as StreamingProps
 import Property.TypesProps qualified as TypesProps
@@ -38,6 +39,7 @@ main = defaultMain $
             , GradedMonadProps.tests
             , SecurityProps.tests
             , StreamingProps.tests
+            , OutputValidationProps.tests
             ]
         , testGroup "Integration Tests"
             [ ApiTests.tests
