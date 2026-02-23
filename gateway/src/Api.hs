@@ -26,6 +26,7 @@ module Api
 
       -- * Sub-APIs
     , ChatAPI
+    , ChatStreamAPI
     , CompletionsAPI
     , EmbeddingsAPI
     , ModelsAPI
@@ -68,17 +69,20 @@ instance FromJSON HealthResponse where
         <$> v .: "status"
         <*> v .: "version"
 
--- | Chat completions endpoint
+-- | Chat completions endpoint (non-streaming)
 -- POST /v1/chat/completions
--- Supports both streaming (SSE) and non-streaming responses
 type ChatAPI =
     "v1" :> "chat" :> "completions"
         :> Header "Authorization" Text
         :> ReqBody '[JSON] ChatRequest
         :> Post '[JSON] ChatResponse
 
--- TODO: Chat completions with streaming (SSE) - not yet implemented
--- type ChatStreamAPI = ...
+-- | Chat completions endpoint (streaming SSE)
+-- POST /v1/chat/completions/stream
+-- Uses Raw to allow SSE streaming via WAI responseStream
+-- Returns text/event-stream with OpenAI-compatible SSE chunks
+type ChatStreamAPI =
+    "v1" :> "chat" :> "completions" :> "stream" :> Raw
 
 -- | Legacy completions endpoint
 -- POST /v1/completions
@@ -119,6 +123,7 @@ type ProofAPI =
 type GatewayAPI =
          HealthAPI
     :<|> ChatAPI
+    :<|> ChatStreamAPI
     :<|> CompletionsAPI
     :<|> EmbeddingsAPI
     :<|> ModelsAPI

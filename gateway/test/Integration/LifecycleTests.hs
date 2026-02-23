@@ -19,10 +19,11 @@ module Integration.LifecycleTests
     ) where
 
 import Data.Aeson (encode, object, (.=))
+import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as LBS
 import Data.Text qualified as T
 import Network.HTTP.Client qualified as HC
-import Network.HTTP.Types.Status (status200, status404, status503, status504)
+import Network.HTTP.Types.Status (status200, status400, status404, status503, status504)
 import Test.Tasty
 import Test.Tasty.HUnit
 
@@ -198,6 +199,122 @@ test_notFoundEndpoint = testCase "Non-existent endpoint returns 404" $ do
 
 
 -- ════════════════════════════════════════════════════════════════════════════
+--                                                        // streaming SSE tests
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- | Test streaming endpoint returns text/event-stream content type
+test_streamingContentType :: TestTree
+test_streamingContentType = testCase "Streaming endpoint returns text/event-stream" $ do
+    withTestApp disabledConfig $ \env -> do
+        let body = encode $ object
+                [ "model" .= ("gpt-4" :: String)
+                , "messages" .= 
+                    [ object 
+                        [ "role" .= ("user" :: String)
+                        , "content" .= ("Hello" :: String)
+                        ]
+                    ]
+                ]
+        
+        initReq <- HC.parseRequest $ "http://localhost:" ++ show (tePort env) ++ "/v1/chat/completions/stream"
+        let req = initReq
+                { HC.method = "POST"
+                , HC.requestBody = HC.RequestBodyLBS body
+                , HC.requestHeaders = [("Content-Type", "application/json")]
+                }
+        
+        resp <- HC.httpLbs req (teManager env)
+        
+        -- Should return 200 with text/event-stream (even if provider fails, SSE starts)
+        HC.responseStatus resp @?= status200
+        
+        let contentType = lookup "Content-Type" (HC.responseHeaders resp)
+        case contentType of
+            Nothing -> assertFailure "Missing Content-Type header"
+            Just ct -> assertBool "Should be text/event-stream" $
+                          "text/event-stream" `BS.isInfixOf` ct
+
+
+-- | Test streaming endpoint with invalid JSON returns 400
+test_streamingInvalidJson :: TestTree
+test_streamingInvalidJson = testCase "Streaming endpoint with invalid JSON returns 400" $ do
+    withTestApp disabledConfig $ \env -> do
+        let body = "{ invalid json }"
+        
+        initReq <- HC.parseRequest $ "http://localhost:" ++ show (tePort env) ++ "/v1/chat/completions/stream"
+        let req = initReq
+                { HC.method = "POST"
+                , HC.requestBody = HC.RequestBodyLBS body
+                , HC.requestHeaders = [("Content-Type", "application/json")]
+                }
+        
+        resp <- HC.httpLbs req (teManager env)
+        
+        -- Invalid JSON should return 400
+        HC.responseStatus resp @?= status400
+
+
+-- | Test streaming endpoint includes X-Request-Id header
+test_streamingRequestId :: TestTree
+test_streamingRequestId = testCase "Streaming endpoint includes X-Request-Id" $ do
+    withTestApp disabledConfig $ \env -> do
+        let body = encode $ object
+                [ "model" .= ("gpt-4" :: String)
+                , "messages" .= 
+                    [ object 
+                        [ "role" .= ("user" :: String)
+                        , "content" .= ("Hello" :: String)
+                        ]
+                    ]
+                ]
+        
+        initReq <- HC.parseRequest $ "http://localhost:" ++ show (tePort env) ++ "/v1/chat/completions/stream"
+        let req = initReq
+                { HC.method = "POST"
+                , HC.requestBody = HC.RequestBodyLBS body
+                , HC.requestHeaders = [("Content-Type", "application/json")]
+                }
+        
+        resp <- HC.httpLbs req (teManager env)
+        
+        -- Should include X-Request-Id header
+        let requestId = lookup "X-Request-Id" (HC.responseHeaders resp)
+        case requestId of
+            Nothing -> assertFailure "Missing X-Request-Id header"
+            Just rid -> assertBool "Request ID should start with req_" $
+                           "req_" `BS.isPrefixOf` rid
+
+
+-- | Test streaming endpoint body contains SSE format
+test_streamingBodyFormat :: TestTree
+test_streamingBodyFormat = testCase "Streaming body has SSE format" $ do
+    withTestApp disabledConfig $ \env -> do
+        let body = encode $ object
+                [ "model" .= ("gpt-4" :: String)
+                , "messages" .= 
+                    [ object 
+                        [ "role" .= ("user" :: String)
+                        , "content" .= ("Hello" :: String)
+                        ]
+                    ]
+                ]
+        
+        initReq <- HC.parseRequest $ "http://localhost:" ++ show (tePort env) ++ "/v1/chat/completions/stream"
+        let req = initReq
+                { HC.method = "POST"
+                , HC.requestBody = HC.RequestBodyLBS body
+                , HC.requestHeaders = [("Content-Type", "application/json")]
+                }
+        
+        resp <- HC.httpLbs req (teManager env)
+        
+        -- Body should contain SSE-formatted data (data: prefix)
+        let respBody = LBS.toStrict $ HC.responseBody resp
+        assertBool "Body should contain 'data:' SSE prefix" $
+            "data:" `BS.isInfixOf` respBody
+
+
+-- ════════════════════════════════════════════════════════════════════════════
 --                                                                 // test tree
 -- ════════════════════════════════════════════════════════════════════════════
 
@@ -213,5 +330,11 @@ tests = testGroup "Lifecycle Integration Tests"
     , testGroup "Error Handling"
         [ test_errorResponseStructure
         , test_notFoundEndpoint
+        ]
+    , testGroup "Streaming SSE"
+        [ test_streamingContentType
+        , test_streamingInvalidJson
+        , test_streamingRequestId
+        , test_streamingBodyFormat
         ]
     ]
