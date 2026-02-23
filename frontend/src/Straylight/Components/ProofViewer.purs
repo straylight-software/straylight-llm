@@ -7,7 +7,8 @@ module Straylight.Components.ProofViewer
 import Prelude
 
 import Data.Array as Array
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(Nothing, Just))
+import Data.String as String
 import Effect.Aff.Class (class MonadAff)
 import Halogen as H
 import Halogen.HTML as HH
@@ -142,6 +143,32 @@ renderProof proof =
         , HH.div [ HP.class_ (H.ClassName "hash-list") ]
             (map renderOutputHash proof.outputHashes)
         ]
+    
+    -- Signature Details (if signed)
+    , case proof.signature of
+        Nothing -> HH.text ""
+        Just sig -> HH.div [ HP.class_ (H.ClassName "proof-section signature-section") ]
+          [ HH.div [ HP.class_ (H.ClassName "proof-section-header") ]
+              [ Icon.iconSm "shield-check"
+              , HH.text " Cryptographic Signature"
+              ]
+          , HH.div [ HP.class_ (H.ClassName "signature-details") ]
+              [ HH.div [ HP.class_ (H.ClassName "sig-item") ]
+                  [ HH.span [ HP.class_ (H.ClassName "sig-label") ] [ HH.text "Algorithm" ]
+                  , HH.span [ HP.class_ (H.ClassName "sig-value") ] [ HH.text "Ed25519" ]
+                  ]
+              , HH.div [ HP.class_ (H.ClassName "sig-item") ]
+                  [ HH.span [ HP.class_ (H.ClassName "sig-label") ] [ HH.text "Public Key" ]
+                  , HH.code [ HP.class_ (H.ClassName "sig-value mono") ] 
+                      [ HH.text $ truncateHash sig.publicKey ]
+                  ]
+              , HH.div [ HP.class_ (H.ClassName "sig-item") ]
+                  [ HH.span [ HP.class_ (H.ClassName "sig-label") ] [ HH.text "Signature" ]
+                  , HH.code [ HP.class_ (H.ClassName "sig-value mono") ] 
+                      [ HH.text $ truncateHash sig.signature ]
+                  ]
+              ]
+          ]
     ]
   where
   sigClass = case proof.signature of
@@ -199,3 +226,10 @@ renderOutputHash oh =
     [ HH.span [ HP.class_ (H.ClassName "hash-label") ] [ HH.text oh.name ]
     , HH.code [ HP.class_ (H.ClassName "hash-value") ] [ HH.text oh.hash ]
     ]
+
+-- | Truncate a hash/key for display (show first 16 + last 8 chars)
+truncateHash :: String -> String
+truncateHash s =
+  if String.length s <= 28
+    then s
+    else String.take 16 s <> "..." <> String.drop (String.length s - 8) s

@@ -86,6 +86,7 @@ library
     Security.RequestLimits
     Security.RequestSanitization
     Security.ResponseSanitization
+    Security.WalletExfiltration
     -- // streaming (SSE events)
     Streaming.Events
 

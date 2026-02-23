@@ -4,8 +4,8 @@ module Straylight.App where
 import Prelude
 
 import Data.Const (Const)
-import Data.Either (Either(..))
-import Data.Maybe (Maybe(..))
+import Data.Either (Either(Left, Right))
+import Data.Maybe (Maybe(Nothing, Just))
 
 import Effect.Aff.Class (class MonadAff, liftAff)
 import Effect.Class (liftEffect)
@@ -13,11 +13,12 @@ import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
-import Type.Proxy (Proxy(..))
+import Type.Proxy (Proxy(Proxy))
 import Straylight.API.Client as Api
 import Straylight.Components.ProofViewer as ProofViewer
 import Straylight.Components.HealthStatus as HealthStatus
 import Straylight.Components.ModelsPanel as ModelsPanel
+import Straylight.Components.ProviderStatus as ProviderStatus
 import Straylight.Components.Icon as Icon
 import Straylight.Components.Splash as Splash
 
@@ -26,7 +27,7 @@ import Straylight.Components.Splash as Splash
 --                                                                     // state
 -- ════════════════════════════════════════════════════════════════════════════
 
-data Tab = Health | Models | Proofs
+data Tab = Health | Providers | Models | Proofs
 
 derive instance eqTab :: Eq Tab
 
@@ -34,6 +35,7 @@ type State =
   { config :: Api.Config
   , activeTab :: Tab
   , health :: Maybe Api.HealthResponse
+  , providers :: Maybe (Array ProviderStatus.ProviderInfo)
   , models :: Maybe Api.ModelList
   , proofId :: String
   , proof :: Maybe Api.DischargeProof
@@ -55,11 +57,13 @@ data Action
 
 type Slots =
   ( healthStatus :: H.Slot (Const Void) Void Unit
+  , providerStatus :: H.Slot (Const Void) Void Unit
   , modelsPanel :: H.Slot (Const Void) Void Unit
   , proofViewer :: H.Slot (Const Void) Void Unit
   )
 
 _healthStatus = Proxy :: Proxy "healthStatus"
+_providerStatus = Proxy :: Proxy "providerStatus"
 _modelsPanel = Proxy :: Proxy "modelsPanel"
 _proofViewer = Proxy :: Proxy "proofViewer"
 
@@ -74,6 +78,7 @@ component = H.mkComponent
       { config: Api.defaultConfig
       , activeTab: Health
       , health: Nothing
+      , providers: Nothing
       , models: Nothing
       , proofId: ""
       , proof: Nothing
@@ -121,6 +126,7 @@ renderSidebar state =
     [ HH.div [ HP.class_ (H.ClassName "sidebar-label") ] [ HH.text "Dashboard" ]
     , HH.div [ HP.class_ (H.ClassName "sidebar-nav") ]
         [ navItem Health "gauge" "Health" state.activeTab
+        , navItem Providers "activity" "Providers" state.activeTab
         , navItem Models "list-checks" "Models" state.activeTab
         , navItem Proofs "git-compare" "Proofs" state.activeTab
         ]
@@ -143,6 +149,8 @@ renderMain state =
             [ case state.activeTab of
                 Health -> HH.slot _healthStatus unit HealthStatus.component
                   { health: state.health } absurd
+                Providers -> HH.slot _providerStatus unit ProviderStatus.component
+                  { providers: state.providers } absurd
                 Models -> HH.slot _modelsPanel unit ModelsPanel.component
                   { models: state.models } absurd
                 Proofs -> HH.slot _proofViewer unit ProofViewer.component

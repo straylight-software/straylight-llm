@@ -9,7 +9,7 @@ module Straylight.API.Client
   , Model
   , ModelList
   , DischargeProof
-  , Coeffect(..)
+  , Coeffect(Pure, Network, Auth, Sandbox, Filesystem, Combined)
   , NetworkAccess
   , FilesystemAccess
   , AuthUsage
@@ -21,11 +21,11 @@ import Prelude
 
 import Affjax.Web as AX
 import Affjax.ResponseFormat as ResponseFormat
-import Data.Argonaut (class DecodeJson, decodeJson, JsonDecodeError(..), printJsonDecodeError)
+import Data.Argonaut (class DecodeJson, decodeJson, JsonDecodeError(TypeMismatch, MissingValue, UnexpectedValue), printJsonDecodeError)
 import Data.Argonaut.Decode.Decoders as Decoders
 import Data.Argonaut.Core (toObject)
-import Data.Either (Either(..))
-import Data.Maybe (Maybe(..))
+import Data.Either (Either(Left, Right))
+import Data.Maybe (Maybe(Nothing, Just))
 import Effect.Aff (Aff)
 import Foreign.Object as Object
 
