@@ -1,0 +1,162 @@
+From e71ebe07e296079442b22f9bfc414b407ee7a647 Mon Sep 17 00:00:00 2001
+From: justinfleek <justinfleek@users.noreply.github.com>
+Date: Mon, 23 Feb 2026 11:19:24 +0000
+Subject: [PATCH] fix: replace partial BS.head/BS.tail with total BS.uncons
+
+Replace all uses of partial functions BS.head and BS.tail with
+the total alternative BS.uncons, which returns Maybe (Word8, ByteString).
+
+This prevents potential runtime exceptions if the ByteString is empty,
+even though the current code checks for empty before calling.
+Using BS.uncons makes the safety invariant explicit in the pattern match.
+
+Files changed:
+- hs/Evring/Sigil.hs: processBytes function
+- hs/test/Evring/Test/Sigil.hs: processTestBytes function
+- slide/src/Slide/Wire/Decode.hs: processBytes function
+- slide/src/Slide/Tokenizer.hs: tokenToId function
+- slide/test/EncodeSpec.hs: frame byte assertion
+- slide/test/StressSpec.hs: byte-by-byte decoding loop
+
+No functional changes - this is a safety refactor only.
+---
+ hs/Evring/Sigil.hs             | 11 +++++------
+ hs/test/Evring/Test/Sigil.hs   | 11 +++++------
+ slide/src/Slide/Tokenizer.hs   |  6 +++---
+ slide/src/Slide/Wire/Decode.hs | 13 ++++++-------
+ slide/test/EncodeSpec.hs       |  4 +++-
+ slide/test/StressSpec.hs       | 18 +++++++++---------
+ 6 files changed, 31 insertions(+), 32 deletions(-)
+
+diff --git a/hs/Evring/Sigil.hs b/hs/Evring/Sigil.hs
+index 552adf4..6dec10c 100644
+--- a/hs/Evring/Sigil.hs
++++ b/hs/Evring/Sigil.hs
+@@ -470,12 +470,11 @@ processBytes ::
+   ByteString ->
+   [Chunk] ->
+   (SigilState, [Chunk])
+-processBytes !state !input !acc
+-  | BS.null input = (state { sigilLeftover = BS.empty }, reverse acc)
+-  | otherwise =
+-      let byte = BS.head input
+-          rest = BS.tail input
+-      in case decodeSingleByte state byte rest of
++processBytes !state !input !acc =
++  case BS.uncons input of
++    Nothing -> (state { sigilLeftover = BS.empty }, reverse acc)
++    Just (byte, rest) ->
++      case decodeSingleByte state byte rest of
+         Left leftover ->
+           (state { sigilLeftover = leftover }, reverse acc)
+         Right (newState, maybeChunk, remaining) ->
+diff --git a/hs/test/Evring/Test/Sigil.hs b/hs/test/Evring/Test/Sigil.hs
+index cf7dac4..abc9ea4 100644
+--- a/hs/test/Evring/Test/Sigil.hs
++++ b/hs/test/Evring/Test/Sigil.hs
+@@ -216,12 +216,11 @@ prop_streamEndDone =
+ processTestBytes :: SigilState -> ByteString -> (SigilState, [Chunk])
+ processTestBytes state input = go state input []
+   where
+-    go !s !bs !acc
+-      | BS.null bs = (s { sigilLeftover = BS.empty }, reverse acc)
+-      | otherwise =
+-          let byte = BS.head bs
+-              rest = BS.tail bs
+-          in case decodeByte s byte rest of
++    go !s !bs !acc =
++      case BS.uncons bs of
++        Nothing -> (s { sigilLeftover = BS.empty }, reverse acc)
++        Just (byte, rest) ->
++          case decodeByte s byte rest of
+             Left leftover -> (s { sigilLeftover = leftover }, reverse acc)
+             Right (newState, maybeChunk, remaining) ->
+               let newAcc = maybe acc (: acc) maybeChunk
+diff --git a/slide/src/Slide/Tokenizer.hs b/slide/src/Slide/Tokenizer.hs
+index 2b242e1..6ff21bf 100644
+--- a/slide/src/Slide/Tokenizer.hs
++++ b/slide/src/Slide/Tokenizer.hs
+@@ -148,9 +148,9 @@ vocabSize HFTokenizerIdentity = pure 256
+ tokenToId :: HFTokenizer -> Text -> IO (Maybe Word32)
+ tokenToId HFTokenizerIdentity token = do
+     let bytes = TE.encodeUtf8 token
+-    if BS.length bytes == 1
+-        then pure $ Just (fromIntegral (BS.head bytes))
+-        else pure Nothing
++    case BS.uncons bytes of
++        Just (byte, rest) | BS.null rest -> pure $ Just (fromIntegral byte)
++        _ -> pure Nothing
+ 
+ -- ════════════════════════════════════════════════════════════════════════════════
+ -- Model Integration
+diff --git a/slide/src/Slide/Wire/Decode.hs b/slide/src/Slide/Wire/Decode.hs
+index 9e2d162..f055540 100644
+--- a/slide/src/Slide/Wire/Decode.hs
++++ b/slide/src/Slide/Wire/Decode.hs
+@@ -212,13 +212,12 @@ decodeFrameIncremental initialState inputBytes =
+     processBytes initialState (decodeLeftover initialState <> inputBytes) []
+   where
+     processBytes :: DecodeState -> ByteString -> [Chunk] -> (DecodeState, [Chunk])
+-    processBytes !state !remainingInput !accumulatedChunks
+-        | BS.null remainingInput =
+-            (state{decodeLeftover = BS.empty}, reverse accumulatedChunks)
+-        | otherwise =
+-            let currentByte = BS.head remainingInput
+-                restOfInput = BS.tail remainingInput
+-             in case decodeSingleByte state currentByte restOfInput of
++    processBytes !state !remainingInput !accumulatedChunks =
++        case BS.uncons remainingInput of
++            Nothing ->
++                (state{decodeLeftover = BS.empty}, reverse accumulatedChunks)
++            Just (currentByte, restOfInput) ->
++                case decodeSingleByte state currentByte restOfInput of
+                     Left leftoverBytes ->
+                         (state{decodeLeftover = leftoverBytes}, reverse accumulatedChunks)
+                     Right (newState, maybeChunk, bytesRemaining) ->
+diff --git a/slide/test/EncodeSpec.hs b/slide/test/EncodeSpec.hs
+index 673cd3f..3bea9ba 100644
+--- a/slide/test/EncodeSpec.hs
++++ b/slide/test/EncodeSpec.hs
+@@ -34,7 +34,9 @@ spec = do
+     describe "encodeExtendedToken" $ do
+         it "uses OP_EXTENDED prefix" $ do
+             let frame = encodeExtendedToken 128
+-            BS.head (frameBytes frame) `shouldBe` unFrameOp OP_EXTENDED
++            case BS.uncons (frameBytes frame) of
++                Just (firstByte, _) -> firstByte `shouldBe` unFrameOp OP_EXTENDED
++                Nothing -> expectationFailure "Frame should not be empty"
+ 
+         it "encodes 128 correctly" $ do
+             frameBytes (encodeExtendedToken 128) `shouldBe` BS.pack [0x80, 0x80, 0x01]
+diff --git a/slide/test/StressSpec.hs b/slide/test/StressSpec.hs
+index 55bf403..95629bf 100644
+--- a/slide/test/StressSpec.hs
++++ b/slide/test/StressSpec.hs
+@@ -443,15 +443,15 @@ feedOneByte (state, accChunks) byte =
+ decodeIncremental :: ByteString -> [Chunk]
+ decodeIncremental bytes = go initDecodeState bytes []
+   where
+-    go state remaining acc
+-        | BS.null remaining = 
+-            case flushDecoder state of
+-                Just chunk -> acc ++ [chunk]
+-                Nothing -> acc
+-        | otherwise =
+-            let (byte, rest) = (BS.head remaining, BS.tail remaining)
+-                (newState, chunks) = feedBytes state (BS.singleton byte)
+-            in go newState rest (acc ++ chunks)
++    go state remaining acc =
++        case BS.uncons remaining of
++            Nothing ->
++                case flushDecoder state of
++                    Just chunk -> acc ++ [chunk]
++                    Nothing -> acc
++            Just (byte, rest) ->
++                let (newState, chunks) = feedBytes state (BS.singleton byte)
++                in go newState rest (acc ++ chunks)
+ 
+ -- ════════════════════════════════════════════════════════════════════════════════
+ -- Additional Adversarial Tests
+-- 
+2.52.0
+
