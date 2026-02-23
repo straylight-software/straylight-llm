@@ -15,7 +15,9 @@ module Main where
 import Adversarial.InjectionEdgeCases qualified as InjectionEdgeCases
 import Adversarial.ProviderErrors qualified as ProviderErrors
 import Adversarial.RaceConditions qualified as RaceConditions
+import Formal.ProofCorrespondence qualified as ProofCorrespondence
 import Integration.ApiTests qualified as ApiTests
+import Integration.LifecycleTests qualified as LifecycleTests
 import Integration.ProofTests qualified as ProofTests
 import Property.CoeffectProps qualified as CoeffectProps
 import Property.GradedMonadProps qualified as GradedMonadProps
@@ -36,10 +38,14 @@ main = defaultMain $
         , testGroup "Integration Tests"
             [ ApiTests.tests
             , ProofTests.tests
+            , LifecycleTests.tests
             ]
         , testGroup "Adversarial Tests"
             [ RaceConditions.tests
             , InjectionEdgeCases.tests
             , ProviderErrors.tests
+            ]
+        , testGroup "Formal Tests"
+            [ ProofCorrespondence.tests
             ]
         ]

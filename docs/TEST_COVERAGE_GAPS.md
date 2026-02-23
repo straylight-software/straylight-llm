@@ -308,15 +308,14 @@ prop_modelNameSanitized = property $ do
 | Injection variants | ~10 | 22 | COMPLETE |
 | Boundary conditions | ~8 | (included in injection) | COMPLETE |
 | State corruption | ~5 | (included in race) | COMPLETE |
-| Lifecycle integration | ~7 | 0 | NOT STARTED |
-| Proof correspondence | ~5 | 0 | NOT STARTED |
+| Lifecycle integration | ~7 | 7 | COMPLETE |
+| Proof correspondence | ~5 | 9 | COMPLETE |
 | Property algebra | ~10 | 6 | COMPLETE |
 
-**Total new tests added**: 66  
-**Current tests**: 130 (was 64)  
-**Target**: 135+ tests (NEARLY COMPLETE)
+**Total tests**: 167 (was 64)  
+**Target**: 135+ tests - **EXCEEDED**
 
-### Tests Added This Session
+### Tests Added
 
 1. **Adversarial/RaceConditions.hs** (9 tests)
    - STM atomicity tests
@@ -344,6 +343,27 @@ prop_modelNameSanitized = property $ do
    - Error message preservation (empty, long, unicode)
    - ProviderResult structure tests
 
+5. **Property/StreamingProps.hs** (21 tests)
+   - StreamChunk JSON roundtrip tests
+   - ChoiceDelta structure tests
+   - SSE parsing property tests
+   - Streaming type invariant tests
+
+6. **Integration/LifecycleTests.hs** (7 tests)
+   - Health endpoint full lifecycle
+   - Unknown model handling
+   - Provider connection error handling
+   - Empty messages handling
+   - Concurrent request isolation
+   - Error response structure
+   - 404 for non-existent endpoints
+
+7. **Formal/ProofCorrespondence.hs** (9 tests)
+   - Coeffect monoid laws (Coeffect.lean correspondence)
+   - DischargeProof laws (empty is pure, unsigned, signed)
+   - Gateway bounds (maxProviders = 10)
+   - Cryptographic types (Hash = 32 bytes)
+
 ---
 
-**This document is the roadmap for achieving COMPASS-level test coverage.**
+**COMPASS-level test coverage: ACHIEVED**

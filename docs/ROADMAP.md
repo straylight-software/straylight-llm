@@ -5,8 +5,9 @@
 ## Current Status
 
 **Build:** Passing (GHC 9.10.3, cabal build)  
-**Tests:** 130/130 passing (property + integration + adversarial)  
+**Tests:** 167/167 passing (property + integration + adversarial + formal)  
 **Nix:** `.#straylight-llm` builds successfully  
+**COMPASS Target:** 135+ tests - **EXCEEDED**  
 
 ---
 
@@ -193,15 +194,15 @@
 | Property: Coeffect (roundtrip) | 6 | Passing |
 | Property: Coeffect (algebraic) | 6 | Passing |
 | Property: Graded Monad | 11 | Passing |
-| Integration: Health | 2 | Passing |
-| Integration: Models | 1 | Passing |
-| Integration: Chat | 1 | Passing |
-| Integration: Embeddings | 1 | Passing |
+| Property: Streaming | 21 | Passing |
+| Integration: API | 5 | Passing |
 | Integration: Proof | 1 | Passing |
+| Integration: Lifecycle | 7 | Passing |
 | Adversarial: Race Conditions | 9 | Passing |
 | Adversarial: Injection Edge Cases | 22 | Passing |
 | Adversarial: Provider Errors | 29 | Passing |
-| **Total** | **130** | **Passing** |
+| Formal: Proof Correspondence | 9 | Passing |
+| **Total** | **167** | **Passing** |
 
 ---
 

@@ -176,10 +176,13 @@ test-suite straylight-llm-test
     Integration.TestServer
     Integration.ApiTests
     Integration.ProofTests
+    Integration.LifecycleTests
     -- // adversarial tests
     Adversarial.RaceConditions
     Adversarial.InjectionEdgeCases
     Adversarial.ProviderErrors
+    -- // formal tests
+    Formal.ProofCorrespondence
 
   build-depends:
     , aeson
