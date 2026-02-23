@@ -83,13 +83,17 @@
 ### High Priority
 
 #### Backport Safety Fixes to Production
-- [ ] Create PR for `straylight-repos/slide` with `reads` pattern fix
+- [x] Create fix for `straylight-repos/slide` with `reads` pattern fix
+  - Commit `5b5c36c` on branch `fix/safe-reads-parse` (local)
+  - **Blocked:** No write access to straylight-software/slide
+  - **Action:** Request push access or submit via internal process
 - [ ] Create PR for `straylight-repos/libevring` with `BS.uncons` fix
 
 #### COMPASS Agent Testing Integration
-- [ ] Study `compass-evals` patterns for provider testing
-- [ ] Adapt scenario framework for fallback chain testing
-- [ ] Add cost tracking assertions from COMPASS patterns
+- [x] Study `compass-evals` patterns for provider testing
+- [x] Added graded monad algebraic property tests (11 new tests)
+- [ ] Adapt scenario framework for fallback chain testing (future)
+- [ ] Add cost tracking assertions from COMPASS patterns (future)
 
 ### Medium Priority
 
