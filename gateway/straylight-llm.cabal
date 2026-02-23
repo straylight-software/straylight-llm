@@ -79,6 +79,7 @@ library
     Resilience.Metrics
     Resilience.Retry
     -- // security
+    Security.CommandInjection
     Security.ConstantTime
     Security.ObservabilitySanitization
     Security.PromptInjection
@@ -108,6 +109,7 @@ library
     , aeson               >=2.0
     , base                >=4.17 && <5
     , base16-bytestring   >=1.0
+    , base64-bytestring   >=1.2
     , bytestring          >=0.11
     , containers          >=0.6
     , crypton             >=0.30
