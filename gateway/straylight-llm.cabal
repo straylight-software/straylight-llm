@@ -171,6 +171,7 @@ test-suite straylight-llm-test
     Property.CoeffectProps
     Property.GradedMonadProps
     Property.Generators
+    Property.StreamingProps
     -- // integration tests
     Integration.TestServer
     Integration.ApiTests

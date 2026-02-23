@@ -304,7 +304,7 @@ prop_modelNameSanitized = property $ do
 |-----|--------------|---------------|--------|
 | Race conditions | ~10 | 9 | COMPLETE |
 | Provider errors | ~10 | 29 | COMPLETE |
-| Streaming/SSE | ~6 | 0 | NOT STARTED |
+| Streaming/SSE | ~6 | 21 | COMPLETE |
 | Injection variants | ~10 | 22 | COMPLETE |
 | Boundary conditions | ~8 | (included in injection) | COMPLETE |
 | State corruption | ~5 | (included in race) | COMPLETE |

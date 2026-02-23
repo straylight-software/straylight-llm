@@ -19,6 +19,7 @@ import Integration.ApiTests qualified as ApiTests
 import Integration.ProofTests qualified as ProofTests
 import Property.CoeffectProps qualified as CoeffectProps
 import Property.GradedMonadProps qualified as GradedMonadProps
+import Property.StreamingProps qualified as StreamingProps
 import Property.TypesProps qualified as TypesProps
 import Test.Tasty
 
@@ -30,6 +31,7 @@ main = defaultMain $
             [ TypesProps.tests
             , CoeffectProps.tests
             , GradedMonadProps.tests
+            , StreamingProps.tests
             ]
         , testGroup "Integration Tests"
             [ ApiTests.tests
