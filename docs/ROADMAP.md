@@ -5,9 +5,10 @@
 ## Current Status
 
 **Build:** Passing (GHC 9.10.3, cabal build)  
-**Tests:** 167/167 passing (property + integration + adversarial + formal)  
+**Tests:** 171/171 passing (property + integration + adversarial + formal)  
 **Nix:** `.#straylight-llm` builds successfully  
 **COMPASS Target:** 135+ tests - **EXCEEDED**  
+**Streaming:** SSE endpoint implemented (`/v1/chat/completions/stream`)  
 
 ---
 
@@ -53,10 +54,22 @@
 - [x] Dynamic ModelRegistry with realtime provider sync
 - [x] 404 → Retry fix for all providers
 - [x] Anthropic models API integration
-- [x] COMPASS-style adversarial test suite (37 new tests)
-  - Race condition tests (STM atomicity, cache concurrency)
-  - Injection edge case tests (Unicode, path traversal, JSON attacks)
-  - Coeffect algebraic property tests
+- [x] COMPASS-style adversarial test suite (103 new tests total)
+  - Race condition tests (STM atomicity, cache concurrency) - 9 tests
+  - Injection edge case tests (Unicode, path traversal, JSON attacks) - 22 tests
+  - Provider error handling tests (fallback chain logic) - 29 tests
+  - Streaming property tests (SSE parsing, chunks) - 21 tests
+  - Coeffect algebraic property tests - 6 tests
+  - Lifecycle integration tests - 7 tests (+ 4 streaming)
+  - Proof correspondence tests (Lean4 ↔ Haskell) - 9 tests
+- [x] **Streaming SSE endpoint** (`POST /v1/chat/completions/stream`)
+  - WAI `responseStream` with `text/event-stream`
+  - OpenAI-compatible format: `data: {...}\n\n`
+  - `[DONE]` marker on completion
+  - Error events also SSE-formatted
+- [x] **libevring safety patch** (`patches/libevring-safe-uncons.patch`)
+  - Replaces `BS.head`/`BS.tail` with total `BS.uncons`
+  - 6 files, no functional changes
 
 ---
 
@@ -197,12 +210,12 @@
 | Property: Streaming | 21 | Passing |
 | Integration: API | 5 | Passing |
 | Integration: Proof | 1 | Passing |
-| Integration: Lifecycle | 7 | Passing |
+| Integration: Lifecycle | 11 | Passing |
 | Adversarial: Race Conditions | 9 | Passing |
 | Adversarial: Injection Edge Cases | 22 | Passing |
 | Adversarial: Provider Errors | 29 | Passing |
 | Formal: Proof Correspondence | 9 | Passing |
-| **Total** | **167** | **Passing** |
+| **Total** | **171** | **Passing** |
 
 ---
 
