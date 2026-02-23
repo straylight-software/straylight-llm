@@ -194,6 +194,7 @@ test-suite straylight-llm-test
     Integration.ApiTests
     Integration.ProofTests
     Integration.LifecycleTests
+    Integration.OpenApiSpec
     -- // adversarial tests
     Adversarial.RaceConditions
     Adversarial.InjectionEdgeCases
@@ -203,25 +204,32 @@ test-suite straylight-llm-test
 
   build-depends:
     , aeson
-    , async               >=2.2
-    , base                >=4.17 && <5
+    , async                       >=2.2
+    , base                        >=4.17 && <5
     , bytestring
     , containers
-    , hedgehog            >=1.0
+    , hedgehog                    >=1.0
     , http-client
     , http-client-tls
     , http-types
+    , insert-ordered-containers
+    , openapi3                    >=3.2
     , servant-server
-    , stm                 >=2.5
+    , stm                         >=2.5
     , straylight-llm
-    , tasty               >=1.4
-    , tasty-hedgehog      >=1.4
-    , tasty-hunit         >=0.10
+    , tasty                       >=1.4
+    , tasty-hedgehog              >=1.4
+    , tasty-hunit                 >=0.10
     , text
     , time
     , vector
     , wai
     , warp
+    , yaml                        >=0.11
+
+  -- n.b. haskemathesis is available via flake input for full OpenAPI
+  -- conformance testing. Run via separate test target or in CI.
+  -- See test/Integration/OpenApiSpec.hs for setup.
 
   default-extensions:
     OverloadedStrings

@@ -1,0 +1,850 @@
+openapi: 3.0.3
+info:
+  title: straylight-llm
+  description: |
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // straylight-llm // CGP-first OpenAI-compatible LLM gateway
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    "The sky above the port was the color of television, tuned to a dead channel."
+
+    OpenAI-compatible API proxy with provider fallback chain:
+    1. Venice AI (primary)
+    2. Vertex AI / GCP (secondary)
+    3. Baseten (tertiary)
+    4. OpenRouter (final fallback)
+    5. Anthropic (last resort)
+
+    Features:
+    - Automatic failover between providers
+    - Discharge proofs for every request (ed25519 signed)
+    - Effect tracking via graded monads
+    - Streaming SSE support
+
+  version: 1.0.0
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  contact:
+    name: Straylight Software
+    url: https://straylight.software
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+  - url: https://llm.straylight.software
+    description: Production
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Chat
+    description: Chat completions (conversational AI)
+  - name: Completions
+    description: Legacy completions API
+  - name: Embeddings
+    description: Text embeddings
+  - name: Models
+    description: Available models
+  - name: Proofs
+    description: Discharge proofs for auditability
+  - name: Health
+    description: Service health
+
+paths:
+  /v1/chat/completions:
+    post:
+      operationId: createChatCompletion
+      summary: Create chat completion
+      description: |
+        Generate a chat completion for the given messages.
+        Routes through the provider fallback chain until success.
+      tags: [Chat]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: Chat completion response
+          headers:
+            X-Request-Id:
+              schema:
+                type: string
+                format: uuid
+              description: Unique request ID for proof retrieval
+            X-Provider:
+              schema:
+                type: string
+              description: Provider that handled the request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /v1/chat/completions/stream:
+    post:
+      operationId: createChatCompletionStream
+      summary: Create streaming chat completion
+      description: |
+        Generate a streaming chat completion using Server-Sent Events.
+        Each chunk is sent as `data: {...}\n\n` followed by `data: [DONE]\n\n`.
+      tags: [Chat]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: Streaming chat completion
+          headers:
+            X-Request-Id:
+              schema:
+                type: string
+                format: uuid
+          content:
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/StreamChunk'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1/completions:
+    post:
+      operationId: createCompletion
+      summary: Create completion (legacy)
+      description: |
+        Generate a completion for the given prompt.
+        This is the legacy completions API - prefer /v1/chat/completions.
+      tags: [Completions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompletionRequest'
+      responses:
+        '200':
+          description: Completion response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompletionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /v1/embeddings:
+    post:
+      operationId: createEmbedding
+      summary: Create embeddings
+      description: Generate embeddings for the given input text(s).
+      tags: [Embeddings]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmbeddingRequest'
+      responses:
+        '200':
+          description: Embedding response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmbeddingResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /v1/models:
+    get:
+      operationId: listModels
+      summary: List available models
+      description: |
+        Returns a list of models available through the gateway.
+        Aggregates models from all configured providers.
+      tags: [Models]
+      responses:
+        '200':
+          description: List of models
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelList'
+
+  /v1/proof/{requestId}:
+    get:
+      operationId: getDischargeProof
+      summary: Get discharge proof
+      description: |
+        Retrieve the cryptographic discharge proof for a completed request.
+        Proofs are ed25519 signed and include all coeffects (network, auth, filesystem access).
+      tags: [Proofs]
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Request ID from X-Request-Id header
+      responses:
+        '200':
+          description: Discharge proof
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DischargeProof'
+        '404':
+          description: Proof not found (request ID unknown or expired)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /health:
+    get:
+      operationId: getHealth
+      summary: Health check
+      description: Returns service health status and provider availability.
+      tags: [Health]
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: API key passed as Bearer token
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Unauthorized:
+      description: Missing or invalid API key
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    RateLimited:
+      description: Rate limit exceeded
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+          description: Seconds until rate limit resets
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    ServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    ServiceUnavailable:
+      description: All providers unavailable
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+
+  schemas:
+    # ══════════════════════════════════════════════════════════════════════════
+    # Chat Completions
+    # ══════════════════════════════════════════════════════════════════════════
+
+    ChatRequest:
+      type: object
+      required: [model, messages]
+      properties:
+        model:
+          type: string
+          description: Model ID (e.g., "gpt-4", "claude-3-opus")
+          example: "gpt-4"
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/Message'
+          minItems: 1
+          description: List of messages in the conversation
+        temperature:
+          type: number
+          minimum: 0
+          maximum: 2
+          default: 1
+          description: Sampling temperature (0-2)
+        top_p:
+          type: number
+          minimum: 0
+          maximum: 1
+          default: 1
+          description: Nucleus sampling parameter
+        n:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 1
+          description: Number of completions to generate
+        max_tokens:
+          type: integer
+          minimum: 1
+          description: Maximum tokens in the response
+        stop:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+              maxItems: 4
+          description: Stop sequence(s)
+        presence_penalty:
+          type: number
+          minimum: -2
+          maximum: 2
+          default: 0
+        frequency_penalty:
+          type: number
+          minimum: -2
+          maximum: 2
+          default: 0
+        logit_bias:
+          type: object
+          additionalProperties:
+            type: number
+            minimum: -100
+            maximum: 100
+          description: Token ID to bias mapping
+        user:
+          type: string
+          description: User identifier for tracking
+        tools:
+          type: array
+          items:
+            $ref: '#/components/schemas/ToolDef'
+          description: Tools available to the model
+        tool_choice:
+          $ref: '#/components/schemas/ToolChoice'
+        response_format:
+          $ref: '#/components/schemas/ResponseFormat'
+        stream:
+          type: boolean
+          default: false
+          description: Enable streaming (use /stream endpoint instead)
+
+    ChatResponse:
+      type: object
+      required: [id, object, created, model, choices]
+      properties:
+        id:
+          type: string
+          description: Unique response ID
+          example: "chatcmpl-abc123"
+        object:
+          type: string
+          const: "chat.completion"
+        created:
+          type: integer
+          description: Unix timestamp
+        model:
+          type: string
+          description: Model used
+        choices:
+          type: array
+          items:
+            $ref: '#/components/schemas/Choice'
+        usage:
+          $ref: '#/components/schemas/Usage'
+
+    Message:
+      type: object
+      required: [role]
+      properties:
+        role:
+          type: string
+          enum: [system, user, assistant, tool]
+        content:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                $ref: '#/components/schemas/ContentPart'
+          description: Message content (text or multimodal parts)
+        name:
+          type: string
+          description: Name of the participant
+        tool_calls:
+          type: array
+          items:
+            $ref: '#/components/schemas/ToolCall'
+          description: Tool calls from assistant
+        tool_call_id:
+          type: string
+          description: Tool call ID (for tool role)
+
+    ContentPart:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [text, image_url]
+        text:
+          type: string
+        image_url:
+          type: object
+          properties:
+            url:
+              type: string
+              format: uri
+            detail:
+              type: string
+              enum: [auto, low, high]
+
+    Choice:
+      type: object
+      required: [index, message, finish_reason]
+      properties:
+        index:
+          type: integer
+        message:
+          $ref: '#/components/schemas/Message'
+        finish_reason:
+          type: string
+          enum: [stop, length, tool_calls, content_filter]
+          nullable: true
+
+    Usage:
+      type: object
+      required: [prompt_tokens, completion_tokens, total_tokens]
+      properties:
+        prompt_tokens:
+          type: integer
+        completion_tokens:
+          type: integer
+        total_tokens:
+          type: integer
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # Tools
+    # ══════════════════════════════════════════════════════════════════════════
+
+    ToolCall:
+      type: object
+      required: [id, type, function]
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          const: "function"
+        function:
+          $ref: '#/components/schemas/FunctionCall'
+
+    FunctionCall:
+      type: object
+      required: [name, arguments]
+      properties:
+        name:
+          type: string
+        arguments:
+          type: string
+          description: JSON string of arguments
+
+    ToolDef:
+      type: object
+      required: [type, function]
+      properties:
+        type:
+          type: string
+          const: "function"
+        function:
+          $ref: '#/components/schemas/ToolFunction'
+
+    ToolFunction:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        parameters:
+          type: object
+          description: JSON Schema for parameters
+
+    ToolChoice:
+      oneOf:
+        - type: string
+          enum: [none, auto, required]
+        - type: object
+          required: [type, function]
+          properties:
+            type:
+              type: string
+              const: "function"
+            function:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+
+    ResponseFormat:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [text, json_object, json_schema]
+        json_schema:
+          type: object
+          properties:
+            name:
+              type: string
+            schema:
+              type: object
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # Streaming
+    # ══════════════════════════════════════════════════════════════════════════
+
+    StreamChunk:
+      type: object
+      required: [id, object, created, model, choices]
+      properties:
+        id:
+          type: string
+        object:
+          type: string
+          const: "chat.completion.chunk"
+        created:
+          type: integer
+        model:
+          type: string
+        choices:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChoiceDelta'
+
+    ChoiceDelta:
+      type: object
+      required: [index, delta]
+      properties:
+        index:
+          type: integer
+        delta:
+          type: object
+          properties:
+            role:
+              type: string
+            content:
+              type: string
+            tool_calls:
+              type: array
+              items:
+                type: object
+        finish_reason:
+          type: string
+          nullable: true
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # Legacy Completions
+    # ══════════════════════════════════════════════════════════════════════════
+
+    CompletionRequest:
+      type: object
+      required: [model, prompt]
+      properties:
+        model:
+          type: string
+        prompt:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+        max_tokens:
+          type: integer
+        temperature:
+          type: number
+        top_p:
+          type: number
+        n:
+          type: integer
+        stop:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+        presence_penalty:
+          type: number
+        frequency_penalty:
+          type: number
+
+    CompletionResponse:
+      type: object
+      required: [id, object, created, model, choices]
+      properties:
+        id:
+          type: string
+        object:
+          type: string
+          const: "text_completion"
+        created:
+          type: integer
+        model:
+          type: string
+        choices:
+          type: array
+          items:
+            type: object
+            properties:
+              text:
+                type: string
+              index:
+                type: integer
+              finish_reason:
+                type: string
+        usage:
+          $ref: '#/components/schemas/Usage'
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # Embeddings
+    # ══════════════════════════════════════════════════════════════════════════
+
+    EmbeddingRequest:
+      type: object
+      required: [model, input]
+      properties:
+        model:
+          type: string
+          example: "text-embedding-ada-002"
+        input:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+            - type: array
+              items:
+                type: integer
+            - type: array
+              items:
+                type: array
+                items:
+                  type: integer
+          description: Text or token arrays to embed
+        user:
+          type: string
+        encoding_format:
+          type: string
+          enum: [float, base64]
+          default: float
+
+    EmbeddingResponse:
+      type: object
+      required: [object, data, model, usage]
+      properties:
+        object:
+          type: string
+          const: "list"
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/EmbeddingData'
+        model:
+          type: string
+        usage:
+          type: object
+          properties:
+            prompt_tokens:
+              type: integer
+            total_tokens:
+              type: integer
+
+    EmbeddingData:
+      type: object
+      required: [object, embedding, index]
+      properties:
+        object:
+          type: string
+          const: "embedding"
+        embedding:
+          type: array
+          items:
+            type: number
+        index:
+          type: integer
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # Models
+    # ══════════════════════════════════════════════════════════════════════════
+
+    ModelList:
+      type: object
+      required: [object, data]
+      properties:
+        object:
+          type: string
+          const: "list"
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Model'
+
+    Model:
+      type: object
+      required: [id, object, created, owned_by]
+      properties:
+        id:
+          type: string
+        object:
+          type: string
+          const: "model"
+        created:
+          type: integer
+        owned_by:
+          type: string
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # Discharge Proofs
+    # ══════════════════════════════════════════════════════════════════════════
+
+    DischargeProof:
+      type: object
+      required: [requestId, timestamp, coeffects, hash]
+      properties:
+        requestId:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+        coeffects:
+          type: array
+          items:
+            $ref: '#/components/schemas/Coeffect'
+        hash:
+          type: string
+          description: SHA256 hash of coeffects (hex)
+        signature:
+          type: string
+          description: ed25519 signature (hex)
+        publicKey:
+          type: string
+          description: ed25519 public key (hex)
+
+    Coeffect:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [network, auth, filesystem, pure, combined]
+        network:
+          $ref: '#/components/schemas/NetworkAccess'
+        auth:
+          $ref: '#/components/schemas/AuthUsage'
+        filesystem:
+          $ref: '#/components/schemas/FilesystemAccess'
+
+    NetworkAccess:
+      type: object
+      properties:
+        host:
+          type: string
+        port:
+          type: integer
+        protocol:
+          type: string
+          enum: [http, https, grpc]
+
+    AuthUsage:
+      type: object
+      properties:
+        provider:
+          type: string
+        keyHash:
+          type: string
+          description: SHA256 of API key (first 8 chars)
+
+    FilesystemAccess:
+      type: object
+      properties:
+        path:
+          type: string
+        mode:
+          type: string
+          enum: [read, write, readwrite]
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # Health & Errors
+    # ══════════════════════════════════════════════════════════════════════════
+
+    HealthResponse:
+      type: object
+      required: [healthy]
+      properties:
+        healthy:
+          type: boolean
+        version:
+          type: string
+        providers:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              available:
+                type: boolean
+              latency_ms:
+                type: integer
+
+    ApiError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [message, type]
+          properties:
+            message:
+              type: string
+            type:
+              type: string
+              enum: [invalid_request_error, authentication_error, rate_limit_error, server_error, service_unavailable]
+            param:
+              type: string
+              nullable: true
+            code:
+              type: string
+              nullable: true

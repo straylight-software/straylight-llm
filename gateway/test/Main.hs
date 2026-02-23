@@ -18,6 +18,7 @@ import Adversarial.RaceConditions qualified as RaceConditions
 import Formal.ProofCorrespondence qualified as ProofCorrespondence
 import Integration.ApiTests qualified as ApiTests
 import Integration.LifecycleTests qualified as LifecycleTests
+import Integration.OpenApiSpec qualified as OpenApiSpec
 import Integration.ProofTests qualified as ProofTests
 import Property.CoeffectProps qualified as CoeffectProps
 import Property.GradedMonadProps qualified as GradedMonadProps
@@ -39,6 +40,7 @@ main = defaultMain $
             [ ApiTests.tests
             , ProofTests.tests
             , LifecycleTests.tests
+            , OpenApiSpec.tests
             ]
         , testGroup "Adversarial Tests"
             [ RaceConditions.tests
