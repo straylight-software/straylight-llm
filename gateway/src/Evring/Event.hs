@@ -16,15 +16,15 @@
 -- Imported from: libevring/hs/Evring/Event.hs
 module Evring.Event
   ( -- * Events (completions from kernel)
-    Event(..)
+    Event (Event, eventHandle, eventType, eventResult, eventData, eventUserData)
   , emptyEvent
     -- * Operations (requests to kernel)
-  , Operation(..)
-  , OperationType(..)
+  , Operation (Operation, opHandle, opType, opUserData, opParams)
+  , OperationType (Nop, Connect, Send, Recv, Timeout, Cancel, StreamData, StreamEnd, StreamError)
     -- * Handles
   , Handle
     -- * Parameters (simplified for gateway use)
-  , OperationParams(..)
+  , OperationParams (NoParams, ParamsData, ParamsTimeout)
   ) where
 
 import Data.ByteString (ByteString)

@@ -47,7 +47,7 @@ import Data.Text qualified as T
 import Network.HTTP.Client qualified as HC
 import Network.HTTP.Types qualified as HT
 
-import Config (ProviderConfig (..), VertexConfig (..))
+import Config (ProviderConfig (pcEnabled, pcVertexConfig), VertexConfig (vcProjectId, vcLocation, vcServiceAccountKeyPath))
 import Effects.Graded
 import Provider.Types
 import Types

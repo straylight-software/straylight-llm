@@ -38,24 +38,40 @@
 
 module Effects.Graded
   ( -- * Gateway Grade
-    GatewayGrade (..)
+    GatewayGrade
+      ( GatewayGrade
+      , ggLatencyMs
+      , ggInputTokens
+      , ggOutputTokens
+      , ggProviderCalls
+      , ggRetries
+      , ggCacheHits
+      , ggCacheMisses
+      )
   , emptyGrade
   , combineGrades
   , gradeFromLatency
 
     -- * Gateway Co-Effect
-  , GatewayCoEffect (..)
+  , GatewayCoEffect (GatewayCoEffect, gceHttpAccess, gceAuthUsage, gceConfigAccess)
   , emptyCoEffect
-  , HttpAccess (..)
-  , AuthUsage (..)
-  , ConfigAccess (..)
+  , HttpAccess (HttpAccess, haUrl, haMethod, haTimestamp, haStatusCode)
+  , AuthUsage (AuthUsage, auProvider, auScope, auTimestamp)
+  , ConfigAccess (ConfigAccess, caKey, caTimestamp)
 
     -- * Gateway Provenance
-  , GatewayProvenance (..)
+  , GatewayProvenance
+      ( GatewayProvenance
+      , gpRequestId
+      , gpProvidersUsed
+      , gpModelsUsed
+      , gpTimestamp
+      , gpClientIp
+      )
   , emptyProvenance
 
     -- * Gateway Graded Monad
-  , GatewayM (..)
+  , GatewayM (GatewayM, unGatewayM)
   , runGatewayM
   , runGatewayMPure
   , liftGatewayIO

@@ -19,8 +19,8 @@ module Slide.Wire.Types
   , HotId
   
     -- * Frame types  
-  , Frame(..)
-  , FrameOp(..)
+  , Frame (Frame, frameBytes)
+  , FrameOp (FrameOp, unFrameOp)
   
     -- * Opcodes
   , pattern OP_EXTENDED

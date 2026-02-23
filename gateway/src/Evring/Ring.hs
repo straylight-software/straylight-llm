@@ -37,11 +37,11 @@ module Evring.Ring
   , runGenerate
   , runGenerateTraced
     -- * Ring configuration
-  , RingConfig(..)
+  , RingConfig (RingConfig, ringEntries, ringCqEntries, ringBatchSize)
   , defaultRingConfig
     -- * Custom runners
   , runWith
-  , Runner(..)
+  , Runner (Runner, runnerSubmit, runnerAwait)
   ) where
 
 import Data.IORef (IORef, newIORef, readIORef, modifyIORef')

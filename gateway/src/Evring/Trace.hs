@@ -31,7 +31,7 @@
 
 module Evring.Trace
   ( -- * Trace type
-    Trace(..)
+    Trace (Trace, _traceEvents)
   , emptyTrace
     -- * Recording
   , record
@@ -52,7 +52,7 @@ import GHC.Generics (Generic)
 
 import qualified Data.ByteString as BS
 
-import Evring.Event (Event(..))
+import Evring.Event (Event (Event, eventHandle, eventType, eventResult, eventData, eventUserData))
 import Evring.Handle (packHandle, unpackHandle)
 
 

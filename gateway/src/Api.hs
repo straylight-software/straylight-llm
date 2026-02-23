@@ -47,10 +47,10 @@ module Api
     , ProviderStatus (ProviderStatus, psName, psCircuitState, psStats)
     , MetricsResponse (MetricsResponse, mrMetrics)
     , RequestsResponse (RequestsResponse, rrRequests, rrTotal)
-    , RequestDetailResponse (..)
-    , ConfigResponse (..)
-    , ConfigUpdateRequest (..)
-    , ProofVerifyResponse (..)
+    , RequestDetailResponse (RequestDetailResponse, rdrRequestId, rdrModel, rdrProvider, rdrSuccess, rdrLatencyMs, rdrTimestamp, rdrProof)
+    , ConfigResponse (ConfigResponse, crPort, crHost, crLogLevel, crProviders)
+    , ConfigUpdateRequest (ConfigUpdateRequest, curLogLevel, curProviderUpdates)
+    , ProofVerifyResponse (ProofVerifyResponse, pvrValid, pvrMessage, pvrDetails)
     ) where
 
 import Data.Aeson (ToJSON (toJSON), FromJSON (parseJSON), Value, object, (.=), (.:), (.:?), withObject)

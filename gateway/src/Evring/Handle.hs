@@ -12,7 +12,7 @@
 --
 -- Imported from: libevring/hs/Evring/Handle.hs
 module Evring.Handle
-  ( Handle(..)
+  ( Handle (Handle, handleIndex, handleGeneration)
   , invalidHandle
   , isValid
   , makeHandle

@@ -88,7 +88,7 @@ import Resilience.CircuitBreaker qualified as CB
 import Resilience.Metrics (MetricsStore, Metrics, newMetricsStore, recordRequest, recordRequestComplete, recordProviderRequest, recordProviderError, getMetrics, getProviderLatencies, recordProviderSuccess)
 import Streaming.Events
     ( EventBroadcaster
-    , CircuitState (..)
+    , CircuitState (CircuitClosed, CircuitOpen, CircuitHalfOpen)
     , newEventBroadcaster
     , subscribe
     , encodeSSEEvent

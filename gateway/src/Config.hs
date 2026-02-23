@@ -18,9 +18,29 @@
 
 module Config
     ( -- * Configuration
-      Config (..)
-    , ProviderConfig (..)
-    , VertexConfig (..)
+      Config
+        ( Config
+        , cfgPort
+        , cfgHost
+        , cfgVenice
+        , cfgVertex
+        , cfgBaseten
+        , cfgOpenRouter
+        , cfgAnthropic
+        , cfgLogLevel
+        , cfgRequestTimeout
+        , cfgMaxRetries
+        , cfgAdminApiKey
+        )
+    , ProviderConfig
+        ( ProviderConfig
+        , pcEnabled
+        , pcBaseUrl
+        , pcApiKeyPath
+        , pcApiKey
+        , pcVertexConfig
+        )
+    , VertexConfig (VertexConfig, vcProjectId, vcLocation, vcServiceAccountKeyPath)
 
       -- * Loading
     , loadConfig

@@ -26,24 +26,36 @@
 
 module Coeffect.Types
     ( -- * Coeffect Types
-      Coeffect (..)
+      Coeffect (Pure, Network, Auth, Sandbox, Filesystem, Combined)
     , combineCoeffects
     , coeffectToText
     
       -- * Access Witnesses
-    , NetworkAccess (..)
-    , FilesystemAccess (..)
-    , FilesystemMode (..)
-    , AuthUsage (..)
+    , NetworkAccess (NetworkAccess, naUrl, naMethod, naContentHash, naTimestamp)
+    , FilesystemAccess (FilesystemAccess, faPath, faMode, faContentHash, faTimestamp)
+    , FilesystemMode (Read, Write, Execute)
+    , AuthUsage (AuthUsage, auProvider, auScope, auTimestamp)
     
       -- * Cryptographic Types
-    , Hash (..)
-    , PublicKey (..)
-    , Signature (..)
+    , Hash (Hash, unHash)
+    , PublicKey (PublicKey, unPublicKey)
+    , Signature (Signature, unSignature)
     
       -- * Discharge Proof
-    , DischargeProof (..)
-    , OutputHash (..)
+    , DischargeProof
+        ( DischargeProof
+        , dpCoeffects
+        , dpNetworkAccess
+        , dpFilesystemAccess
+        , dpAuthUsage
+        , dpBuildId
+        , dpDerivationHash
+        , dpOutputHashes
+        , dpStartTime
+        , dpEndTime
+        , dpSignature
+        )
+    , OutputHash (OutputHash, ohName, ohHash)
     
       -- * Predicates
     , isPure
@@ -52,7 +64,7 @@ module Coeffect.Types
     ) where
 
 import Control.DeepSeq (NFData (rnf))
-import Data.Aeson (ToJSON (..), FromJSON (..), object, (.=), (.:), (.:?), withObject, withText)
+import Data.Aeson (ToJSON (toJSON), FromJSON (parseJSON), object, (.=), (.:), (.:?), withObject, withText)
 import Data.ByteString (ByteString)
 import Data.ByteString.Base16 qualified as Base16
 import Data.Text (Text)

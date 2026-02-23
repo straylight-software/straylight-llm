@@ -46,19 +46,19 @@
 -- returns to 'initSigilState' (the unique ground state).
 module Evring.Sigil
   ( -- * Machine
-    SigilMachine(..)
+    SigilMachine (SigilMachine)
     -- * State
-  , SigilState(..)
-  , ParseMode(..)
+  , SigilState (SigilState, sigilParseMode, sigilBuffer, sigilLeftover, sigilChunks, sigilDone)
+  , ParseMode (ModeText, ModeThink, ModeToolCall, ModeCodeBlock)
   , initSigilState
   , resetSigilState
     -- * Decoded chunks
-  , Chunk(..)
-  , ChunkContent(..)
+  , Chunk (Chunk, chunkContent, chunkComplete)
+  , ChunkContent (TextContent, ThinkContent, ToolCallContent, CodeBlockContent, StreamEnd, DecodeError, AmbiguityReset)
     -- * Ambiguity handling
-  , AmbiguityReason(..)
+  , AmbiguityReason (UnmatchedModeEnd, NestedModeStart, ReservedOpcode, VarintOverflow, UpstreamError)
     -- * Parse results
-  , SigilParseResult(..)
+  , SigilParseResult (Ok, Incomplete, Ambiguous)
     -- * Token types
   , TokenId
     -- * Byte classification

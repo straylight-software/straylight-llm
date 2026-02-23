@@ -37,7 +37,7 @@ import Data.Text qualified as T
 import Network.HTTP.Client qualified as HC
 import Network.HTTP.Types qualified as HT
 
-import Config (ProviderConfig (..))
+import Config (ProviderConfig (pcEnabled, pcApiKey, pcBaseUrl))
 import Effects.Graded
 import Provider.Types
 import Types

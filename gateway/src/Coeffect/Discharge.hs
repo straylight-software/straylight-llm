@@ -23,6 +23,7 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# OPTIONS_GHC -Wno-unused-imports #-}
 
 module Coeffect.Discharge
     ( -- * Proof Generation
@@ -45,7 +46,7 @@ module Coeffect.Discharge
 
 import Crypto.Hash (hash, SHA256, Digest)
 import Crypto.PubKey.Ed25519 qualified as Ed25519
-import Crypto.Error (CryptoFailable(..))
+import Crypto.Error (CryptoFailable (CryptoPassed, CryptoFailed))
 import Data.ByteArray (convert)
 import Data.ByteString (ByteString)
 import Data.ByteString qualified as BS
@@ -58,8 +59,97 @@ import Data.UUID qualified as UUID
 import Data.UUID.V4 qualified as UUID
 
 import Coeffect.Types
-import Effects.Graded (GatewayCoEffect(..), GatewayProvenance(..), HttpAccess(..), AuthUsage(..))
+    ( Coeffect (Pure, Network, Auth, Sandbox, Filesystem, Combined)
+    , combineCoeffects
+    , coeffectToText
+    , NetworkAccess (NetworkAccess, naUrl, naMethod, naContentHash, naTimestamp)
+    , FilesystemAccess (FilesystemAccess, faPath, faMode, faContentHash, faTimestamp)
+    , FilesystemMode (Read, Write, Execute)
+    , AuthUsage (AuthUsage, auProvider, auScope, auTimestamp)
+    , Hash (Hash, unHash)
+    , PublicKey (PublicKey, unPublicKey)
+    , Signature (Signature, unSignature)
+    , DischargeProof
+        ( DischargeProof
+        , dpCoeffects
+        , dpNetworkAccess
+        , dpFilesystemAccess
+        , dpAuthUsage
+        , dpBuildId
+        , dpDerivationHash
+        , dpOutputHashes
+        , dpStartTime
+        , dpEndTime
+        , dpSignature
+        )
+    , OutputHash (OutputHash, ohName, ohHash)
+    , isPure
+    , isSigned
+    , hasNetworkEvidence
+    )
+-- NOTE: Effects.Graded also exports AuthUsage, but we use it qualified as G.AuthUsage
+-- to avoid shadowing Coeffect.Types.AuthUsage. Full module interface documented here.
+import Effects.Graded
+    ( -- * Gateway Grade
+      GatewayGrade
+        ( GatewayGrade
+        , ggLatencyMs
+        , ggInputTokens
+        , ggOutputTokens
+        , ggProviderCalls
+        , ggRetries
+        , ggCacheHits
+        , ggCacheMisses
+        )
+    , emptyGrade
+    , combineGrades
+    , gradeFromLatency
+      -- * Gateway Co-Effect
+    , GatewayCoEffect (GatewayCoEffect, gceHttpAccess, gceAuthUsage, gceConfigAccess)
+    , emptyCoEffect
+    , HttpAccess (HttpAccess, haUrl, haMethod, haTimestamp, haStatusCode)
+    -- AuthUsage (AuthUsage, auProvider, auScope, auTimestamp) -- via G qualified
+    , ConfigAccess (ConfigAccess, caKey, caTimestamp)
+      -- * Gateway Provenance
+    , GatewayProvenance
+        ( GatewayProvenance
+        , gpRequestId
+        , gpProvidersUsed
+        , gpModelsUsed
+        , gpTimestamp
+        , gpClientIp
+        )
+    , emptyProvenance
+      -- * Gateway Graded Monad
+    , GatewayM (GatewayM, unGatewayM)
+    , runGatewayM
+    , runGatewayMPure
+    , liftGatewayIO
+      -- * Cost Tracking Operations
+    , withLatency
+    , withTokens
+    , withCacheHit
+    , withCacheMiss
+    , withRetry
+      -- * Co-Effect Recording
+    , recordHttpAccess
+    , recordAuthUsage
+    , recordConfigAccess
+      -- * Provenance Recording
+    , recordProvider
+    , recordModel
+    , recordRequestId
+      -- * Grade Inspection
+    , getGrade
+    , getCoEffect
+    , getProvenance
+    , shouldCacheResponse
+    )
+-- Qualified import for G.AuthUsage, G.HttpAccess (when we need the Effects.Graded version)
 import Effects.Graded qualified as G
+    ( AuthUsage (AuthUsage, auProvider, auScope, auTimestamp)
+    , HttpAccess (HttpAccess, haUrl, haMethod, haTimestamp, haStatusCode)
+    )
 
 
 -- ════════════════════════════════════════════════════════════════════════════

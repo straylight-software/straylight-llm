@@ -21,7 +21,7 @@
 module Resilience.Cache
     ( -- * Cache
       BoundedCache
-    , CacheConfig (..)
+    , CacheConfig (CacheConfig, ccMaxSize, ccTTL)
     , defaultCacheConfig
     
       -- * Construction
@@ -35,7 +35,7 @@ module Resilience.Cache
     , cacheRecentValues
     
       -- * Stats
-    , CacheStats (..)
+    , CacheStats (CacheStats, csSize, csMaxSize, csHits, csMisses, csEvictions, csHitRate)
     , getCacheStats
     ) where
 

@@ -20,6 +20,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE StrictData #-}
+{-# OPTIONS_GHC -Wno-unused-imports #-}
 
 module Provider.ModelRegistry
     ( -- * Registry
@@ -37,7 +38,7 @@ module Provider.ModelRegistry
     , syncProvider
 
       -- * Types
-    , ModelInfo (..)
+    , ModelInfo (ModelInfo, miId, miProvider, miOwnedBy, miCreated)
     , ProviderModels
     ) where
 
@@ -56,8 +57,38 @@ import Data.Time.Clock (UTCTime, getCurrentTime)
 import Network.HTTP.Client (Manager)
 
 import Effects.Graded (runGatewayM)
-import Provider.Types (Provider(..), ProviderName(..), ProviderResult(..), RequestContext(..))
-import Types (ModelList(..), Model(..), ModelId(..))
+import Provider.Types
+    ( Provider
+        ( Provider
+        , providerName
+        , providerEnabled
+        , providerChat
+        , providerChatStream
+        , providerEmbeddings
+        , providerModels
+        , providerSupportsModel
+        )
+    , ProviderName (Venice, Vertex, Baseten, OpenRouter, Anthropic)
+    , ProviderResult (Success, Failure, Retry)
+    , ProviderError
+        ( AuthError
+        , RateLimitError
+        , QuotaExceededError
+        , ModelNotFoundError
+        , ProviderUnavailable
+        , InvalidRequestError
+        , InternalError
+        , TimeoutError
+        , UnknownError
+        )
+    , RequestContext (RequestContext, rcManager, rcRequestId, rcClientIp)
+    , StreamCallback
+    )
+import Types
+    ( ModelList (ModelList, mlObject, mlData)
+    , Model (Model, modelId, modelObject, modelCreated, modelOwnedBy)
+    , ModelId (ModelId, unModelId)
+    )
 
 
 -- ════════════════════════════════════════════════════════════════════════════

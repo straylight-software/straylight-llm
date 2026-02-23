@@ -18,34 +18,34 @@
 -- Imported patterns from: weapon-server-hs/src/LLM/Types.hs
 module Types.Anthropic
     ( -- * Roles
-      Role (..)
+      Role (User, Assistant, System)
     
       -- * Content Blocks
-    , ContentBlock (..)
-    , ToolUse (..)
-    , ToolResult (..)
-    , Content (..)
+    , ContentBlock (TextBlock, ImageBlock, ToolUseBlock, ToolResultBlock)
+    , ToolUse (ToolUse, tuId, tuName, tuInput)
+    , ToolResult (ToolResult, trToolUseId, trContent, trIsError)
+    , Content (SimpleContent, BlockContent)
     
       -- * Tool Definitions
-    , ToolDefinition (..)
-    , ToolInputSchema (..)
-    , ToolInput (..)
+    , ToolDefinition (ToolDefinition, tdName, tdDescription, tdInputSchema)
+    , ToolInputSchema (ToolInputSchema, tisType, tisProperties, tisRequired)
+    , ToolInput (ToolInputObject, ToolInputEmpty)
     
       -- * Messages
-    , Message (..)
+    , Message (Message, msgRole, msgContent)
     
       -- * Request/Response
-    , ChatRequest (..)
-    , ChatResponse (..)
-    , StopReason (..)
-    , Usage (..)
+    , ChatRequest (ChatRequest, crModel, crMessages, crMaxTokens, crSystem, crTemperature, crTools, crStream)
+    , ChatResponse (ChatResponse, respId, respModel, respRole, respContent, respStopReason, respUsage)
+    , StopReason (EndTurn, MaxTokens, ToolUseSR, StopSequence)
+    , Usage (Usage, usageInputTokens, usageOutputTokens, usageCacheRead, usageCacheWrite)
     
       -- * Streaming Events (typed)
-    , StreamEvent (..)
-    , ContentBlockDeltaEvent (..)
-    , DeltaType (..)
-    , MessageDeltaEvent (..)
-    , MessageStartEvent (..)
+    , StreamEvent (EventMessageStart, EventContentBlockStart, EventContentBlockDelta, EventContentBlockStop, EventMessageDelta, EventMessageStop, EventPing, EventError)
+    , ContentBlockDeltaEvent (ContentBlockDeltaEvent, cbdeIndex, cbdeDelta)
+    , DeltaType (TextDelta, InputJsonDelta)
+    , MessageDeltaEvent (MessageDeltaEvent, mdeStopReason, mdeUsage)
+    , MessageStartEvent (MessageStartEvent, mseMessage)
     ) where
 
 import Data.Aeson

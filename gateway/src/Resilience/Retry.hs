@@ -21,7 +21,7 @@
 
 module Resilience.Retry
     ( -- * Retry Config
-      RetryConfig (..)
+      RetryConfig (RetryConfig, rcMaxRetries, rcBaseDelay, rcMaxDelay, rcBackoffMultiplier, rcJitterFactor)
     , defaultRetryConfig
     
       -- * Retry Logic

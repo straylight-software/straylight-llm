@@ -8,7 +8,7 @@
 -- Imported from: slide/src/Slide/Parse.hs
 module Slide.Parse
   ( -- * SSE types
-    SSEEvent(..)
+    SSEEvent (SSEData, SSEDone, SSERetry, SSEComment, SSEEmpty)
   
     -- * Parsing
   , parseSSE

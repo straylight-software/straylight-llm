@@ -24,13 +24,13 @@
 
 module Streaming.Events
     ( -- * Event Types
-      SSEEvent (..)
-    , EventType (..)
-    , RequestStartedData (..)
-    , RequestCompletedData (..)
-    , ProofGeneratedData (..)
-    , ProviderStatusData (..)
-    , CircuitState (..)
+      SSEEvent (SSERequestStarted, SSERequestCompleted, SSEProofGenerated, SSEProviderStatus, SSEMetricsUpdate, SSEKeepalive)
+    , EventType (RequestStarted, RequestCompleted, ProofGenerated, ProviderStatus, MetricsUpdate, Keepalive)
+    , RequestStartedData (RequestStartedData, rsdRequestId, rsdModel, rsdTimestamp)
+    , RequestCompletedData (RequestCompletedData, rcdRequestId, rcdModel, rcdProvider, rcdSuccess, rcdLatencyMs, rcdError, rcdTimestamp)
+    , ProofGeneratedData (ProofGeneratedData, pgdRequestId, pgdCoeffects, pgdSigned, pgdTimestamp)
+    , ProviderStatusData (ProviderStatusData, psdProvider, psdState, psdFailures, psdThreshold, psdLastFailure, psdTimestamp)
+    , CircuitState (CircuitClosed, CircuitOpen, CircuitHalfOpen)
 
       -- * Broadcaster
     , EventBroadcaster
@@ -63,7 +63,7 @@ import Control.Concurrent.STM
     , writeTChan
     )
 import Control.Monad (forever)
-import Data.Aeson (ToJSON (..), object, (.=), encode)
+import Data.Aeson (ToJSON (toJSON), object, (.=), encode)
 import Data.ByteString.Lazy qualified as LBS
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map

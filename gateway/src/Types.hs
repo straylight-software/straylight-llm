@@ -19,68 +19,132 @@
 {-# LANGUAGE RecordWildCards #-}
 
 module Types
-    ( -- * Semantic Types
-      ModelId (..)
-    , Temperature (..)
-    , TopP (..)
-    , MaxTokens (..)
-    , UserId (..)
-    , ToolCallId (..)
-    , ResponseId (..)
-    , Timestamp (..)
-    , FinishReason (..)
+    ( -- * Semantic Types (newtypes with accessor)
+      ModelId (ModelId, unModelId)
+    , Temperature (Temperature, unTemperature)
+    , TopP (TopP, unTopP)
+    , MaxTokens (MaxTokens, unMaxTokens)
+    , UserId (UserId, unUserId)
+    , ToolCallId (ToolCallId, unToolCallId)
+    , ResponseId (ResponseId, unResponseId)
+    , Timestamp (Timestamp, unTimestamp)
+    , FinishReason (FinishReason, unFinishReason)
 
       -- * Messages
-    , Message (..)
-    , Role (..)
-    , ContentPart (..)
-    , MessageContent (..)
+    , Message (Message, msgRole, msgContent, msgName, msgToolCallId, msgToolCalls)
+    , Role (System, User, Assistant, Tool)
+    , ContentPart (TextPart, ImageUrlPart)
+    , MessageContent (TextContent, PartsContent)
 
       -- * Tool Calls
-    , ToolCall (..)
-    , FunctionCall (..)
-    , ToolCallDelta (..)
-    , FunctionCallDelta (..)
+    , ToolCall (ToolCall, tcId, tcType, tcFunction)
+    , FunctionCall (FunctionCall, fcName, fcArguments)
+    , ToolCallDelta (ToolCallDelta, tcdIndex, tcdId, tcdType, tcdFunction)
+    , FunctionCallDelta (FunctionCallDelta, fcdName, fcdArguments)
 
       -- * Request Parameters
-    , StopSequence (..)
-    , LogitBias (..)
-    , ToolDef (..)
-    , ToolFunction (..)
-    , JsonSchema (..)
-    , ToolChoice (..)
-    , ToolChoiceFunction (..)
-    , ResponseFormat (..)
-    , EmbeddingInput (..)
-    , DeltaContent (..)
+    , StopSequence (StopSingle, StopMultiple)
+    , LogitBias (LogitBias, unLogitBias)
+    , ToolDef (ToolDef, toolType, toolFunction)
+    , ToolFunction (ToolFunction, tfName, tfDescription, tfParameters, tfStrict)
+    , JsonSchema (JsonSchema, unJsonSchema)
+    , ToolChoice (ToolChoiceAuto, ToolChoiceNone, ToolChoiceRequired, ToolChoiceSpecific)
+    , ToolChoiceFunction (ToolChoiceFunction, tcfName)
+    , ResponseFormat (ResponseFormatText, ResponseFormatJsonObject, ResponseFormatJsonSchema)
+    , EmbeddingInput (EmbeddingText, EmbeddingTexts, EmbeddingTokens, EmbeddingTokenArrays)
+    , DeltaContent (DeltaContent, dcRole, dcContent, dcToolCalls)
 
       -- * Chat Completions
-    , ChatRequest (..)
-    , ChatResponse (..)
-    , Choice (..)
-    , ChoiceDelta (..)
-    , Usage (..)
+    , ChatRequest
+        ( ChatRequest
+        , crModel
+        , crMessages
+        , crTemperature
+        , crTopP
+        , crN
+        , crStream
+        , crStop
+        , crMaxTokens
+        , crMaxCompletionTokens
+        , crPresencePenalty
+        , crFrequencyPenalty
+        , crLogitBias
+        , crUser
+        , crTools
+        , crToolChoice
+        , crResponseFormat
+        , crSeed
+        )
+    , ChatResponse
+        ( ChatResponse
+        , respId
+        , respObject
+        , respCreated
+        , respModel
+        , respChoices
+        , respUsage
+        , respSystemFingerprint
+        )
+    , Choice (Choice, choiceIndex, choiceMessage, choiceFinishReason)
+    , ChoiceDelta (ChoiceDelta, deltaIndex, deltaDelta, deltaFinishReason)
+    , Usage (Usage, usagePromptTokens, usageCompletionTokens, usageTotalTokens)
 
       -- * Completions (legacy)
-    , CompletionRequest (..)
-    , CompletionResponse (..)
-    , CompletionChoice (..)
+    , CompletionRequest
+        ( CompletionRequest
+        , complModel
+        , complPrompt
+        , complMaxTokens
+        , complTemperature
+        , complTopP
+        , complN
+        , complStream
+        , complStop
+        , complPresencePenalty
+        , complFrequencyPenalty
+        , complUser
+        )
+    , CompletionResponse
+        ( CompletionResponse
+        , complRespId
+        , complRespObject
+        , complRespCreated
+        , complRespModel
+        , complRespChoices
+        , complRespUsage
+        )
+    , CompletionChoice (CompletionChoice, ccText, ccIndex, ccFinishReason)
 
       -- * Embeddings
-    , EmbeddingRequest (..)
-    , EmbeddingResponse (..)
-    , EmbeddingData (..)
+    , EmbeddingRequest
+        ( EmbeddingRequest
+        , embModel
+        , embInput
+        , embUser
+        , embEncodingFormat
+        , embDimensions
+        )
+    , EmbeddingResponse (EmbeddingResponse, embRespObject, embRespData, embRespModel, embRespUsage)
+    , EmbeddingData (EmbeddingData, edObject, edIndex, edEmbedding)
 
       -- * Models
-    , Model (..)
-    , ModelList (..)
+    , Model (Model, modelId, modelObject, modelCreated, modelOwnedBy)
+    , ModelList (ModelList, mlObject, mlData)
 
       -- * Streaming
-    , StreamChunk (..)
+    , StreamChunk
+        ( StreamChunk
+        , chunkId
+        , chunkObject
+        , chunkCreated
+        , chunkModel
+        , chunkChoices
+        , chunkUsage
+        )
 
       -- * Errors
-    , ApiError (..)
-    , ErrorDetail (..)
+    , ApiError (ApiError, apiError)
+    , ErrorDetail (ErrorDetail, errMessage, errType, errParam, errCode)
     ) where
 
 import Data.Aeson

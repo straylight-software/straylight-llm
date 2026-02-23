@@ -25,7 +25,7 @@ module Resilience.Backpressure
     , tryWithRequestSlot
     
       -- * Stats
-    , SemaphoreStats (..)
+    , SemaphoreStats (SemaphoreStats, ssMaxSlots, ssInFlight, ssAvailable)
     , getSemaphoreStats
     ) where
 

@@ -16,10 +16,10 @@
 -- Imported from: libevring/hs/Evring/Machine.hs
 module Evring.Machine
   ( -- * Core Machine class
-    Machine(..)
-  , StepResult(..)
+    Machine (State, initial, step, done)
+  , StepResult (StepResult, stepState, stepOperations)
     -- * Generator Machine extension
-  , GeneratorMachine(..)
+  , GeneratorMachine (wantsToSubmit, generate)
     -- * Replay (pure, for testing)
   , replay
   , replayWithOperations
