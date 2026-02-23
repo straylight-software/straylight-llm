@@ -262,7 +262,7 @@ classifyError (status, msg)
     | status == 401 = Failure $ AuthError msg
     | status == 429 = Retry $ RateLimitError msg
     | status == 402 = Retry $ QuotaExceededError msg
-    | status == 404 = Failure $ ModelNotFoundError msg
+    | status == 404 = Retry $ ModelNotFoundError msg  -- Model not found should try next provider
     | status >= 500 = Retry $ ProviderUnavailable msg
     | status >= 400 = Failure $ InvalidRequestError msg
     | status == 0 = Retry $ TimeoutError msg

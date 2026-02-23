@@ -133,39 +133,78 @@ embeddings _ctx _req = do
 
 -- | List available models
 models :: IORef ProviderConfig -> RequestContext -> GatewayM (ProviderResult OpenAI.ModelList)
-models _configRef _ctx = do
+models configRef ctx = do
     recordProvider "anthropic"
-    -- Anthropic doesn't have a models endpoint, return static list
-    let claudeModels = 
-            [ OpenAI.Model 
-                { OpenAI.modelId = OpenAI.ModelId "claude-sonnet-4-20250514"
-                , OpenAI.modelObject = "model"
-                , OpenAI.modelCreated = OpenAI.Timestamp 1706140800
-                , OpenAI.modelOwnedBy = "Anthropic"
-                }
-            , OpenAI.Model 
-                { OpenAI.modelId = OpenAI.ModelId "claude-3-5-sonnet-20241022"
-                , OpenAI.modelObject = "model"
-                , OpenAI.modelCreated = OpenAI.Timestamp 1706140800
-                , OpenAI.modelOwnedBy = "Anthropic"
-                }
-            , OpenAI.Model 
-                { OpenAI.modelId = OpenAI.ModelId "claude-3-5-haiku-20241022"
-                , OpenAI.modelObject = "model"
-                , OpenAI.modelCreated = OpenAI.Timestamp 1706140800
-                , OpenAI.modelOwnedBy = "Anthropic"
-                }
-            , OpenAI.Model 
-                { OpenAI.modelId = OpenAI.ModelId "claude-3-opus-20240229"
-                , OpenAI.modelObject = "model"
-                , OpenAI.modelCreated = OpenAI.Timestamp 1706140800
-                , OpenAI.modelOwnedBy = "Anthropic"
-                }
-            ]
-    pure $ Success $ OpenAI.ModelList 
-        { OpenAI.mlObject = "list"
-        , OpenAI.mlData = claudeModels
+    config <- liftGatewayIO $ readIORef configRef
+    case pcApiKey config of
+        Nothing -> pure $ Failure $ AuthError "Anthropic API key not configured"
+        Just apiKey -> do
+            recordAuthUsage "anthropic" "api-key"
+            let url = T.unpack (pcBaseUrl config) <> "/models"
+            recordHttpAccess (T.pack url) "GET" Nothing
+            result <- withLatency $ makeModelsRequest (rcManager ctx) url apiKey
+            case result of
+                Left err -> pure $ classifyError err
+                Right body -> case eitherDecode body of
+                    Left parseErr -> pure $ Failure $ UnknownError $ "Parse error: " <> T.pack parseErr
+                    Right anthropicModels -> pure $ Success $ toOpenAIModelList anthropicModels
+
+-- | Anthropic model response type
+data AnthropicModel = AnthropicModel
+    { amId :: Text
+    , amDisplayName :: Text
+    , amCreatedAt :: Text
+    } deriving (Show)
+
+instance Aeson.FromJSON AnthropicModel where
+    parseJSON = Aeson.withObject "AnthropicModel" $ \v ->
+        AnthropicModel
+            <$> v Aeson..: "id"
+            <*> v Aeson..: "display_name"
+            <*> v Aeson..: "created_at"
+
+data AnthropicModelList = AnthropicModelList
+    { amlData :: [AnthropicModel]
+    } deriving (Show)
+
+instance Aeson.FromJSON AnthropicModelList where
+    parseJSON = Aeson.withObject "AnthropicModelList" $ \v ->
+        AnthropicModelList <$> v Aeson..: "data"
+
+-- | Convert Anthropic model list to OpenAI format
+toOpenAIModelList :: AnthropicModelList -> OpenAI.ModelList
+toOpenAIModelList AnthropicModelList{..} = OpenAI.ModelList
+    { OpenAI.mlObject = "list"
+    , OpenAI.mlData = map toOpenAIModel amlData
+    }
+  where
+    toOpenAIModel AnthropicModel{..} = OpenAI.Model
+        { OpenAI.modelId = OpenAI.ModelId amId
+        , OpenAI.modelObject = "model"
+        , OpenAI.modelCreated = OpenAI.Timestamp 0  -- Could parse amCreatedAt
+        , OpenAI.modelOwnedBy = "Anthropic"
         }
+
+-- | Make GET request to Anthropic models endpoint
+makeModelsRequest :: HC.Manager -> String -> Text -> IO (Either (Int, Text) LBS.ByteString)
+makeModelsRequest manager url apiKey = do
+    initReq <- HC.parseRequest url
+    let req = initReq
+            { HC.method = "GET"
+            , HC.requestHeaders =
+                [ ("x-api-key", encodeUtf8 apiKey)
+                , ("anthropic-version", "2023-06-01")
+                ]
+            }
+    
+    result <- try @HttpException $ HC.httpLbs req manager
+    case result of
+        Left e -> pure $ Left (0, T.pack $ show e)
+        Right resp -> do
+            let status = HT.statusCode $ HC.responseStatus resp
+            if status >= 200 && status < 300
+                then pure $ Right $ HC.responseBody resp
+                else pure $ Left (status, decodeUtf8 $ LBS.toStrict $ HC.responseBody resp)
 
 
 -- ════════════════════════════════════════════════════════════════════════════
@@ -565,7 +604,7 @@ classifyError (status, msg)
     | status == 401 = Failure $ AuthError msg
     | status == 429 = Retry $ RateLimitError msg
     | status == 402 = Retry $ QuotaExceededError msg
-    | status == 404 = Failure $ ModelNotFoundError msg
+    | status == 404 = Retry $ ModelNotFoundError msg  -- Model not found should try next provider
     | status == 529 = Retry $ ProviderUnavailable msg  -- Anthropic overloaded
     | status >= 500 = Retry $ ProviderUnavailable msg
     | status >= 400 = Failure $ InvalidRequestError msg

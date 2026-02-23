@@ -52,6 +52,7 @@ library
     Coeffect.Discharge
     -- // providers
     Provider.Types
+    Provider.ModelRegistry
     Provider.Venice
     Provider.Vertex
     Provider.Baseten
@@ -94,6 +95,7 @@ library
     , random              >=1.2
     , servant             >=0.20
     , servant-server      >=0.20
+    , stm                 >=2.5
     , text                >=2.0
     , time                >=1.12
     , uuid                >=1.3

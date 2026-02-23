@@ -85,6 +85,7 @@ main = do
     logProviderStatus "Vertex AI" (cfgVertex config)
     logProviderStatus "Baseten" (cfgBaseten config)
     logProviderStatus "OpenRouter" (cfgOpenRouter config)
+    logProviderStatus "Anthropic" (cfgAnthropic config)
     TIO.putStrLn ""
 
     -- Create router with provider chain

@@ -58,6 +58,7 @@ import Provider.Vertex (makeVertexProvider)
 import Provider.Baseten (makeBasetenProvider)
 import Provider.OpenRouter (makeOpenRouterProvider)
 import Provider.Anthropic (makeAnthropicProvider)
+import Provider.ModelRegistry (ModelRegistry, makeModelRegistry, registrySupportsModel)
 import Types
 
 
@@ -87,6 +88,7 @@ data Router = Router
     , routerOpenRouterConfig :: IORef ProviderConfig
     , routerAnthropicConfig :: IORef ProviderConfig  -- Direct Anthropic API (last in chain)
     , routerProofCache :: IORef ProofCache
+    , routerModelRegistry :: ModelRegistry  -- Dynamic model registry with sync
     }
 
 -- | Default provider chain order
@@ -129,6 +131,9 @@ makeRouter config = do
     -- Create proof cache
     proofCacheRef <- newIORef Map.empty
 
+    -- Create model registry with 5-minute sync interval
+    modelRegistry <- makeModelRegistry manager providers 300
+
     pure Router
         { routerManager = manager
         , routerProviders = providers
@@ -139,6 +144,7 @@ makeRouter config = do
         , routerOpenRouterConfig = openrouterRef
         , routerAnthropicConfig = anthropicRef
         , routerProofCache = proofCacheRef
+        , routerModelRegistry = modelRegistry
         }
 
 
@@ -149,6 +155,11 @@ makeRouter config = do
 -- | Route a chat completion request through the provider chain
 routeChat :: Router -> Text -> ChatRequest -> IO (Either ProviderError ChatResponse)
 routeChat router requestId req = do
+    let modelId = unModelId $ crModel req
+    
+    -- Partition providers by model support (uses registry)
+    orderedProviders <- partitionByModelSupport (routerModelRegistry router) modelId (routerProviders router)
+    
     -- Run the computation and capture tracking
     (result, _grade, prov, coeff) <- runGatewayM $ do
         recordRequestId requestId
@@ -158,8 +169,8 @@ routeChat router requestId req = do
                 , rcClientIp = Nothing
                 }
 
-        -- Find enabled providers
-        enabledProviders <- filterEnabledProviders (routerProviders router)
+        -- Find enabled providers from the pre-ordered list
+        enabledProviders <- filterEnabledProviders orderedProviders
 
         -- Try each provider in order
         tryProviders enabledProviders $ \provider ->
@@ -178,6 +189,11 @@ routeChat router requestId req = do
 -- | Route a streaming chat completion through the provider chain
 routeChatStream :: Router -> Text -> ChatRequest -> StreamCallback -> IO (Either ProviderError ())
 routeChatStream router requestId req callback = do
+    let modelId = unModelId $ crModel req
+    
+    -- Partition providers by model support (uses registry)
+    orderedProviders <- partitionByModelSupport (routerModelRegistry router) modelId (routerProviders router)
+    
     -- Run the computation and capture tracking
     (result, _grade, prov, coeff) <- runGatewayM $ do
         recordRequestId requestId
@@ -187,7 +203,7 @@ routeChatStream router requestId req callback = do
                 , rcClientIp = Nothing
                 }
 
-        enabledProviders <- filterEnabledProviders (routerProviders router)
+        enabledProviders <- filterEnabledProviders orderedProviders
 
         tryProviders enabledProviders $ \provider ->
             providerChatStream provider ctx req callback
@@ -274,6 +290,20 @@ filterEnabledProviders :: [Provider] -> GatewayM [Provider]
 filterEnabledProviders providers = do
     enabled <- mapM (\p -> (,) p <$> providerEnabled p) providers
     pure [p | (p, True) <- enabled]
+
+-- | Partition providers by whether they support a given model
+-- Uses the model registry for dynamic model support (fetched from provider APIs)
+-- Returns providers ordered: supporting first, then others
+partitionByModelSupport :: ModelRegistry -> Text -> [Provider] -> IO [Provider]
+partitionByModelSupport registry modelId providers = do
+    -- Check each provider against the registry
+    supported <- mapM checkSupport providers
+    let (supporting, others) = foldr classify ([], []) (zip providers supported)
+    pure $ supporting ++ others
+  where
+    checkSupport p = registrySupportsModel registry (providerName p) modelId
+    classify (p, True) (s, o) = (p : s, o)
+    classify (p, False) (s, o) = (s, p : o)
 
 -- | Try providers in order until one succeeds or all fail
 tryProviders :: [Provider] -> (Provider -> GatewayM (ProviderResult a)) -> GatewayM (Either ProviderError a)
