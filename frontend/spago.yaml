@@ -39,5 +39,4 @@ workspace:
     registry: 73.2.0
   extraPackages:
     hydrogen:
-      git: https://github.com/weyl-ai-machine-city/hydrogen-jpyxal.git
-      ref: main
+      path: ../../hydrogen

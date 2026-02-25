@@ -257,7 +257,7 @@ var foldData = function (handlers) {
         if (state.data instanceof Hydrogen_Data_RemoteData.Success) {
             return handlers.success(state.data.value0);
         };
-        throw new Error("Failed pattern match at Hydrogen.Query (line 680, column 27 - line 684, column 34): " + [ state.data.constructor.name ]);
+        throw new Error("Failed pattern match at Hydrogen.Query (line 684, column 27 - line 688, column 34): " + [ state.data.constructor.name ]);
     };
 };
 var fetchWithRetry = function (dictEncodeJson) {
@@ -347,9 +347,11 @@ var defaultClientOptions = {
     cacheTime: 300000.0
 };
 var newClient = /* #__PURE__ */ newClientWith(defaultClientOptions);
-var addMs = function (instant) {
+var addMs = function (inst) {
     return function (v) {
-        return instant;
+        var v1 = Data_DateTime_Instant.unInstant(inst);
+        var newMs = v1 + v;
+        return Data_Maybe.fromMaybe(inst)(Data_DateTime_Instant.instant(newMs));
     };
 };
 var fetchFresh = function (dictDecodeJson) {

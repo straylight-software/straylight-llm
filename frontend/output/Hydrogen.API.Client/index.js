@@ -73,7 +73,7 @@ var headers = function (config) {
     if (config.authToken instanceof Data_Maybe.Just) {
         return [ new Affjax_RequestHeader.ContentType("application/json"), new Affjax_RequestHeader.RequestHeader("Authorization", "Bearer " + config.authToken.value0) ];
     };
-    throw new Error("Failed pattern match at Hydrogen.API.Client (line 176, column 18 - line 181, column 6): " + [ config.authToken.constructor.name ]);
+    throw new Error("Failed pattern match at Hydrogen.API.Client (line 188, column 18 - line 193, column 6): " + [ config.authToken.constructor.name ]);
 };
 var $$delete = function (config) {
     return function (path) {
@@ -101,7 +101,7 @@ var $$delete = function (config) {
                         return pure(new Data_Either.Right(Data_Unit.unit));
                     });
                 };
-                throw new Error("Failed pattern match at Hydrogen.API.Client (line 126, column 3 - line 133, column 24): " + [ result.constructor.name ]);
+                throw new Error("Failed pattern match at Hydrogen.API.Client (line 138, column 3 - line 145, column 24): " + [ result.constructor.name ]);
             });
         });
     };
@@ -123,7 +123,7 @@ var decode = function (dictDecodeJson) {
         if (v instanceof Data_Either.Right) {
             return new Data_Either.Right(v.value0);
         };
-        throw new Error("Failed pattern match at Hydrogen.API.Client (line 184, column 15 - line 186, column 25): " + [ v.constructor.name ]);
+        throw new Error("Failed pattern match at Hydrogen.API.Client (line 196, column 15 - line 198, column 25): " + [ v.constructor.name ]);
     };
 };
 var request = function (dictEncodeJson) {
@@ -161,7 +161,7 @@ var request = function (dictEncodeJson) {
                                         return pure(decode1(result.value0.body));
                                     });
                                 };
-                                throw new Error("Failed pattern match at Hydrogen.API.Client (line 162, column 3 - line 169, column 34): " + [ result.constructor.name ]);
+                                throw new Error("Failed pattern match at Hydrogen.API.Client (line 174, column 3 - line 181, column 34): " + [ result.constructor.name ]);
                             });
                         });
                     };

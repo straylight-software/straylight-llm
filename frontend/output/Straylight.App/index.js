@@ -23,6 +23,7 @@ import * as Straylight_Components_HealthStatus from "../Straylight.Components.He
 import * as Straylight_Components_Icon from "../Straylight.Components.Icon/index.js";
 import * as Straylight_Components_ModelsPanel from "../Straylight.Components.ModelsPanel/index.js";
 import * as Straylight_Components_ProofViewer from "../Straylight.Components.ProofViewer/index.js";
+import * as Straylight_Components_ProviderStatus from "../Straylight.Components.ProviderStatus/index.js";
 import * as Straylight_Components_Splash from "../Straylight.Components.Splash/index.js";
 import * as Type_Proxy from "../Type.Proxy/index.js";
 import * as Web_HTML_Common from "../Web.HTML.Common/index.js";
@@ -40,10 +41,15 @@ var slot1 = /* #__PURE__ */ slot({
 })(Data_Ord.ordUnit);
 var slot2 = /* #__PURE__ */ slot({
     reflectSymbol: function () {
-        return "modelsPanel";
+        return "providerStatus";
     }
 })(Data_Ord.ordUnit);
 var slot3 = /* #__PURE__ */ slot({
+    reflectSymbol: function () {
+        return "modelsPanel";
+    }
+})(Data_Ord.ordUnit);
+var slot4 = /* #__PURE__ */ slot({
     reflectSymbol: function () {
         return "proofViewer";
     }
@@ -54,6 +60,13 @@ var Health = /* #__PURE__ */ (function () {
     };
     Health.value = new Health();
     return Health;
+})();
+var Providers = /* #__PURE__ */ (function () {
+    function Providers() {
+
+    };
+    Providers.value = new Providers();
+    return Providers;
 })();
 var Models = /* #__PURE__ */ (function () {
     function Models() {
@@ -126,7 +139,7 @@ var renderFooter = function (state) {
         if (state.health instanceof Data_Maybe.Nothing) {
             return "error";
         };
-        throw new Error("Failed pattern match at Straylight.App (line 175, column 22 - line 177, column 23): " + [ state.health.constructor.name ]);
+        throw new Error("Failed pattern match at Straylight.App (line 183, column 22 - line 185, column 23): " + [ state.health.constructor.name ]);
     })();
     return Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("footer") ])([ Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("footer-left") ])([ Halogen_HTML_Elements.span([ Halogen_HTML_Properties.class_("footer-status") ])([ Halogen_HTML_Elements.span([ Halogen_HTML_Properties.class_("status-dot " + connectionStatus) ])([  ]), Halogen_HTML_Core.text((function () {
         if (state.health instanceof Data_Maybe.Just) {
@@ -135,7 +148,7 @@ var renderFooter = function (state) {
         if (state.health instanceof Data_Maybe.Nothing) {
             return "disconnected";
         };
-        throw new Error("Failed pattern match at Straylight.App (line 166, column 25 - line 168, column 42): " + [ state.health.constructor.name ]);
+        throw new Error("Failed pattern match at Straylight.App (line 174, column 25 - line 176, column 42): " + [ state.health.constructor.name ]);
     })()) ]) ]), Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("footer-right") ])([ Halogen_HTML_Core.text("aleph cube architecture") ]) ]);
 };
 var handleAction = function (dictMonadAff) {
@@ -151,14 +164,14 @@ var handleAction = function (dictMonadAff) {
         };
         if (v instanceof SwitchTab) {
             return modify_(function (v1) {
-                var $56 = {};
-                for (var $57 in v1) {
-                    if ({}.hasOwnProperty.call(v1, $57)) {
-                        $56[$57] = v1[$57];
+                var $60 = {};
+                for (var $61 in v1) {
+                    if ({}.hasOwnProperty.call(v1, $61)) {
+                        $60[$61] = v1[$61];
                     };
                 };
-                $56.activeTab = v.value0;
-                return $56;
+                $60.activeTab = v.value0;
+                return $60;
             });
         };
         if (v instanceof RefreshHealth) {
@@ -166,31 +179,31 @@ var handleAction = function (dictMonadAff) {
                 return bind(liftAff(Straylight_API_Client.healthCheck(state.config)))(function (result) {
                     if (result instanceof Data_Either.Left) {
                         return modify_(function (v1) {
-                            var $61 = {};
-                            for (var $62 in v1) {
-                                if ({}.hasOwnProperty.call(v1, $62)) {
-                                    $61[$62] = v1[$62];
-                                };
-                            };
-                            $61.error = new Data_Maybe.Just(result.value0);
-                            $61.health = Data_Maybe.Nothing.value;
-                            return $61;
-                        });
-                    };
-                    if (result instanceof Data_Either.Right) {
-                        return modify_(function (v1) {
                             var $65 = {};
                             for (var $66 in v1) {
                                 if ({}.hasOwnProperty.call(v1, $66)) {
                                     $65[$66] = v1[$66];
                                 };
                             };
-                            $65.health = new Data_Maybe.Just(result.value0);
-                            $65.error = Data_Maybe.Nothing.value;
+                            $65.error = new Data_Maybe.Just(result.value0);
+                            $65.health = Data_Maybe.Nothing.value;
                             return $65;
                         });
                     };
-                    throw new Error("Failed pattern match at Straylight.App (line 197, column 5 - line 199, column 66): " + [ result.constructor.name ]);
+                    if (result instanceof Data_Either.Right) {
+                        return modify_(function (v1) {
+                            var $69 = {};
+                            for (var $70 in v1) {
+                                if ({}.hasOwnProperty.call(v1, $70)) {
+                                    $69[$70] = v1[$70];
+                                };
+                            };
+                            $69.health = new Data_Maybe.Just(result.value0);
+                            $69.error = Data_Maybe.Nothing.value;
+                            return $69;
+                        });
+                    };
+                    throw new Error("Failed pattern match at Straylight.App (line 205, column 5 - line 207, column 66): " + [ result.constructor.name ]);
                 });
             });
         };
@@ -199,76 +212,63 @@ var handleAction = function (dictMonadAff) {
                 return bind(liftAff(Straylight_API_Client.getModels(state.config)))(function (result) {
                     if (result instanceof Data_Either.Left) {
                         return modify_(function (v1) {
-                            var $70 = {};
-                            for (var $71 in v1) {
-                                if ({}.hasOwnProperty.call(v1, $71)) {
-                                    $70[$71] = v1[$71];
-                                };
-                            };
-                            $70.error = new Data_Maybe.Just(result.value0);
-                            $70.models = Data_Maybe.Nothing.value;
-                            return $70;
-                        });
-                    };
-                    if (result instanceof Data_Either.Right) {
-                        return modify_(function (v1) {
                             var $74 = {};
                             for (var $75 in v1) {
                                 if ({}.hasOwnProperty.call(v1, $75)) {
                                     $74[$75] = v1[$75];
                                 };
                             };
-                            $74.models = new Data_Maybe.Just(result.value0);
-                            $74.error = Data_Maybe.Nothing.value;
+                            $74.error = new Data_Maybe.Just(result.value0);
+                            $74.models = Data_Maybe.Nothing.value;
                             return $74;
                         });
                     };
-                    throw new Error("Failed pattern match at Straylight.App (line 204, column 5 - line 206, column 66): " + [ result.constructor.name ]);
+                    if (result instanceof Data_Either.Right) {
+                        return modify_(function (v1) {
+                            var $78 = {};
+                            for (var $79 in v1) {
+                                if ({}.hasOwnProperty.call(v1, $79)) {
+                                    $78[$79] = v1[$79];
+                                };
+                            };
+                            $78.models = new Data_Maybe.Just(result.value0);
+                            $78.error = Data_Maybe.Nothing.value;
+                            return $78;
+                        });
+                    };
+                    throw new Error("Failed pattern match at Straylight.App (line 212, column 5 - line 214, column 66): " + [ result.constructor.name ]);
                 });
             });
         };
         if (v instanceof SetProofId) {
             return modify_(function (v1) {
-                var $78 = {};
-                for (var $79 in v1) {
-                    if ({}.hasOwnProperty.call(v1, $79)) {
-                        $78[$79] = v1[$79];
+                var $82 = {};
+                for (var $83 in v1) {
+                    if ({}.hasOwnProperty.call(v1, $83)) {
+                        $82[$83] = v1[$83];
                     };
                 };
-                $78.proofId = v.value0;
-                return $78;
+                $82.proofId = v.value0;
+                return $82;
             });
         };
         if (v instanceof LookupProof) {
             return bind(get)(function (state) {
-                var $82 = state.proofId === "";
-                if ($82) {
+                var $86 = state.proofId === "";
+                if ($86) {
                     return modify_(function (v1) {
-                        var $83 = {};
-                        for (var $84 in v1) {
-                            if ({}.hasOwnProperty.call(v1, $84)) {
-                                $83[$84] = v1[$84];
+                        var $87 = {};
+                        for (var $88 in v1) {
+                            if ({}.hasOwnProperty.call(v1, $88)) {
+                                $87[$88] = v1[$88];
                             };
                         };
-                        $83.error = new Data_Maybe.Just("Enter a request ID");
-                        return $83;
+                        $87.error = new Data_Maybe.Just("Enter a request ID");
+                        return $87;
                     });
                 };
                 return bind(liftAff(Straylight_API_Client.getProof(state.config)(state.proofId)))(function (result) {
                     if (result instanceof Data_Either.Left) {
-                        return modify_(function (v1) {
-                            var $87 = {};
-                            for (var $88 in v1) {
-                                if ({}.hasOwnProperty.call(v1, $88)) {
-                                    $87[$88] = v1[$88];
-                                };
-                            };
-                            $87.error = new Data_Maybe.Just(result.value0);
-                            $87.proof = Data_Maybe.Nothing.value;
-                            return $87;
-                        });
-                    };
-                    if (result instanceof Data_Either.Right) {
                         return modify_(function (v1) {
                             var $91 = {};
                             for (var $92 in v1) {
@@ -276,22 +276,38 @@ var handleAction = function (dictMonadAff) {
                                     $91[$92] = v1[$92];
                                 };
                             };
-                            $91.proof = new Data_Maybe.Just(result.value0);
-                            $91.error = Data_Maybe.Nothing.value;
+                            $91.error = new Data_Maybe.Just(result.value0);
+                            $91.proof = Data_Maybe.Nothing.value;
                             return $91;
                         });
                     };
-                    throw new Error("Failed pattern match at Straylight.App (line 217, column 9 - line 219, column 69): " + [ result.constructor.name ]);
+                    if (result instanceof Data_Either.Right) {
+                        return modify_(function (v1) {
+                            var $95 = {};
+                            for (var $96 in v1) {
+                                if ({}.hasOwnProperty.call(v1, $96)) {
+                                    $95[$96] = v1[$96];
+                                };
+                            };
+                            $95.proof = new Data_Maybe.Just(result.value0);
+                            $95.error = Data_Maybe.Nothing.value;
+                            return $95;
+                        });
+                    };
+                    throw new Error("Failed pattern match at Straylight.App (line 225, column 9 - line 227, column 69): " + [ result.constructor.name ]);
                 });
             });
         };
-        throw new Error("Failed pattern match at Straylight.App (line 185, column 16 - line 219, column 69): " + [ v.constructor.name ]);
+        throw new Error("Failed pattern match at Straylight.App (line 193, column 16 - line 227, column 69): " + [ v.constructor.name ]);
     };
 };
 var eqTab = {
     eq: function (x) {
         return function (y) {
             if (x instanceof Health && y instanceof Health) {
+                return true;
+            };
+            if (x instanceof Providers && y instanceof Providers) {
                 return true;
             };
             if (x instanceof Models && y instanceof Models) {
@@ -311,8 +327,8 @@ var renderSidebar = function (state) {
             return function (label) {
                 return function (activeTab) {
                     return Halogen_HTML_Elements.button([ Halogen_HTML_Properties.classes(map(Web_HTML_Common.ClassName)(append1([ "nav-item" ])((function () {
-                        var $97 = eq1(tab)(activeTab);
-                        if ($97) {
+                        var $101 = eq1(tab)(activeTab);
+                        if ($101) {
                             return [ "active" ];
                         };
                         return [  ];
@@ -323,8 +339,11 @@ var renderSidebar = function (state) {
             };
         };
     };
-    return Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("sidebar") ])([ Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("sidebar-label") ])([ Halogen_HTML_Core.text("Dashboard") ]), Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("sidebar-nav") ])([ navItem(Health.value)("gauge")("Health")(state.activeTab), navItem(Models.value)("list-checks")("Models")(state.activeTab), navItem(Proofs.value)("git-compare")("Proofs")(state.activeTab) ]) ]);
+    return Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("sidebar") ])([ Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("sidebar-label") ])([ Halogen_HTML_Core.text("Dashboard") ]), Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("sidebar-nav") ])([ navItem(Health.value)("gauge")("Health")(state.activeTab), navItem(Providers.value)("activity")("Providers")(state.activeTab), navItem(Models.value)("list-checks")("Models")(state.activeTab), navItem(Proofs.value)("git-compare")("Proofs")(state.activeTab) ]) ]);
 };
+var _providerStatus = /* #__PURE__ */ (function () {
+    return Type_Proxy["Proxy"].value;
+})();
 var _proofViewer = /* #__PURE__ */ (function () {
     return Type_Proxy["Proxy"].value;
 })();
@@ -336,8 +355,9 @@ var _healthStatus = /* #__PURE__ */ (function () {
 })();
 var renderMain = function (dictMonadAff) {
     var component1 = Straylight_Components_HealthStatus.component(dictMonadAff);
-    var component2 = Straylight_Components_ModelsPanel.component(dictMonadAff);
-    var component3 = Straylight_Components_ProofViewer.component(dictMonadAff);
+    var component2 = Straylight_Components_ProviderStatus.component(dictMonadAff);
+    var component3 = Straylight_Components_ModelsPanel.component(dictMonadAff);
+    var component4 = Straylight_Components_ProofViewer.component(dictMonadAff);
     return function (state) {
         return Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("thread") ])([ Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("thread-content") ])([ Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("messages dashboard-content") ])([ (function () {
             if (state.activeTab instanceof Health) {
@@ -345,18 +365,23 @@ var renderMain = function (dictMonadAff) {
                     health: state.health
                 })(Data_Void.absurd);
             };
+            if (state.activeTab instanceof Providers) {
+                return slot2(_providerStatus)(Data_Unit.unit)(component2)({
+                    providers: state.providers
+                })(Data_Void.absurd);
+            };
             if (state.activeTab instanceof Models) {
-                return slot2(_modelsPanel)(Data_Unit.unit)(component2)({
+                return slot3(_modelsPanel)(Data_Unit.unit)(component3)({
                     models: state.models
                 })(Data_Void.absurd);
             };
             if (state.activeTab instanceof Proofs) {
-                return slot3(_proofViewer)(Data_Unit.unit)(component3)({
+                return slot4(_proofViewer)(Data_Unit.unit)(component4)({
                     proof: state.proof,
                     proofId: state.proofId
                 })(Data_Void.absurd);
             };
-            throw new Error("Failed pattern match at Straylight.App (line 143, column 15 - line 149, column 72): " + [ state.activeTab.constructor.name ]);
+            throw new Error("Failed pattern match at Straylight.App (line 149, column 15 - line 157, column 72): " + [ state.activeTab.constructor.name ]);
         })() ]) ]), (function () {
             if (state.error instanceof Data_Maybe.Nothing) {
                 return Halogen_HTML_Core.text("");
@@ -364,7 +389,7 @@ var renderMain = function (dictMonadAff) {
             if (state.error instanceof Data_Maybe.Just) {
                 return Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("error-toast") ])([ Halogen_HTML_Elements.span([ Halogen_HTML_Properties.class_("error-toast-text") ])([ Halogen_HTML_Core.text(state.error.value0) ]) ]);
             };
-            throw new Error("Failed pattern match at Straylight.App (line 152, column 7 - line 157, column 14): " + [ state.error.constructor.name ]);
+            throw new Error("Failed pattern match at Straylight.App (line 160, column 7 - line 165, column 14): " + [ state.error.constructor.name ]);
         })() ]);
     };
 };
@@ -381,6 +406,7 @@ var component = function (dictMonadAff) {
                 config: Straylight_API_Client.defaultConfig,
                 activeTab: Health.value,
                 health: Data_Maybe.Nothing.value,
+                providers: Data_Maybe.Nothing.value,
                 models: Data_Maybe.Nothing.value,
                 proofId: "",
                 proof: Data_Maybe.Nothing.value,
@@ -399,6 +425,7 @@ var component = function (dictMonadAff) {
 };
 export {
     Health,
+    Providers,
     Models,
     Proofs,
     Initialize,
@@ -408,6 +435,7 @@ export {
     SetProofId,
     LookupProof,
     _healthStatus,
+    _providerStatus,
     _modelsPanel,
     _proofViewer,
     component,

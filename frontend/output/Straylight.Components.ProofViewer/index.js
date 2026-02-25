@@ -5,6 +5,7 @@ import * as Data_Array from "../Data.Array/index.js";
 import * as Data_Functor from "../Data.Functor/index.js";
 import * as Data_Maybe from "../Data.Maybe/index.js";
 import * as Data_Show from "../Data.Show/index.js";
+import * as Data_String_CodePoints from "../Data.String.CodePoints/index.js";
 import * as Halogen_Component from "../Halogen.Component/index.js";
 import * as Halogen_HTML_Core from "../Halogen.HTML.Core/index.js";
 import * as Halogen_HTML_Elements from "../Halogen.HTML.Elements/index.js";
@@ -16,6 +17,13 @@ var map = /* #__PURE__ */ Data_Functor.map(Data_Functor.functorArray);
 var type_ = /* #__PURE__ */ Halogen_HTML_Properties.type_(Halogen_HTML_Core.isPropInputType);
 var value = /* #__PURE__ */ Halogen_HTML_Properties.value(Halogen_HTML_Core.isPropString);
 var identity = /* #__PURE__ */ Control_Category.identity(Control_Category.categoryFn);
+var truncateHash = function (s) {
+    var $10 = Data_String_CodePoints.length(s) <= 28;
+    if ($10) {
+        return s;
+    };
+    return Data_String_CodePoints.take(16)(s) + ("..." + Data_String_CodePoints.drop(Data_String_CodePoints.length(s) - 8 | 0)(s));
+};
 var renderOutputHash = function (oh) {
     return Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("hash-item") ])([ Halogen_HTML_Elements.span([ Halogen_HTML_Properties.class_("hash-label") ])([ Halogen_HTML_Core.text(oh.name) ]), Halogen_HTML_Elements.code([ Halogen_HTML_Properties.class_("hash-value") ])([ Halogen_HTML_Core.text(oh.hash) ]) ]);
 };
@@ -42,7 +50,7 @@ var renderCoeffect = function (coeff) {
         if (v instanceof Straylight_API_Client.Combined) {
             return "Combined[" + (show(Data_Array.length(v.value0)) + "]");
         };
-        throw new Error("Failed pattern match at Straylight.Components.ProofViewer (line 162, column 19 - line 168, column 68): " + [ v.constructor.name ]);
+        throw new Error("Failed pattern match at Straylight.Components.ProofViewer (line 189, column 19 - line 195, column 68): " + [ v.constructor.name ]);
     };
     return Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("coeffect-badge") ])([ Halogen_HTML_Core.text(coeffectLabel(coeff)) ]);
 };
@@ -54,7 +62,7 @@ var renderAuthUsage = function (au) {
         if (au.scope instanceof Data_Maybe.Nothing) {
             return Halogen_HTML_Core.text("");
         };
-        throw new Error("Failed pattern match at Straylight.Components.ProofViewer (line 187, column 11 - line 189, column 34): " + [ au.scope.constructor.name ]);
+        throw new Error("Failed pattern match at Straylight.Components.ProofViewer (line 214, column 11 - line 216, column 34): " + [ au.scope.constructor.name ]);
     })() ]), Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("access-meta") ])([ Halogen_HTML_Elements.span([ Halogen_HTML_Properties.class_("access-time") ])([ Halogen_HTML_Core.text(au.timestamp) ]) ]) ]);
 };
 var renderProof = function (proof) {
@@ -65,7 +73,7 @@ var renderProof = function (proof) {
         if (proof.signature instanceof Data_Maybe.Nothing) {
             return "Unsigned";
         };
-        throw new Error("Failed pattern match at Straylight.Components.ProofViewer (line 153, column 13 - line 155, column 26): " + [ proof.signature.constructor.name ]);
+        throw new Error("Failed pattern match at Straylight.Components.ProofViewer (line 180, column 13 - line 182, column 26): " + [ proof.signature.constructor.name ]);
     })();
     var sigIcon = (function () {
         if (proof.signature instanceof Data_Maybe.Just) {
@@ -74,7 +82,7 @@ var renderProof = function (proof) {
         if (proof.signature instanceof Data_Maybe.Nothing) {
             return "minus";
         };
-        throw new Error("Failed pattern match at Straylight.Components.ProofViewer (line 150, column 13 - line 152, column 23): " + [ proof.signature.constructor.name ]);
+        throw new Error("Failed pattern match at Straylight.Components.ProofViewer (line 177, column 13 - line 179, column 23): " + [ proof.signature.constructor.name ]);
     })();
     var sigClass = (function () {
         if (proof.signature instanceof Data_Maybe.Just) {
@@ -83,21 +91,29 @@ var renderProof = function (proof) {
         if (proof.signature instanceof Data_Maybe.Nothing) {
             return "unsigned";
         };
-        throw new Error("Failed pattern match at Straylight.Components.ProofViewer (line 147, column 14 - line 149, column 26): " + [ proof.signature.constructor.name ]);
+        throw new Error("Failed pattern match at Straylight.Components.ProofViewer (line 174, column 14 - line 176, column 26): " + [ proof.signature.constructor.name ]);
     })();
     return Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("proof-details") ])([ Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("proof-header") ])([ Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("proof-id") ])([ Halogen_HTML_Elements.span([ Halogen_HTML_Properties.class_("proof-label") ])([ Halogen_HTML_Core.text("Build ID") ]), Halogen_HTML_Elements.span([ Halogen_HTML_Properties.class_("proof-value mono") ])([ Halogen_HTML_Core.text(proof.buildId) ]) ]), Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("proof-sig " + sigClass) ])([ Straylight_Components_Icon.iconSm(sigIcon), Halogen_HTML_Core.text(sigText) ]) ]), Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("proof-section") ])([ Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("proof-section-header") ])([ Halogen_HTML_Core.text("Timing") ]), Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("proof-grid") ])([ Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("proof-cell") ])([ Halogen_HTML_Elements.span([ Halogen_HTML_Properties.class_("proof-label") ])([ Halogen_HTML_Core.text("Start") ]), Halogen_HTML_Elements.span([ Halogen_HTML_Properties.class_("proof-value mono") ])([ Halogen_HTML_Core.text(proof.startTime) ]) ]), Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("proof-cell") ])([ Halogen_HTML_Elements.span([ Halogen_HTML_Properties.class_("proof-label") ])([ Halogen_HTML_Core.text("End") ]), Halogen_HTML_Elements.span([ Halogen_HTML_Properties.class_("proof-value mono") ])([ Halogen_HTML_Core.text(proof.endTime) ]) ]) ]) ]), Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("proof-section") ])([ Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("proof-section-header") ])([ Halogen_HTML_Core.text("Coeffects"), Halogen_HTML_Elements.span([ Halogen_HTML_Properties.class_("badge") ])([ Halogen_HTML_Core.text(show(Data_Array.length(proof.coeffects))) ]) ]), Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("coeffect-list") ])(map(renderCoeffect)(proof.coeffects)) ]), (function () {
-        var $21 = Data_Array["null"](proof.networkAccess);
-        if ($21) {
+        var $24 = Data_Array["null"](proof.networkAccess);
+        if ($24) {
             return Halogen_HTML_Core.text("");
         };
         return Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("proof-section") ])([ Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("proof-section-header") ])([ Halogen_HTML_Core.text("Network Access"), Halogen_HTML_Elements.span([ Halogen_HTML_Properties.class_("badge") ])([ Halogen_HTML_Core.text(show(Data_Array.length(proof.networkAccess))) ]) ]), Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("access-list") ])(map(renderNetworkAccess)(proof.networkAccess)) ]);
     })(), (function () {
-        var $22 = Data_Array["null"](proof.authUsage);
-        if ($22) {
+        var $25 = Data_Array["null"](proof.authUsage);
+        if ($25) {
             return Halogen_HTML_Core.text("");
         };
         return Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("proof-section") ])([ Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("proof-section-header") ])([ Halogen_HTML_Core.text("Auth Usage"), Halogen_HTML_Elements.span([ Halogen_HTML_Properties.class_("badge") ])([ Halogen_HTML_Core.text(show(Data_Array.length(proof.authUsage))) ]) ]), Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("access-list") ])(map(renderAuthUsage)(proof.authUsage)) ]);
-    })(), Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("proof-section") ])([ Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("proof-section-header") ])([ Halogen_HTML_Core.text("Hashes") ]), Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("hash-item") ])([ Halogen_HTML_Elements.span([ Halogen_HTML_Properties.class_("hash-label") ])([ Halogen_HTML_Core.text("Derivation") ]), Halogen_HTML_Elements.code([ Halogen_HTML_Properties.class_("hash-value") ])([ Halogen_HTML_Core.text(proof.derivationHash) ]) ]), Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("hash-list") ])(map(renderOutputHash)(proof.outputHashes)) ]) ]);
+    })(), Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("proof-section") ])([ Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("proof-section-header") ])([ Halogen_HTML_Core.text("Hashes") ]), Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("hash-item") ])([ Halogen_HTML_Elements.span([ Halogen_HTML_Properties.class_("hash-label") ])([ Halogen_HTML_Core.text("Derivation") ]), Halogen_HTML_Elements.code([ Halogen_HTML_Properties.class_("hash-value") ])([ Halogen_HTML_Core.text(proof.derivationHash) ]) ]), Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("hash-list") ])(map(renderOutputHash)(proof.outputHashes)) ]), (function () {
+        if (proof.signature instanceof Data_Maybe.Nothing) {
+            return Halogen_HTML_Core.text("");
+        };
+        if (proof.signature instanceof Data_Maybe.Just) {
+            return Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("proof-section signature-section") ])([ Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("proof-section-header") ])([ Straylight_Components_Icon.iconSm("shield-check"), Halogen_HTML_Core.text(" Cryptographic Signature") ]), Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("signature-details") ])([ Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("sig-item") ])([ Halogen_HTML_Elements.span([ Halogen_HTML_Properties.class_("sig-label") ])([ Halogen_HTML_Core.text("Algorithm") ]), Halogen_HTML_Elements.span([ Halogen_HTML_Properties.class_("sig-value") ])([ Halogen_HTML_Core.text("Ed25519") ]) ]), Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("sig-item") ])([ Halogen_HTML_Elements.span([ Halogen_HTML_Properties.class_("sig-label") ])([ Halogen_HTML_Core.text("Public Key") ]), Halogen_HTML_Elements.code([ Halogen_HTML_Properties.class_("sig-value mono") ])([ Halogen_HTML_Core.text(truncateHash(proof.signature.value0.publicKey)) ]) ]), Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("sig-item") ])([ Halogen_HTML_Elements.span([ Halogen_HTML_Properties.class_("sig-label") ])([ Halogen_HTML_Core.text("Signature") ]), Halogen_HTML_Elements.code([ Halogen_HTML_Properties.class_("sig-value mono") ])([ Halogen_HTML_Core.text(truncateHash(proof.signature.value0.signature)) ]) ]) ]) ]);
+        };
+        throw new Error("Failed pattern match at Straylight.Components.ProofViewer (line 148, column 7 - line 171, column 12): " + [ proof.signature.constructor.name ]);
+    })() ]);
 };
 var render = function (state) {
     return Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("dashboard-panel") ])([ Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("panel-header") ])([ Straylight_Components_Icon.icon("git-compare"), Halogen_HTML_Elements.span([ Halogen_HTML_Properties.class_("panel-title") ])([ Halogen_HTML_Core.text("Discharge Proofs") ]) ]), Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("panel-body") ])([ Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("proof-search") ])([ Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("search-label") ])([ Halogen_HTML_Core.text("Enter a request ID to view its discharge proof") ]), Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("search-input-wrap") ])([ Halogen_HTML_Elements.input([ type_(DOM_HTML_Indexed_InputType.InputText.value), Halogen_HTML_Properties.class_("search-input"), Halogen_HTML_Properties.placeholder("request-id-here"), value(state.proofId) ]), Halogen_HTML_Elements.button([ Halogen_HTML_Properties.class_("btn") ])([ Halogen_HTML_Core.text("Lookup") ]) ]) ]), (function () {
@@ -107,7 +123,7 @@ var render = function (state) {
         if (state.proof instanceof Data_Maybe.Just) {
             return renderProof(state.proof.value0);
         };
-        throw new Error("Failed pattern match at Straylight.Components.ProofViewer (line 54, column 11 - line 64, column 36): " + [ state.proof.constructor.name ]);
+        throw new Error("Failed pattern match at Straylight.Components.ProofViewer (line 55, column 11 - line 65, column 36): " + [ state.proof.constructor.name ]);
     })() ]) ]);
 };
 var component = function (dictMonadAff) {

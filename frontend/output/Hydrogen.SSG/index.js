@@ -22,7 +22,7 @@ var twitterTags = function (meta) {
         if (meta.ogImage instanceof Data_Maybe.Nothing) {
             return [  ];
         };
-        throw new Error("Failed pattern match at Hydrogen.SSG (line 174, column 11 - line 176, column 18): " + [ meta.ogImage.constructor.name ]);
+        throw new Error("Failed pattern match at Hydrogen.SSG (line 178, column 11 - line 180, column 18): " + [ meta.ogImage.constructor.name ]);
     })();
     return append([ twitterMeta("twitter:card")("summary_large_image"), twitterMeta("twitter:title")(meta.title), twitterMeta("twitter:description")(meta.description) ])(image);
 };
@@ -33,7 +33,7 @@ var themeColorMeta = function (config) {
     if (config.themeColor instanceof Data_Maybe.Nothing) {
         return [  ];
     };
-    throw new Error("Failed pattern match at Hydrogen.SSG (line 215, column 25 - line 222, column 16): " + [ config.themeColor.constructor.name ]);
+    throw new Error("Failed pattern match at Hydrogen.SSG (line 219, column 25 - line 226, column 16): " + [ config.themeColor.constructor.name ]);
 };
 var stylesheetLinks = function (config) {
     return map(function (href) {
@@ -82,7 +82,7 @@ var ogTags = function (config) {
             if (meta.ogImage instanceof Data_Maybe.Nothing) {
                 return [  ];
             };
-            throw new Error("Failed pattern match at Hydrogen.SSG (line 161, column 11 - line 163, column 18): " + [ meta.ogImage.constructor.name ]);
+            throw new Error("Failed pattern match at Hydrogen.SSG (line 165, column 11 - line 167, column 18): " + [ meta.ogImage.constructor.name ]);
         })();
         return append([ ogMeta("og:type")("website"), ogMeta("og:title")(meta.title), ogMeta("og:description")(meta.description), ogMeta("og:url")(meta.path) ])(append(siteName)(image));
     };
@@ -95,7 +95,7 @@ var metaTags = function (_config) {
         if (meta.canonicalUrl instanceof Data_Maybe.Nothing) {
             return [  ];
         };
-        throw new Error("Failed pattern match at Hydrogen.SSG (line 143, column 3 - line 145, column 18): " + [ meta.canonicalUrl.constructor.name ]);
+        throw new Error("Failed pattern match at Hydrogen.SSG (line 147, column 3 - line 149, column 18): " + [ meta.canonicalUrl.constructor.name ]);
     };
 };
 var manifestLink = function (config) {
@@ -105,7 +105,7 @@ var manifestLink = function (config) {
     if (config.manifest instanceof Data_Maybe.Nothing) {
         return [  ];
     };
-    throw new Error("Failed pattern match at Hydrogen.SSG (line 210, column 23 - line 212, column 16): " + [ config.manifest.constructor.name ]);
+    throw new Error("Failed pattern match at Hydrogen.SSG (line 214, column 23 - line 216, column 16): " + [ config.manifest.constructor.name ]);
 };
 var faviconLink = function (config) {
     if (config.favicon instanceof Data_Maybe.Just) {
@@ -114,7 +114,7 @@ var faviconLink = function (config) {
     if (config.favicon instanceof Data_Maybe.Nothing) {
         return [  ];
     };
-    throw new Error("Failed pattern match at Hydrogen.SSG (line 205, column 22 - line 207, column 16): " + [ config.favicon.constructor.name ]);
+    throw new Error("Failed pattern match at Hydrogen.SSG (line 209, column 22 - line 211, column 16): " + [ config.favicon.constructor.name ]);
 };
 var renderDocument = function (config) {
     return function (meta) {

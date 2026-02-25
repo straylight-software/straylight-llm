@@ -178,7 +178,7 @@ var renderProp = function (v) {
             if (v.value0 instanceof Data_Maybe.Nothing) {
                 return "";
             };
-            throw new Error("Failed pattern match at Hydrogen.HTML.Renderer (line 139, column 18 - line 141, column 24): " + [ v.value0.constructor.name ]);
+            throw new Error("Failed pattern match at Hydrogen.HTML.Renderer (line 149, column 18 - line 151, column 24): " + [ v.value0.constructor.name ]);
         })();
         return new Data_Maybe.Just(prefix + (v.value1 + ("=\"" + (escapeAttr(v.value2) + "\""))));
     };
@@ -191,7 +191,7 @@ var renderProp = function (v) {
     if (v instanceof Halogen_VDom_DOM_Prop.Ref) {
         return Data_Maybe.Nothing.value;
     };
-    throw new Error("Failed pattern match at Hydrogen.HTML.Renderer (line 137, column 14 - line 153, column 12): " + [ v.constructor.name ]);
+    throw new Error("Failed pattern match at Hydrogen.HTML.Renderer (line 147, column 14 - line 163, column 12): " + [ v.constructor.name ]);
 };
 var renderPropArray = /* #__PURE__ */ (function () {
     var $56 = Data_String_Common.joinWith(" ");
@@ -230,7 +230,7 @@ var renderVDom = function ($copy_opts) {
                 $copy_v = Halogen_VDom_Types.runGraft(v.value0);
                 return;
             };
-            throw new Error("Failed pattern match at Hydrogen.HTML.Renderer (line 69, column 19 - line 79, column 44): " + [ v.constructor.name ]);
+            throw new Error("Failed pattern match at Hydrogen.HTML.Renderer (line 79, column 19 - line 89, column 44): " + [ v.constructor.name ]);
         };
         while (!$tco_done) {
             $tco_result = $tco_loop($tco_var_opts, $copy_v);
@@ -251,7 +251,7 @@ var renderElement = function (opts) {
                         if (maybeNs instanceof Data_Maybe.Nothing) {
                             return "";
                         };
-                        throw new Error("Failed pattern match at Hydrogen.HTML.Renderer (line 94, column 14 - line 96, column 20): " + [ maybeNs.constructor.name ]);
+                        throw new Error("Failed pattern match at Hydrogen.HTML.Renderer (line 104, column 14 - line 106, column 20): " + [ maybeNs.constructor.name ]);
                     })();
                     var attrsStr = (function () {
                         var $51 = Data_String_Common["null"](propsStr) && Data_String_Common["null"](nsAttr);

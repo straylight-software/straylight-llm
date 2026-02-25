@@ -14,7 +14,7 @@ module Straylight.API.EventStream
 
 import Prelude
 
-import Data.Maybe (Maybe)
+import Data.Maybe (Maybe(..))
 
 
 -- | Event types emitted by the gateway SSE endpoint

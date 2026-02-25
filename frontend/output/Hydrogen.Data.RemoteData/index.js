@@ -71,7 +71,7 @@ var toEither = function (pending) {
         if (v instanceof Success) {
             return new Data_Either.Right(v.value0);
         };
-        throw new Error("Failed pattern match at Hydrogen.Data.RemoteData (line 206, column 20 - line 210, column 23): " + [ v.constructor.name ]);
+        throw new Error("Failed pattern match at Hydrogen.Data.RemoteData (line 223, column 20 - line 227, column 23): " + [ v.constructor.name ]);
     };
 };
 var showRemoteData = function (dictShow) {
@@ -92,7 +92,7 @@ var showRemoteData = function (dictShow) {
                 if (v instanceof Success) {
                     return "(Success " + (show1(v.value0) + ")");
                 };
-                throw new Error("Failed pattern match at Hydrogen.Data.RemoteData (line 88, column 1 - line 92, column 50): " + [ v.constructor.name ]);
+                throw new Error("Failed pattern match at Hydrogen.Data.RemoteData (line 105, column 1 - line 109, column 50): " + [ v.constructor.name ]);
             }
         };
     };
@@ -126,7 +126,7 @@ var semigroupRemoteData = function (dictSemigroup) {
                 if (v instanceof NotAsked && v1 instanceof NotAsked) {
                     return NotAsked.value;
                 };
-                throw new Error("Failed pattern match at Hydrogen.Data.RemoteData (line 148, column 1 - line 156, column 38): " + [ v.constructor.name, v1.constructor.name ]);
+                throw new Error("Failed pattern match at Hydrogen.Data.RemoteData (line 165, column 1 - line 173, column 38): " + [ v.constructor.name, v1.constructor.name ]);
             };
         }
     };
@@ -154,7 +154,7 @@ var mapError = function (v) {
         if (v1 instanceof Success) {
             return new Success(v1.value0);
         };
-        throw new Error("Failed pattern match at Hydrogen.Data.RemoteData (line 274, column 1 - line 274, column 77): " + [ v.constructor.name, v1.constructor.name ]);
+        throw new Error("Failed pattern match at Hydrogen.Data.RemoteData (line 291, column 1 - line 291, column 77): " + [ v.constructor.name, v1.constructor.name ]);
     };
 };
 var isSuccess = function (v) {
@@ -211,7 +211,7 @@ var fromEither = function (v) {
     if (v instanceof Data_Either.Right) {
         return new Success(v.value0);
     };
-    throw new Error("Failed pattern match at Hydrogen.Data.RemoteData (line 192, column 1 - line 192, column 55): " + [ v.constructor.name ]);
+    throw new Error("Failed pattern match at Hydrogen.Data.RemoteData (line 209, column 1 - line 209, column 55): " + [ v.constructor.name ]);
 };
 var foldableRemoteData = {
     foldr: function (f) {
@@ -264,7 +264,7 @@ var traversableRemoteData = {
                 if (v instanceof Success) {
                     return map1(Success.create)(f(v.value0));
                 };
-                throw new Error("Failed pattern match at Hydrogen.Data.RemoteData (line 176, column 16 - line 180, column 33): " + [ v.constructor.name ]);
+                throw new Error("Failed pattern match at Hydrogen.Data.RemoteData (line 193, column 16 - line 197, column 33): " + [ v.constructor.name ]);
             };
         };
     },
@@ -284,7 +284,7 @@ var traversableRemoteData = {
             if (v instanceof Success) {
                 return map1(Success.create)(v.value0);
             };
-            throw new Error("Failed pattern match at Hydrogen.Data.RemoteData (line 181, column 14 - line 185, column 33): " + [ v.constructor.name ]);
+            throw new Error("Failed pattern match at Hydrogen.Data.RemoteData (line 198, column 14 - line 202, column 33): " + [ v.constructor.name ]);
         };
     },
     Functor0: function () {
@@ -308,7 +308,7 @@ var fold = function (handlers) {
         if (v instanceof Success) {
             return handlers.success(v.value0);
         };
-        throw new Error("Failed pattern match at Hydrogen.Data.RemoteData (line 237, column 17 - line 241, column 34): " + [ v.constructor.name ]);
+        throw new Error("Failed pattern match at Hydrogen.Data.RemoteData (line 254, column 17 - line 258, column 34): " + [ v.constructor.name ]);
     };
 };
 var eqRemoteData = function (dictEq) {
@@ -400,7 +400,7 @@ var bifunctorRemoteData = {
                 if (v2 instanceof Success) {
                     return new Success(v1(v2.value0));
                 };
-                throw new Error("Failed pattern match at Hydrogen.Data.RemoteData (line 117, column 1 - line 121, column 40): " + [ v.constructor.name, v1.constructor.name, v2.constructor.name ]);
+                throw new Error("Failed pattern match at Hydrogen.Data.RemoteData (line 134, column 1 - line 138, column 40): " + [ v.constructor.name, v1.constructor.name, v2.constructor.name ]);
             };
         };
     }
@@ -429,7 +429,7 @@ var applyRemoteData = {
             if (v1 instanceof NotAsked) {
                 return NotAsked.value;
             };
-            throw new Error("Failed pattern match at Hydrogen.Data.RemoteData (line 96, column 1 - line 103, column 30): " + [ v.constructor.name, v1.constructor.name ]);
+            throw new Error("Failed pattern match at Hydrogen.Data.RemoteData (line 113, column 1 - line 120, column 30): " + [ v.constructor.name, v1.constructor.name ]);
         };
     },
     Functor0: function () {
@@ -452,7 +452,7 @@ var bindRemoteData = {
             if (v instanceof Success) {
                 return v1(v.value0);
             };
-            throw new Error("Failed pattern match at Hydrogen.Data.RemoteData (line 108, column 1 - line 112, column 27): " + [ v.constructor.name, v1.constructor.name ]);
+            throw new Error("Failed pattern match at Hydrogen.Data.RemoteData (line 125, column 1 - line 129, column 27): " + [ v.constructor.name, v1.constructor.name ]);
         };
     },
     Apply0: function () {
@@ -528,7 +528,7 @@ var altRemoteData = {
             if (v instanceof Loading && v1 instanceof Loading) {
                 return Loading.value;
             };
-            throw new Error("Failed pattern match at Hydrogen.Data.RemoteData (line 132, column 1 - line 139, column 32): " + [ v.constructor.name, v1.constructor.name ]);
+            throw new Error("Failed pattern match at Hydrogen.Data.RemoteData (line 149, column 1 - line 156, column 32): " + [ v.constructor.name, v1.constructor.name ]);
         };
     },
     Functor0: function () {

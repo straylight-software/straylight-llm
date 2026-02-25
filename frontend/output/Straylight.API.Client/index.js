@@ -8,6 +8,7 @@ import * as Data_Argonaut_Core from "../Data.Argonaut.Core/index.js";
 import * as Data_Argonaut_Decode_Class from "../Data.Argonaut.Decode.Class/index.js";
 import * as Data_Argonaut_Decode_Decoders from "../Data.Argonaut.Decode.Decoders/index.js";
 import * as Data_Argonaut_Decode_Error from "../Data.Argonaut.Decode.Error/index.js";
+import * as Data_Array from "../Data.Array/index.js";
 import * as Data_Either from "../Data.Either/index.js";
 import * as Data_Functor from "../Data.Functor/index.js";
 import * as Data_Maybe from "../Data.Maybe/index.js";
@@ -19,21 +20,23 @@ var bind = /* #__PURE__ */ Control_Bind.bind(Effect_Aff.bindAff);
 var pure = /* #__PURE__ */ Control_Applicative.pure(Effect_Aff.applicativeAff);
 var gDecodeJsonCons = /* #__PURE__ */ Data_Argonaut_Decode_Class.gDecodeJsonCons(/* #__PURE__ */ Data_Argonaut_Decode_Class.decodeFieldId(Data_Argonaut_Decode_Class.decodeJsonString));
 var gDecodeJsonCons1 = /* #__PURE__ */ gDecodeJsonCons(Data_Argonaut_Decode_Class.gDecodeJsonNil);
+var statusIsSymbol = {
+    reflectSymbol: function () {
+        return "status";
+    }
+};
 var decodeJson = /* #__PURE__ */ Data_Argonaut_Decode_Class.decodeJson(/* #__PURE__ */ Data_Argonaut_Decode_Class.decodeRecord(/* #__PURE__ */ gDecodeJsonCons(/* #__PURE__ */ gDecodeJsonCons1({
     reflectSymbol: function () {
         return "version";
     }
-})()())({
-    reflectSymbol: function () {
-        return "status";
-    }
-})()())());
+})()())(statusIsSymbol)()())());
+var gDecodeJsonCons2 = /* #__PURE__ */ Data_Argonaut_Decode_Class.gDecodeJsonCons(/* #__PURE__ */ Data_Argonaut_Decode_Class.decodeFieldId(Data_Argonaut_Decode_Class.decodeJsonInt));
 var objectIsSymbol = {
     reflectSymbol: function () {
         return "object";
     }
 };
-var decodeJson1 = /* #__PURE__ */ Data_Argonaut_Decode_Class.decodeJson(/* #__PURE__ */ Data_Argonaut_Decode_Class.decodeRecord(/* #__PURE__ */ Data_Argonaut_Decode_Class.gDecodeJsonCons(/* #__PURE__ */ Data_Argonaut_Decode_Class.decodeFieldId(/* #__PURE__ */ Data_Argonaut_Decode_Class.decodeArray(/* #__PURE__ */ Data_Argonaut_Decode_Class.decodeRecord(/* #__PURE__ */ Data_Argonaut_Decode_Class.gDecodeJsonCons(/* #__PURE__ */ Data_Argonaut_Decode_Class.decodeFieldId(Data_Argonaut_Decode_Class.decodeJsonInt))(/* #__PURE__ */ gDecodeJsonCons(/* #__PURE__ */ gDecodeJsonCons(/* #__PURE__ */ gDecodeJsonCons1({
+var decodeJson1 = /* #__PURE__ */ Data_Argonaut_Decode_Class.decodeJson(/* #__PURE__ */ Data_Argonaut_Decode_Class.decodeRecord(/* #__PURE__ */ Data_Argonaut_Decode_Class.gDecodeJsonCons(/* #__PURE__ */ Data_Argonaut_Decode_Class.decodeFieldId(/* #__PURE__ */ Data_Argonaut_Decode_Class.decodeArray(/* #__PURE__ */ Data_Argonaut_Decode_Class.decodeRecord(/* #__PURE__ */ gDecodeJsonCons2(/* #__PURE__ */ gDecodeJsonCons(/* #__PURE__ */ gDecodeJsonCons(/* #__PURE__ */ gDecodeJsonCons1({
     reflectSymbol: function () {
         return "ownedBy";
     }
@@ -52,13 +55,18 @@ var decodeJson1 = /* #__PURE__ */ Data_Argonaut_Decode_Class.decodeJson(/* #__PU
 })()())());
 var bind1 = /* #__PURE__ */ Control_Bind.bind(Data_Either.bindEither);
 var map = /* #__PURE__ */ Data_Functor.map(Data_Either.functorEither);
-var gDecodeJsonCons2 = /* #__PURE__ */ Data_Argonaut_Decode_Class.gDecodeJsonCons(/* #__PURE__ */ Data_Argonaut_Decode_Class.decodeFieldMaybe(Data_Argonaut_Decode_Class.decodeJsonString));
+var gDecodeJsonCons3 = /* #__PURE__ */ Data_Argonaut_Decode_Class.gDecodeJsonCons(/* #__PURE__ */ Data_Argonaut_Decode_Class.decodeFieldMaybe(Data_Argonaut_Decode_Class.decodeJsonString));
 var timestampIsSymbol = {
     reflectSymbol: function () {
         return "timestamp";
     }
 };
-var gDecodeJsonCons3 = /* #__PURE__ */ gDecodeJsonCons1(timestampIsSymbol)()();
+var gDecodeJsonCons4 = /* #__PURE__ */ gDecodeJsonCons1(timestampIsSymbol)()();
+var providerIsSymbol = {
+    reflectSymbol: function () {
+        return "provider";
+    }
+};
 var contentHashIsSymbol = {
     reflectSymbol: function () {
         return "contentHash";
@@ -69,6 +77,70 @@ var signatureIsSymbol = {
         return "signature";
     }
 };
+var coeffectsIsSymbol = {
+    reflectSymbol: function () {
+        return "coeffects";
+    }
+};
+var latencyMsIsSymbol = {
+    reflectSymbol: function () {
+        return "latencyMs";
+    }
+};
+var errorMessageIsSymbol = {
+    reflectSymbol: function () {
+        return "errorMessage";
+    }
+};
+var requestIdIsSymbol = {
+    reflectSymbol: function () {
+        return "requestId";
+    }
+};
+var promptTokensIsSymbol = {
+    reflectSymbol: function () {
+        return "promptTokens";
+    }
+};
+var modelIsSymbol = {
+    reflectSymbol: function () {
+        return "model";
+    }
+};
+var completionTokensIsSymbol = {
+    reflectSymbol: function () {
+        return "completionTokens";
+    }
+};
+var map1 = /* #__PURE__ */ Data_Functor.map(Data_Maybe.functorMaybe);
+var Pending = /* #__PURE__ */ (function () {
+    function Pending() {
+
+    };
+    Pending.value = new Pending();
+    return Pending;
+})();
+var Success = /* #__PURE__ */ (function () {
+    function Success() {
+
+    };
+    Success.value = new Success();
+    return Success;
+})();
+var $$Error = /* #__PURE__ */ (function () {
+    function $$Error() {
+
+    };
+    $$Error.value = new $$Error();
+    return $$Error;
+})();
+var Retrying = /* #__PURE__ */ (function () {
+    function Retrying() {
+
+    };
+    Retrying.value = new Retrying();
+    return Retrying;
+})();
 var Pure = /* #__PURE__ */ (function () {
     function Pure() {
 
@@ -119,9 +191,61 @@ var Combined = /* #__PURE__ */ (function () {
     };
     return Combined;
 })();
+var CBClosed = /* #__PURE__ */ (function () {
+    function CBClosed() {
+
+    };
+    CBClosed.value = new CBClosed();
+    return CBClosed;
+})();
+var CBOpen = /* #__PURE__ */ (function () {
+    function CBOpen() {
+
+    };
+    CBOpen.value = new CBOpen();
+    return CBOpen;
+})();
+var CBHalfOpen = /* #__PURE__ */ (function () {
+    function CBHalfOpen() {
+
+    };
+    CBHalfOpen.value = new CBHalfOpen();
+    return CBHalfOpen;
+})();
+var statusToString = function (v) {
+    if (v instanceof Pending) {
+        return "pending";
+    };
+    if (v instanceof Success) {
+        return "success";
+    };
+    if (v instanceof $$Error) {
+        return "error";
+    };
+    if (v instanceof Retrying) {
+        return "retrying";
+    };
+    throw new Error("Failed pattern match at Straylight.API.Client (line 359, column 18 - line 363, column 25): " + [ v.constructor.name ]);
+};
 var mkUrl = function (cfg) {
     return function (path) {
         return cfg.baseUrl + (":" + (show(cfg.port) + path));
+    };
+};
+var joinWith = function (sep) {
+    return function (arr) {
+        var v = Data_Array.uncons(arr);
+        if (v instanceof Data_Maybe.Nothing) {
+            return "";
+        };
+        if (v instanceof Data_Maybe.Just) {
+            var $363 = Data_Array["null"](v.value0.tail);
+            if ($363) {
+                return v.value0.head;
+            };
+            return v.value0.head + (sep + joinWith(sep)(v.value0.tail));
+        };
+        throw new Error("Failed pattern match at Straylight.API.Client (line 366, column 20 - line 371, column 44): " + [ v.constructor.name ]);
     };
 };
 var healthCheck = function (cfg) {
@@ -138,9 +262,9 @@ var healthCheck = function (cfg) {
                 if (v instanceof Data_Either.Right) {
                     return new Data_Either.Right(v.value0);
                 };
-                throw new Error("Failed pattern match at Straylight.API.Client (line 160, column 23 - line 162, column 25): " + [ v.constructor.name ]);
+                throw new Error("Failed pattern match at Straylight.API.Client (line 297, column 23 - line 299, column 25): " + [ v.constructor.name ]);
             };
-            throw new Error("Failed pattern match at Straylight.API.Client (line 158, column 10 - line 162, column 25): " + [ result.constructor.name ]);
+            throw new Error("Failed pattern match at Straylight.API.Client (line 295, column 10 - line 299, column 25): " + [ result.constructor.name ]);
         })());
     });
 };
@@ -158,16 +282,98 @@ var getModels = function (cfg) {
                 if (v instanceof Data_Either.Right) {
                     return new Data_Either.Right(v.value0);
                 };
-                throw new Error("Failed pattern match at Straylight.API.Client (line 170, column 23 - line 172, column 25): " + [ v.constructor.name ]);
+                throw new Error("Failed pattern match at Straylight.API.Client (line 307, column 23 - line 309, column 25): " + [ v.constructor.name ]);
             };
-            throw new Error("Failed pattern match at Straylight.API.Client (line 168, column 10 - line 172, column 25): " + [ result.constructor.name ]);
+            throw new Error("Failed pattern match at Straylight.API.Client (line 305, column 10 - line 309, column 25): " + [ result.constructor.name ]);
         })());
     });
 };
+var eqRequestStatus = {
+    eq: function (x) {
+        return function (y) {
+            if (x instanceof Pending && y instanceof Pending) {
+                return true;
+            };
+            if (x instanceof Success && y instanceof Success) {
+                return true;
+            };
+            if (x instanceof $$Error && y instanceof $$Error) {
+                return true;
+            };
+            if (x instanceof Retrying && y instanceof Retrying) {
+                return true;
+            };
+            return false;
+        };
+    }
+};
+var eqCircuitBreakerState = {
+    eq: function (x) {
+        return function (y) {
+            if (x instanceof CBClosed && y instanceof CBClosed) {
+                return true;
+            };
+            if (x instanceof CBOpen && y instanceof CBOpen) {
+                return true;
+            };
+            if (x instanceof CBHalfOpen && y instanceof CBHalfOpen) {
+                return true;
+            };
+            return false;
+        };
+    }
+};
+var defaultFilter = /* #__PURE__ */ (function () {
+    return {
+        provider: Data_Maybe.Nothing.value,
+        model: Data_Maybe.Nothing.value,
+        status: Data_Maybe.Nothing.value,
+        limit: 50,
+        offset: 0
+    };
+})();
 var defaultConfig = {
     baseUrl: "http://localhost",
     port: 8080
 };
+var decodeJsonRequestStatus = {
+    decodeJson: function (json) {
+        return bind1(Data_Argonaut_Decode_Decoders.decodeString(json))(function (str) {
+            if (str === "pending") {
+                return new Data_Either.Right(Pending.value);
+            };
+            if (str === "success") {
+                return new Data_Either.Right(Success.value);
+            };
+            if (str === "error") {
+                return new Data_Either.Right($$Error.value);
+            };
+            if (str === "retrying") {
+                return new Data_Either.Right(Retrying.value);
+            };
+            return new Data_Either.Left(new Data_Argonaut_Decode_Error.UnexpectedValue(json));
+        });
+    }
+};
+var gDecodeJsonCons5 = /* #__PURE__ */ Data_Argonaut_Decode_Class.gDecodeJsonCons(/* #__PURE__ */ Data_Argonaut_Decode_Class.decodeFieldId(decodeJsonRequestStatus))(gDecodeJsonCons4)(statusIsSymbol)()();
+var gDecodeJsonCons6 = /* #__PURE__ */ gDecodeJsonCons(gDecodeJsonCons5);
+var decodeJson2 = /* #__PURE__ */ Data_Argonaut_Decode_Class.decodeJson(/* #__PURE__ */ Data_Argonaut_Decode_Class.decodeRecord(/* #__PURE__ */ gDecodeJsonCons2(/* #__PURE__ */ gDecodeJsonCons2(/* #__PURE__ */ Data_Argonaut_Decode_Class.gDecodeJsonCons(/* #__PURE__ */ Data_Argonaut_Decode_Class.decodeFieldId(/* #__PURE__ */ Data_Argonaut_Decode_Class.decodeArray(/* #__PURE__ */ Data_Argonaut_Decode_Class.decodeRecord(/* #__PURE__ */ gDecodeJsonCons2(/* #__PURE__ */ gDecodeJsonCons2(/* #__PURE__ */ gDecodeJsonCons(/* #__PURE__ */ gDecodeJsonCons2(/* #__PURE__ */ gDecodeJsonCons(/* #__PURE__ */ gDecodeJsonCons6(requestIdIsSymbol)()())(providerIsSymbol)()())(promptTokensIsSymbol)()())(modelIsSymbol)()())(latencyMsIsSymbol)()())(completionTokensIsSymbol)()())())))(/* #__PURE__ */ gDecodeJsonCons2(Data_Argonaut_Decode_Class.gDecodeJsonNil)({
+    reflectSymbol: function () {
+        return "total";
+    }
+})()())({
+    reflectSymbol: function () {
+        return "requests";
+    }
+})()())({
+    reflectSymbol: function () {
+        return "offset";
+    }
+})()())({
+    reflectSymbol: function () {
+        return "limit";
+    }
+})()())());
 var decodeJsonCoeffect = {
     decodeJson: function (json) {
         var v = Data_Argonaut_Core.toObject(json);
@@ -195,7 +401,7 @@ var decodeJsonCoeffect = {
                         if (v2 instanceof Data_Maybe.Nothing) {
                             return new Data_Either.Left(Data_Argonaut_Decode_Error.MissingValue.value);
                         };
-                        throw new Error("Failed pattern match at Straylight.API.Client (line 92, column 21 - line 94, column 41): " + [ v2.constructor.name ]);
+                        throw new Error("Failed pattern match at Straylight.API.Client (line 106, column 21 - line 108, column 41): " + [ v2.constructor.name ]);
                     };
                     if (ty === "sandbox") {
                         var v2 = Foreign_Object.lookup("path")(v.value0);
@@ -205,7 +411,7 @@ var decodeJsonCoeffect = {
                         if (v2 instanceof Data_Maybe.Nothing) {
                             return new Data_Either.Left(Data_Argonaut_Decode_Error.MissingValue.value);
                         };
-                        throw new Error("Failed pattern match at Straylight.API.Client (line 95, column 24 - line 97, column 41): " + [ v2.constructor.name ]);
+                        throw new Error("Failed pattern match at Straylight.API.Client (line 109, column 24 - line 111, column 41): " + [ v2.constructor.name ]);
                     };
                     if (ty === "filesystem") {
                         var v2 = Foreign_Object.lookup("path")(v.value0);
@@ -215,7 +421,7 @@ var decodeJsonCoeffect = {
                         if (v2 instanceof Data_Maybe.Nothing) {
                             return new Data_Either.Left(Data_Argonaut_Decode_Error.MissingValue.value);
                         };
-                        throw new Error("Failed pattern match at Straylight.API.Client (line 98, column 27 - line 100, column 41): " + [ v2.constructor.name ]);
+                        throw new Error("Failed pattern match at Straylight.API.Client (line 112, column 27 - line 114, column 41): " + [ v2.constructor.name ]);
                     };
                     if (ty === "combined") {
                         var v2 = Foreign_Object.lookup("coeffects")(v.value0);
@@ -225,25 +431,22 @@ var decodeJsonCoeffect = {
                         if (v2 instanceof Data_Maybe.Nothing) {
                             return new Data_Either.Left(Data_Argonaut_Decode_Error.MissingValue.value);
                         };
-                        throw new Error("Failed pattern match at Straylight.API.Client (line 101, column 25 - line 103, column 41): " + [ v2.constructor.name ]);
+                        throw new Error("Failed pattern match at Straylight.API.Client (line 115, column 25 - line 117, column 41): " + [ v2.constructor.name ]);
                     };
                     return new Data_Either.Left(new Data_Argonaut_Decode_Error.UnexpectedValue(json));
                 });
             };
-            throw new Error("Failed pattern match at Straylight.API.Client (line 85, column 17 - line 104, column 43): " + [ v1.constructor.name ]);
+            throw new Error("Failed pattern match at Straylight.API.Client (line 99, column 17 - line 118, column 43): " + [ v1.constructor.name ]);
         };
-        throw new Error("Failed pattern match at Straylight.API.Client (line 83, column 21 - line 104, column 43): " + [ v.constructor.name ]);
+        throw new Error("Failed pattern match at Straylight.API.Client (line 97, column 21 - line 118, column 43): " + [ v.constructor.name ]);
     }
 };
-var decodeJson2 = /* #__PURE__ */ Data_Argonaut_Decode_Class.decodeJson(/* #__PURE__ */ Data_Argonaut_Decode_Class.decodeRecord(/* #__PURE__ */ Data_Argonaut_Decode_Class.gDecodeJsonCons(/* #__PURE__ */ Data_Argonaut_Decode_Class.decodeFieldId(/* #__PURE__ */ Data_Argonaut_Decode_Class.decodeArray(/* #__PURE__ */ Data_Argonaut_Decode_Class.decodeRecord(/* #__PURE__ */ gDecodeJsonCons(/* #__PURE__ */ gDecodeJsonCons2(gDecodeJsonCons3)({
+var gDecodeJsonCons7 = /* #__PURE__ */ Data_Argonaut_Decode_Class.gDecodeJsonCons(/* #__PURE__ */ Data_Argonaut_Decode_Class.decodeFieldId(/* #__PURE__ */ Data_Argonaut_Decode_Class.decodeArray(decodeJsonCoeffect)));
+var decodeJson3 = /* #__PURE__ */ Data_Argonaut_Decode_Class.decodeJson(/* #__PURE__ */ Data_Argonaut_Decode_Class.decodeRecord(/* #__PURE__ */ Data_Argonaut_Decode_Class.gDecodeJsonCons(/* #__PURE__ */ Data_Argonaut_Decode_Class.decodeFieldId(/* #__PURE__ */ Data_Argonaut_Decode_Class.decodeArray(/* #__PURE__ */ Data_Argonaut_Decode_Class.decodeRecord(/* #__PURE__ */ gDecodeJsonCons(/* #__PURE__ */ gDecodeJsonCons3(gDecodeJsonCons4)({
     reflectSymbol: function () {
         return "scope";
     }
-})()())({
-    reflectSymbol: function () {
-        return "provider";
-    }
-})()())())))(/* #__PURE__ */ gDecodeJsonCons(/* #__PURE__ */ Data_Argonaut_Decode_Class.gDecodeJsonCons(/* #__PURE__ */ Data_Argonaut_Decode_Class.decodeFieldId(/* #__PURE__ */ Data_Argonaut_Decode_Class.decodeArray(decodeJsonCoeffect)))(/* #__PURE__ */ gDecodeJsonCons(/* #__PURE__ */ gDecodeJsonCons(/* #__PURE__ */ Data_Argonaut_Decode_Class.gDecodeJsonCons(/* #__PURE__ */ Data_Argonaut_Decode_Class.decodeFieldId(/* #__PURE__ */ Data_Argonaut_Decode_Class.decodeArray(/* #__PURE__ */ Data_Argonaut_Decode_Class.decodeRecord(/* #__PURE__ */ gDecodeJsonCons2(/* #__PURE__ */ gDecodeJsonCons(/* #__PURE__ */ gDecodeJsonCons(gDecodeJsonCons3)({
+})()())(providerIsSymbol)()())())))(/* #__PURE__ */ gDecodeJsonCons(/* #__PURE__ */ gDecodeJsonCons7(/* #__PURE__ */ gDecodeJsonCons(/* #__PURE__ */ gDecodeJsonCons(/* #__PURE__ */ Data_Argonaut_Decode_Class.gDecodeJsonCons(/* #__PURE__ */ Data_Argonaut_Decode_Class.decodeFieldId(/* #__PURE__ */ Data_Argonaut_Decode_Class.decodeArray(/* #__PURE__ */ Data_Argonaut_Decode_Class.decodeRecord(/* #__PURE__ */ gDecodeJsonCons3(/* #__PURE__ */ gDecodeJsonCons(/* #__PURE__ */ gDecodeJsonCons(gDecodeJsonCons4)({
     reflectSymbol: function () {
         return "path";
     }
@@ -295,11 +498,7 @@ var decodeJson2 = /* #__PURE__ */ Data_Argonaut_Decode_Class.decodeJson(/* #__PU
     reflectSymbol: function () {
         return "derivationHash";
     }
-})()())({
-    reflectSymbol: function () {
-        return "coeffects";
-    }
-})()())({
+})()())(coeffectsIsSymbol)()())({
     reflectSymbol: function () {
         return "buildId";
     }
@@ -308,9 +507,103 @@ var decodeJson2 = /* #__PURE__ */ Data_Argonaut_Decode_Class.decodeJson(/* #__PU
         return "authUsage";
     }
 })()())());
+var decodeJson4 = /* #__PURE__ */ Data_Argonaut_Decode_Class.decodeJson(/* #__PURE__ */ Data_Argonaut_Decode_Class.decodeRecord(/* #__PURE__ */ gDecodeJsonCons7(/* #__PURE__ */ gDecodeJsonCons2(/* #__PURE__ */ gDecodeJsonCons3(/* #__PURE__ */ gDecodeJsonCons2(/* #__PURE__ */ gDecodeJsonCons(/* #__PURE__ */ gDecodeJsonCons2(/* #__PURE__ */ gDecodeJsonCons3(/* #__PURE__ */ gDecodeJsonCons(/* #__PURE__ */ gDecodeJsonCons(/* #__PURE__ */ gDecodeJsonCons(/* #__PURE__ */ gDecodeJsonCons(/* #__PURE__ */ Data_Argonaut_Decode_Class.gDecodeJsonCons(/* #__PURE__ */ Data_Argonaut_Decode_Class.decodeFieldId(/* #__PURE__ */ Data_Argonaut_Decode_Class.decodeArray(/* #__PURE__ */ Data_Argonaut_Decode_Class.decodeRecord(/* #__PURE__ */ gDecodeJsonCons3(/* #__PURE__ */ gDecodeJsonCons2(/* #__PURE__ */ gDecodeJsonCons6(providerIsSymbol)()())(latencyMsIsSymbol)()())(errorMessageIsSymbol)()())())))(gDecodeJsonCons5)({
+    reflectSymbol: function () {
+        return "retryHistory";
+    }
+})()())({
+    reflectSymbol: function () {
+        return "responseBody";
+    }
+})()())(requestIdIsSymbol)()())({
+    reflectSymbol: function () {
+        return "requestBody";
+    }
+})()())(providerIsSymbol)()())({
+    reflectSymbol: function () {
+        return "proofId";
+    }
+})()())(promptTokensIsSymbol)()())(modelIsSymbol)()())(latencyMsIsSymbol)()())(errorMessageIsSymbol)()())(completionTokensIsSymbol)()())(coeffectsIsSymbol)()())());
 var getProof = function (cfg) {
     return function (requestId) {
         return bind(Affjax_Web.get(Affjax_ResponseFormat.json)(mkUrl(cfg)("/v1/proof/" + requestId)))(function (result) {
+            return pure((function () {
+                if (result instanceof Data_Either.Left) {
+                    return new Data_Either.Left(Affjax.printError(result.value0));
+                };
+                if (result instanceof Data_Either.Right) {
+                    var v = decodeJson3(result.value0.body);
+                    if (v instanceof Data_Either.Left) {
+                        return new Data_Either.Left(Data_Argonaut_Decode_Error.printJsonDecodeError(v.value0));
+                    };
+                    if (v instanceof Data_Either.Right) {
+                        return new Data_Either.Right(v.value0);
+                    };
+                    throw new Error("Failed pattern match at Straylight.API.Client (line 317, column 23 - line 319, column 25): " + [ v.constructor.name ]);
+                };
+                throw new Error("Failed pattern match at Straylight.API.Client (line 315, column 10 - line 319, column 25): " + [ result.constructor.name ]);
+            })());
+        });
+    };
+};
+var getRequestDetail = function (cfg) {
+    return function (requestId) {
+        return bind(Affjax_Web.get(Affjax_ResponseFormat.json)(mkUrl(cfg)("/v1/admin/requests/" + requestId)))(function (result) {
+            return pure((function () {
+                if (result instanceof Data_Either.Left) {
+                    return new Data_Either.Left(Affjax.printError(result.value0));
+                };
+                if (result instanceof Data_Either.Right) {
+                    var v = decodeJson4(result.value0.body);
+                    if (v instanceof Data_Either.Left) {
+                        return new Data_Either.Left(Data_Argonaut_Decode_Error.printJsonDecodeError(v.value0));
+                    };
+                    if (v instanceof Data_Either.Right) {
+                        return new Data_Either.Right(v.value0);
+                    };
+                    throw new Error("Failed pattern match at Straylight.API.Client (line 339, column 23 - line 341, column 25): " + [ v.constructor.name ]);
+                };
+                throw new Error("Failed pattern match at Straylight.API.Client (line 337, column 10 - line 341, column 25): " + [ result.constructor.name ]);
+            })());
+        });
+    };
+};
+var decodeJsonCircuitBreakerState = {
+    decodeJson: function (json) {
+        return bind1(Data_Argonaut_Decode_Decoders.decodeString(json))(function (str) {
+            if (str === "closed") {
+                return new Data_Either.Right(CBClosed.value);
+            };
+            if (str === "open") {
+                return new Data_Either.Right(CBOpen.value);
+            };
+            if (str === "half-open") {
+                return new Data_Either.Right(CBHalfOpen.value);
+            };
+            return new Data_Either.Left(new Data_Argonaut_Decode_Error.UnexpectedValue(json));
+        });
+    }
+};
+var buildFilterParams = function (f) {
+    var params = [ new Data_Maybe.Just("limit=" + show(f.limit)), new Data_Maybe.Just("offset=" + show(f.offset)), map1(function (p) {
+        return "provider=" + p;
+    })(f.provider), map1(function (m) {
+        return "model=" + m;
+    })(f.model), map1(function (s) {
+        return "status=" + statusToString(s);
+    })(f.status) ];
+    var validParams = Data_Array.catMaybes(params);
+    var $410 = Data_Array["null"](validParams);
+    if ($410) {
+        return "";
+    };
+    return "?" + joinWith("&")(validParams);
+};
+var getRequests = function (cfg) {
+    return function (filter) {
+        var queryParams = buildFilterParams(filter);
+        var url = mkUrl(cfg)("/v1/admin/requests") + queryParams;
+        return bind(Affjax_Web.get(Affjax_ResponseFormat.json)(url))(function (result) {
             return pure((function () {
                 if (result instanceof Data_Either.Left) {
                     return new Data_Either.Left(Affjax.printError(result.value0));
@@ -323,9 +616,9 @@ var getProof = function (cfg) {
                     if (v instanceof Data_Either.Right) {
                         return new Data_Either.Right(v.value0);
                     };
-                    throw new Error("Failed pattern match at Straylight.API.Client (line 180, column 23 - line 182, column 25): " + [ v.constructor.name ]);
+                    throw new Error("Failed pattern match at Straylight.API.Client (line 329, column 23 - line 331, column 25): " + [ v.constructor.name ]);
                 };
-                throw new Error("Failed pattern match at Straylight.API.Client (line 178, column 10 - line 182, column 25): " + [ result.constructor.name ]);
+                throw new Error("Failed pattern match at Straylight.API.Client (line 327, column 10 - line 331, column 25): " + [ result.constructor.name ]);
             })());
         });
     };
@@ -335,12 +628,26 @@ export {
     healthCheck,
     getModels,
     getProof,
+    getRequests,
+    getRequestDetail,
     Pure,
     Network,
     Auth,
     Sandbox,
     Filesystem,
     Combined,
-    decodeJsonCoeffect
+    Pending,
+    Success,
+    $$Error as Error,
+    Retrying,
+    defaultFilter,
+    CBClosed,
+    CBOpen,
+    CBHalfOpen,
+    decodeJsonCoeffect,
+    eqRequestStatus,
+    decodeJsonRequestStatus,
+    eqCircuitBreakerState,
+    decodeJsonCircuitBreakerState
 };
 //# sourceMappingURL=index.js.map

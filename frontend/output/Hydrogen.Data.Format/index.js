@@ -23,7 +23,7 @@ var ratio = function (v) {
         if (Data_Boolean.otherwise) {
             return v / v1;
         };
-        throw new Error("Failed pattern match at Hydrogen.Data.Format (line 247, column 1 - line 247, column 36): " + [ v.constructor.name, v1.constructor.name ]);
+        throw new Error("Failed pattern match at Hydrogen.Data.Format (line 266, column 1 - line 266, column 36): " + [ v.constructor.name, v1.constructor.name ]);
     };
 };
 var rate = function (v) {
@@ -45,7 +45,7 @@ var percentage = function (v) {
         if (Data_Boolean.otherwise) {
             return Data_Int.floor((v / v1) * 100.0);
         };
-        throw new Error("Failed pattern match at Hydrogen.Data.Format (line 223, column 1 - line 223, column 38): " + [ v.constructor.name, v1.constructor.name ]);
+        throw new Error("Failed pattern match at Hydrogen.Data.Format (line 242, column 1 - line 242, column 38): " + [ v.constructor.name, v1.constructor.name ]);
     };
 };
 var kb = 1024.0;
@@ -59,32 +59,29 @@ var tb = /* #__PURE__ */ (function () {
     return 1024.0 * gb;
 })();
 var parseBytes = function (str) {
-    var parseNum = function (v) {
-        return Data_Maybe.Nothing.value;
-    };
     var parts = Data_String_Common.split(" ")(str);
     if (parts.length === 2 && parts[1] === "TB") {
         return map(function (v) {
             return v * tb;
-        })(parseNum(parts[0]));
+        })(Data_Number.fromString(parts[0]));
     };
     if (parts.length === 2 && parts[1] === "GB") {
         return map(function (v) {
             return v * gb;
-        })(parseNum(parts[0]));
+        })(Data_Number.fromString(parts[0]));
     };
     if (parts.length === 2 && parts[1] === "MB") {
         return map(function (v) {
             return v * mb;
-        })(parseNum(parts[0]));
+        })(Data_Number.fromString(parts[0]));
     };
     if (parts.length === 2 && parts[1] === "KB") {
         return map(function (v) {
             return v * kb;
-        })(parseNum(parts[0]));
+        })(Data_Number.fromString(parts[0]));
     };
     if (parts.length === 2 && parts[1] === "B") {
-        return parseNum(parts[0]);
+        return Data_Number.fromString(parts[0]);
     };
     return Data_Maybe.Nothing.value;
 };
@@ -95,7 +92,7 @@ var formatNum = function (n) {
     if (Data_Boolean.otherwise) {
         return show(Data_Int.toNumber(Data_Int.floor(n * 10.0)) / 10.0);
     };
-    throw new Error("Failed pattern match at Hydrogen.Data.Format (line 124, column 1 - line 124, column 30): " + [ n.constructor.name ]);
+    throw new Error("Failed pattern match at Hydrogen.Data.Format (line 143, column 1 - line 143, column 30): " + [ n.constructor.name ]);
 };
 var formatNumCompact = function (n) {
     if (!Data_Number["isFinite"](n)) {
@@ -113,7 +110,7 @@ var formatNumCompact = function (n) {
     if (Data_Boolean.otherwise) {
         return show1(Data_Int.floor(n));
     };
-    throw new Error("Failed pattern match at Hydrogen.Data.Format (line 136, column 1 - line 136, column 37): " + [ n.constructor.name ]);
+    throw new Error("Failed pattern match at Hydrogen.Data.Format (line 155, column 1 - line 155, column 37): " + [ n.constructor.name ]);
 };
 var formatPercent = function (rate$prime) {
     if (!Data_Number["isFinite"](rate$prime)) {
@@ -122,7 +119,7 @@ var formatPercent = function (rate$prime) {
     if (Data_Boolean.otherwise) {
         return formatNum(rate$prime * 100.0) + "%";
     };
-    throw new Error("Failed pattern match at Hydrogen.Data.Format (line 150, column 1 - line 150, column 34): " + [ rate$prime.constructor.name ]);
+    throw new Error("Failed pattern match at Hydrogen.Data.Format (line 169, column 1 - line 169, column 34): " + [ rate$prime.constructor.name ]);
 };
 var formatDurationCompact = function (secs) {
     if (secs <= 0) {
@@ -137,7 +134,7 @@ var formatDurationCompact = function (secs) {
     if (Data_Boolean.otherwise) {
         return show1(div1(secs)(3600)) + "h";
     };
-    throw new Error("Failed pattern match at Hydrogen.Data.Format (line 196, column 1 - line 196, column 39): " + [ secs.constructor.name ]);
+    throw new Error("Failed pattern match at Hydrogen.Data.Format (line 215, column 1 - line 215, column 39): " + [ secs.constructor.name ]);
 };
 var formatDuration = function (secs) {
     if (secs <= 0) {
@@ -155,7 +152,7 @@ var formatDuration = function (secs) {
         var hours = div1(secs)(3600);
         return show1(hours) + ("h " + (show1(mins) + ("m " + (show1(s) + "s"))));
     };
-    throw new Error("Failed pattern match at Hydrogen.Data.Format (line 179, column 1 - line 179, column 32): " + [ secs.constructor.name ]);
+    throw new Error("Failed pattern match at Hydrogen.Data.Format (line 198, column 1 - line 198, column 32): " + [ secs.constructor.name ]);
 };
 var formatDurationMs = function (ms) {
     return formatDuration(div1(ms)(1000));
@@ -170,7 +167,7 @@ var formatCount = function (n) {
     if (Data_Boolean.otherwise) {
         return show1(n);
     };
-    throw new Error("Failed pattern match at Hydrogen.Data.Format (line 161, column 1 - line 161, column 29): " + [ n.constructor.name ]);
+    throw new Error("Failed pattern match at Hydrogen.Data.Format (line 180, column 1 - line 180, column 29): " + [ n.constructor.name ]);
 };
 var formatBytesCompact = function (bytes) {
     if (!Data_Number["isFinite"](bytes)) {
@@ -194,7 +191,7 @@ var formatBytesCompact = function (bytes) {
     if (Data_Boolean.otherwise) {
         return show1(Data_Int.floor(bytes)) + "B";
     };
-    throw new Error("Failed pattern match at Hydrogen.Data.Format (line 83, column 1 - line 83, column 39): " + [ bytes.constructor.name ]);
+    throw new Error("Failed pattern match at Hydrogen.Data.Format (line 102, column 1 - line 102, column 39): " + [ bytes.constructor.name ]);
 };
 var formatBytes = function (bytes) {
     if (!Data_Number["isFinite"](bytes)) {
@@ -218,7 +215,7 @@ var formatBytes = function (bytes) {
     if (Data_Boolean.otherwise) {
         return show1(Data_Int.floor(bytes)) + " B";
     };
-    throw new Error("Failed pattern match at Hydrogen.Data.Format (line 68, column 1 - line 68, column 32): " + [ bytes.constructor.name ]);
+    throw new Error("Failed pattern match at Hydrogen.Data.Format (line 87, column 1 - line 87, column 32): " + [ bytes.constructor.name ]);
 };
 export {
     formatBytes,
