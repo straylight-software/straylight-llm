@@ -8,8 +8,9 @@
 --                                                              — Neuromancer
 --
 -- Fallback chain router for LLM provider selection.
--- Priority: Venice -> Vertex -> Baseten -> OpenRouter
+-- Priority: Triton (local) -> Venice -> Vertex -> Baseten -> OpenRouter -> Anthropic
 --
+-- Triton is first: local TensorRT-LLM inference (~50-200ms latency)
 -- On failure, routes to next provider if error is retryable.
 -- Non-retryable errors (auth, invalid request) fail immediately.
 --
@@ -20,7 +21,7 @@
 
 module Router
     ( -- * Router
-      Router (Router, routerManager, routerProviders, routerConfig, routerVeniceConfig, routerVertexConfig, routerBasetenConfig, routerOpenRouterConfig, routerAnthropicConfig, routerProofCache, routerModelRegistry, routerMetrics, routerBackpressure, routerCircuitBreakers, routerRequestHistory, routerAdminSemaphore, routerResponseCache, routerEventBroadcaster)
+      Router (Router, routerManager, routerProviders, routerConfig, routerTritonConfig, routerVeniceConfig, routerVertexConfig, routerBasetenConfig, routerOpenRouterConfig, routerAnthropicConfig, routerProofCache, routerModelRegistry, routerMetrics, routerBackpressure, routerCircuitBreakers, routerRequestHistory, routerAdminSemaphore, routerResponseCache, routerEventBroadcaster)
     , makeRouter
 
       -- * Routing
@@ -66,6 +67,7 @@ import Coeffect.Types (DischargeProof)
 import Config
 import Effects.Graded (GatewayM, runGatewayM, recordRequestId, recordProvider, withRetry, liftGatewayIO)
 import Provider.Types
+import Provider.Triton (makeTritonProvider)
 import Provider.Venice (makeVeniceProvider)
 import Provider.Vertex (makeVertexProvider)
 import Provider.Baseten (makeBasetenProvider)
@@ -153,6 +155,7 @@ data Router = Router
     { routerManager :: HC.Manager
     , routerProviders :: ProviderChain
     , routerConfig :: Config
+    , routerTritonConfig :: IORef ProviderConfig     -- Local Triton/TensorRT-LLM (FIRST in chain)
     , routerVeniceConfig :: IORef ProviderConfig
     , routerVertexConfig :: IORef ProviderConfig
     , routerBasetenConfig :: IORef ProviderConfig
@@ -176,9 +179,10 @@ data Router = Router
     }
 
 -- | Default provider chain order
+-- Triton is first: local TensorRT-LLM inference (~50-200ms latency)
 -- Anthropic is last: direct API access, used when explicitly requested or all others fail
 defaultChain :: [ProviderName]
-defaultChain = [Venice, Vertex, Baseten, OpenRouter, Anthropic]
+defaultChain = [Triton, Venice, Vertex, Baseten, OpenRouter, Anthropic]
 
 
 -- ════════════════════════════════════════════════════════════════════════════
@@ -204,6 +208,7 @@ makeRouter config = do
     manager <- HC.newManager settings
 
     -- Create config refs (allows runtime updates)
+    tritonRef <- newIORef (cfgTriton config)
     veniceRef <- newIORef (cfgVenice config)
     vertexRef <- newIORef (cfgVertex config)
     basetenRef <- newIORef (cfgBaseten config)
@@ -211,14 +216,15 @@ makeRouter config = do
     anthropicRef <- newIORef (cfgAnthropic config)
 
     -- Create providers
+    let tritonProvider = makeTritonProvider tritonRef  -- LOCAL inference FIRST
     let veniceProvider = makeVeniceProvider veniceRef
     vertexProvider <- makeVertexProvider vertexRef
     let basetenProvider = makeBasetenProvider basetenRef
     let openrouterProvider = makeOpenRouterProvider openrouterRef
     let anthropicProvider = makeAnthropicProvider anthropicRef
 
-    -- Build chain in priority order (Anthropic last for direct API access)
-    let providers = [veniceProvider, vertexProvider, basetenProvider, openrouterProvider, anthropicProvider]
+    -- Build chain in priority order (Triton first for local inference, Anthropic last for direct API access)
+    let providers = [tritonProvider, veniceProvider, vertexProvider, basetenProvider, openrouterProvider, anthropicProvider]
 
     -- Create proof cache
     proofCacheRef <- newIORef Map.empty
@@ -233,6 +239,7 @@ makeRouter config = do
     backpressure <- newRequestSemaphore 10000
     
     -- Circuit breakers: one per provider
+    tritonCB <- newCircuitBreaker "triton" defaultCircuitBreakerConfig
     veniceCB <- newCircuitBreaker "venice" defaultCircuitBreakerConfig
     vertexCB <- newCircuitBreaker "vertex" defaultCircuitBreakerConfig
     basetenCB <- newCircuitBreaker "baseten" defaultCircuitBreakerConfig
@@ -240,7 +247,8 @@ makeRouter config = do
     anthropicCB <- newCircuitBreaker "anthropic" defaultCircuitBreakerConfig
     
     let circuitBreakers = Map.fromList
-            [ (Venice, veniceCB)
+            [ (Triton, tritonCB)
+            , (Venice, veniceCB)
             , (Vertex, vertexCB)
             , (Baseten, basetenCB)
             , (OpenRouter, openrouterCB)
@@ -267,6 +275,7 @@ makeRouter config = do
         { routerManager = manager
         , routerProviders = providers
         , routerConfig = config
+        , routerTritonConfig = tritonRef
         , routerVeniceConfig = veniceRef
         , routerVertexConfig = vertexRef
         , routerBasetenConfig = basetenRef
@@ -831,6 +840,7 @@ cbStateToSSE CB.HalfOpen = CircuitHalfOpen
 
 -- | Convert ProviderName to Text
 providerNameToText :: ProviderName -> Text
+providerNameToText Triton = "triton"
 providerNameToText Venice = "venice"
 providerNameToText Vertex = "vertex"
 providerNameToText Baseten = "baseten"
@@ -839,6 +849,7 @@ providerNameToText Anthropic = "anthropic"
 
 -- | Convert Text to ProviderName (for history storage)
 textToProviderName :: Text -> Maybe ProviderName
+textToProviderName "triton" = Just Triton
 textToProviderName "venice" = Just Venice
 textToProviderName "vertex" = Just Vertex
 textToProviderName "baseten" = Just Baseten

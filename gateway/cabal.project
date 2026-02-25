@@ -1,6 +1,7 @@
 packages:
   .
   ../haskemathesis-reference
+  ../io-uring
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- // haskemathesis - OpenAPI property testing

@@ -1,0 +1,30 @@
+cabal-version: 3.0
+name:          io-uring
+version:       0.1.0.0
+synopsis:      Haskell bindings to Linux io_uring
+description:   High-performance io_uring FFI bindings from libevring.
+license:       MIT
+author:        Straylight Software
+maintainer:    dev@straylight.ai
+build-type:    Simple
+
+library
+  exposed-modules:
+    System.IoUring
+    System.IoUring.URing
+    System.IoUring.Internal.FFI
+
+  hs-source-dirs:   src
+  default-language: GHC2021
+  c-sources:        cbits/uring_compat.c
+  extra-libraries:  uring
+
+  build-depends:
+    , base       >=4.17 && <5
+    , primitive  >=0.7
+    , network    >=3.1
+    , vector     >=0.12
+
+  ghc-options:
+    -Wall
+    -O2

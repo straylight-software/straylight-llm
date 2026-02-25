@@ -68,7 +68,7 @@ import Provider.Types
         , providerModels
         , providerSupportsModel
         )
-    , ProviderName (Venice, Vertex, Baseten, OpenRouter, Anthropic)
+    , ProviderName (Triton, Venice, Vertex, Baseten, OpenRouter, Anthropic)
     , ProviderResult (Success, Failure, Retry)
     , ProviderError
         ( AuthError
@@ -255,6 +255,21 @@ getAllModels registry = do
 -- | Fallback heuristics when registry has no cached data
 -- Used during initial sync or if provider is unreachable
 fallbackSupportsModel :: ProviderName -> Text -> Bool
+fallbackSupportsModel Triton modelId =
+    -- Triton/TensorRT-LLM typically runs these model families
+    any (`T.isPrefixOf` modelId)
+        [ "llama"
+        , "meta-llama"
+        , "codellama"
+        , "mistral"
+        , "mixtral"
+        , "qwen"
+        , "deepseek"
+        , "phi"
+        , "triton/"
+        , "local/"
+        ]
+
 fallbackSupportsModel Venice modelId =
     -- Venice supports these model prefixes
     any (`T.isPrefixOf` modelId)

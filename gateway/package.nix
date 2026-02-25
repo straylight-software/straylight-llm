@@ -14,6 +14,7 @@
 {
   lib,
   haskellPackages,
+  liburing,
 }:
 let
   hp = haskellPackages;
@@ -28,6 +29,9 @@ hp.mkDerivation {
 
   isLibrary = true;
   isExecutable = true;
+
+  # io_uring system library for evring-wai backend
+  librarySystemDepends = [ liburing ];
 
   # ════════════════════════════════════════════════════════════════════════════
   #                                                        // library deps
@@ -55,6 +59,7 @@ hp.mkDerivation {
     hp.mtl
     hp.network
     hp.posix-pty
+    hp.primitive
     hp.process
     hp.random
     hp.servant

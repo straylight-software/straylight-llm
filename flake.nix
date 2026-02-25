@@ -135,6 +135,7 @@
           # The gateway package
           straylightPackage = pkgs.callPackage ./gateway/package.nix {
             haskellPackages = hpkgs;
+            inherit (pkgs) liburing;
           };
 
         in
@@ -270,6 +271,7 @@
 
               # Build dependencies
               pkgs.zlib
+              pkgs.liburing # io_uring for evring-wai backend
 
               # Container tools
               pkgs.docker

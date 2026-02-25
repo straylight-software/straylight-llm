@@ -23,7 +23,7 @@
 module Provider.Types
     ( -- * Provider Interface
       Provider (Provider, providerName, providerEnabled, providerChat, providerChatStream, providerEmbeddings, providerModels, providerSupportsModel)
-    , ProviderName (Venice, Vertex, Baseten, OpenRouter, Anthropic)
+    , ProviderName (Triton, Venice, Vertex, Baseten, OpenRouter, Anthropic)
     , ProviderResult (Success, Failure, Retry)
     , ProviderError (AuthError, RateLimitError, QuotaExceededError, ModelNotFoundError, ProviderUnavailable, InvalidRequestError, InternalError, TimeoutError, UnknownError)
 
@@ -48,12 +48,14 @@ import Types (ChatRequest, ChatResponse, EmbeddingRequest, EmbeddingResponse, Mo
 -- ════════════════════════════════════════════════════════════════════════════
 
 -- | Provider names for the fallback chain
--- Priority: Venice -> Vertex -> Baseten -> OpenRouter -> Anthropic
+-- Priority: Triton (local) -> Venice -> Vertex -> Baseten -> OpenRouter -> Anthropic
+-- Triton is first: local TensorRT-LLM inference (~50-200ms latency)
 -- Anthropic is last: direct API access, used when explicitly requested
-data ProviderName = Venice | Vertex | Baseten | OpenRouter | Anthropic
+data ProviderName = Triton | Venice | Vertex | Baseten | OpenRouter | Anthropic
     deriving (Eq, Show, Ord, Enum, Bounded)
 
 instance ToJSON ProviderName where
+    toJSON Triton = "triton"
     toJSON Venice = "venice"
     toJSON Vertex = "vertex"
     toJSON Baseten = "baseten"
@@ -61,6 +63,7 @@ instance ToJSON ProviderName where
     toJSON Anthropic = "anthropic"
 
 instance FromJSON ProviderName where
+    parseJSON (String "triton") = pure Triton
     parseJSON (String "venice") = pure Venice
     parseJSON (String "vertex") = pure Vertex
     parseJSON (String "baseten") = pure Baseten

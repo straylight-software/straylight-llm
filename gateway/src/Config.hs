@@ -22,6 +22,7 @@ module Config
         ( Config
         , cfgPort
         , cfgHost
+        , cfgTriton
         , cfgVenice
         , cfgVertex
         , cfgBaseten
@@ -87,6 +88,7 @@ data ProviderConfig = ProviderConfig
 data Config = Config
     { cfgPort :: Int
     , cfgHost :: Text
+    , cfgTriton :: ProviderConfig     -- Local Triton/TensorRT-LLM (FIRST in chain)
     , cfgVenice :: ProviderConfig
     , cfgVertex :: ProviderConfig
     , cfgBaseten :: ProviderConfig
@@ -109,6 +111,13 @@ defaultConfig :: Config
 defaultConfig = Config
     { cfgPort = 8080
     , cfgHost = "0.0.0.0"
+    , cfgTriton = ProviderConfig
+        { pcEnabled = False  -- Disabled by default (requires local Triton server)
+        , pcBaseUrl = "http://localhost:9000/v1"  -- openai-proxy wrapping Triton
+        , pcApiKeyPath = Nothing
+        , pcApiKey = Nothing  -- Local inference, no auth needed
+        , pcVertexConfig = Nothing
+        }
     , cfgVenice = ProviderConfig
         { pcEnabled = True
         , pcBaseUrl = "https://api.venice.ai/api/v1"
@@ -182,6 +191,20 @@ loadApiKey mPath mDirect envVar = do
                     Nothing -> fmap T.pack <$> lookupEnv (T.unpack envVar)
             Nothing -> fmap T.pack <$> lookupEnv (T.unpack envVar)
 
+-- | Parse boolean from environment variable string
+-- Accepts: "true", "1", "yes", "on" (case-insensitive)
+parseEnabled :: String -> Bool
+parseEnabled s = case map toLower s of
+    "true" -> True
+    "1" -> True
+    "yes" -> True
+    "on" -> True
+    _ -> False
+  where
+    toLower c
+        | c >= 'A' && c <= 'Z' = toEnum (fromEnum c + 32)
+        | otherwise = c
+
 -- | Load configuration from environment variables
 --
 -- Environment variables:
@@ -206,12 +229,19 @@ loadApiKey mPath mDirect envVar = do
 --
 --   ANTHROPIC_API_KEY         - Anthropic API key
 --   ANTHROPIC_API_KEY_FILE    - Path to Anthropic API key file
+--
+--   TRITON_URL                - Triton openai-proxy URL (default: http://localhost:9000/v1)
+--   TRITON_ENABLED            - Enable local Triton inference (default: false)
 loadConfigFromEnv :: IO Config
 loadConfigFromEnv = do
     -- Server settings (use readMaybe, never partial read)
     port <- fromMaybe 8080 . (>>= readMaybe) <$> lookupEnv "STRAYLIGHT_PORT"
     host <- maybe "0.0.0.0" T.pack <$> lookupEnv "STRAYLIGHT_HOST"
     logLevel <- maybe "info" T.pack <$> lookupEnv "STRAYLIGHT_LOG_LEVEL"
+
+    -- Triton (local TensorRT-LLM inference - FIRST in chain when enabled)
+    tritonUrl <- maybe "http://localhost:9000/v1" T.pack <$> lookupEnv "TRITON_URL"
+    tritonEnabled <- maybe False parseEnabled <$> lookupEnv "TRITON_ENABLED"
 
     -- Venice
     veniceKeyFile <- lookupEnv "VENICE_API_KEY_FILE"
@@ -245,6 +275,13 @@ loadConfigFromEnv = do
     pure Config
         { cfgPort = port
         , cfgHost = host
+        , cfgTriton = ProviderConfig
+            { pcEnabled = tritonEnabled
+            , pcBaseUrl = tritonUrl
+            , pcApiKeyPath = Nothing
+            , pcApiKey = Nothing  -- Local inference, no auth
+            , pcVertexConfig = Nothing
+            }
         , cfgVenice = ProviderConfig
             { pcEnabled = veniceKey /= Nothing
             , pcBaseUrl = "https://api.venice.ai/api/v1"
