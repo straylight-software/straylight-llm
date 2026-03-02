@@ -61,6 +61,12 @@ library
     Provider.OpenRouter
     Provider.Anthropic
     Provider.Triton
+    -- // gpu rate providers
+    Provider.LambdaLabs
+    Provider.RunPod
+    Provider.VastAI
+    -- // rate aggregation
+    RateAggregator
     -- // provider types
     Types.Anthropic
     -- // evring (state machine abstraction)

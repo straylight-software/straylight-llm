@@ -17,41 +17,62 @@
 -- account key via GOOGLE_APPLICATION_CREDENTIALS environment variable.
 --
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Provider.Vertex
-    ( -- * Provider
-      makeVertexProvider
+  ( -- * Provider
+    makeVertexProvider,
 
-      -- * OAuth
-    , getAccessToken
-    ) where
+    -- * OAuth
+    getAccessToken,
+  )
+where
 
-import Control.Concurrent.MVar (MVar, newMVar, modifyMVar)
+import Config (ProviderConfig (pcEnabled, pcVertexConfig), VertexConfig (vcLocation, vcProjectId, vcServiceAccountKeyPath))
+import Control.Concurrent.MVar (MVar, modifyMVar, newMVar)
 import Control.Exception (IOException, try)
-import Network.HTTP.Client (HttpException)
 import Data.Aeson (eitherDecode, encode)
-import Data.Aeson ()
 import Data.ByteString ()
-import Data.IORef (IORef, readIORef)
-import Data.Text (Text)
-import Data.Text.Encoding (encodeUtf8)
-import Data.Time.Clock (UTCTime, getCurrentTime, addUTCTime)
-import System.Process (readProcess)
-
 import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as LBS
+import Data.IORef (IORef, readIORef)
+import Data.Text (Text)
 import Data.Text qualified as T
+import Data.Text.Encoding (encodeUtf8)
+import Data.Time.Clock (UTCTime, addUTCTime, getCurrentTime)
+import Effects.Graded
+  ( GatewayM,
+    liftGatewayIO,
+    recordAuthUsage,
+    recordConfigAccess,
+    recordHttpAccess,
+    recordModel,
+    recordProvider,
+    withLatency,
+  )
+import Network.HTTP.Client (HttpException)
 import Network.HTTP.Client qualified as HC
 import Network.HTTP.Types qualified as HT
-
-import Config (ProviderConfig (pcEnabled, pcVertexConfig), VertexConfig (vcProjectId, vcLocation, vcServiceAccountKeyPath))
-import Effects.Graded
 import Provider.Types
+  ( Provider (..),
+    ProviderError (..),
+    ProviderName (Vertex),
+    ProviderResult (..),
+    RequestContext (..),
+    StreamCallback,
+  )
+import System.Process (readProcess)
 import Types
-
+  ( ChatRequest (..),
+    ChatResponse,
+    EmbeddingRequest (..),
+    EmbeddingResponse,
+    Model (..),
+    ModelId (..),
+    ModelList (..),
+    Timestamp (..),
+  )
 
 -- ════════════════════════════════════════════════════════════════════════════
 --                                                                   // oauth
@@ -59,46 +80,47 @@ import Types
 
 -- | Cached OAuth token with expiry
 data TokenCache = TokenCache
-    { tcToken :: Text
-    , tcExpiry :: UTCTime
-    }
+  { tcToken :: Text,
+    tcExpiry :: UTCTime
+  }
 
 -- | Get an access token using gcloud CLI or service account
 -- Caches the token and refreshes when expired
 getAccessToken :: MVar (Maybe TokenCache) -> Maybe FilePath -> IO (Either Text Text)
 getAccessToken cacheVar _mServiceAccountPath = do
-    now <- getCurrentTime
-    
-    -- Check cache first
-    cached <- modifyMVar cacheVar $ \mCache -> do
-        case mCache of
-            Just cache | tcExpiry cache > now ->
-                -- Token still valid, return it
-                pure (mCache, Just $ tcToken cache)
-            _ ->
-                -- Need to refresh
-                pure (Nothing, Nothing)
-    
-    case cached of
-        Just token -> pure $ Right token
-        Nothing -> do
-            -- Get fresh token using gcloud
-            -- n.b. In production, would use service account JSON directly
-            -- but gcloud auth application-default print-access-token works
-            -- in containers with mounted credentials
-            result <- try @IOException $
-                readProcess "gcloud" ["auth", "application-default", "print-access-token"] ""
-            
-            case result of
-                Left e -> pure $ Left $ "Failed to get access token: " <> T.pack (show e)
-                Right tokenStr -> do
-                    let token = T.strip $ T.pack tokenStr
-                    -- Cache for 55 minutes (tokens last 60 min)
-                    expiry <- addUTCTime (55 * 60) <$> getCurrentTime
-                    _ <- modifyMVar cacheVar $ \_ ->
-                        pure (Just $ TokenCache token expiry, ())
-                    pure $ Right token
+  now <- getCurrentTime
 
+  -- Check cache first
+  cached <- modifyMVar cacheVar $ \mCache -> do
+    case mCache of
+      Just cache
+        | tcExpiry cache > now ->
+            -- Token still valid, return it
+            pure (mCache, Just $ tcToken cache)
+      _ ->
+        -- Need to refresh
+        pure (Nothing, Nothing)
+
+  case cached of
+    Just token -> pure $ Right token
+    Nothing -> do
+      -- Get fresh token using gcloud
+      -- n.b. In production, would use service account JSON directly
+      -- but gcloud auth application-default print-access-token works
+      -- in containers with mounted credentials
+      result <-
+        try @IOException $
+          readProcess "gcloud" ["auth", "application-default", "print-access-token"] ""
+
+      case result of
+        Left e -> pure $ Left $ "Failed to get access token: " <> T.pack (show e)
+        Right tokenStr -> do
+          let token = T.strip $ T.pack tokenStr
+          -- Cache for 55 minutes (tokens last 60 min)
+          expiry <- addUTCTime (55 * 60) <$> getCurrentTime
+          _ <- modifyMVar cacheVar $ \_ ->
+            pure (Just $ TokenCache token expiry, ())
+          pure $ Right token
 
 -- ════════════════════════════════════════════════════════════════════════════
 --                                                                // provider
@@ -107,134 +129,140 @@ getAccessToken cacheVar _mServiceAccountPath = do
 -- | Create a Vertex AI provider
 makeVertexProvider :: IORef ProviderConfig -> IO Provider
 makeVertexProvider configRef = do
-    -- Create token cache
-    tokenCache <- newMVar Nothing
-    
-    pure Provider
-        { providerName = Vertex
-        , providerEnabled = isEnabled configRef
-        , providerChat = chat configRef tokenCache
-        , providerChatStream = chatStream configRef tokenCache
-        , providerEmbeddings = embeddings configRef tokenCache
-        , providerModels = models configRef tokenCache
-        , providerSupportsModel = supportsModel
-        }
+  -- Create token cache
+  tokenCache <- newMVar Nothing
+
+  pure
+    Provider
+      { providerName = Vertex,
+        providerEnabled = isEnabled configRef,
+        providerChat = chat configRef tokenCache,
+        providerChatStream = chatStream configRef tokenCache,
+        providerEmbeddings = embeddings configRef tokenCache,
+        providerModels = models configRef tokenCache,
+        providerSupportsModel = supportsModel
+      }
 
 -- | Check if Vertex is configured
 isEnabled :: IORef ProviderConfig -> GatewayM Bool
 isEnabled configRef = do
-    recordConfigAccess "vertex.enabled"
-    config <- liftGatewayIO $ readIORef configRef
-    case pcVertexConfig config of
-        Nothing -> pure False
-        Just vc -> pure $ pcEnabled config && not (T.null $ vcProjectId vc)
+  recordConfigAccess "vertex.enabled"
+  config <- liftGatewayIO $ readIORef configRef
+  case pcVertexConfig config of
+    Nothing -> pure False
+    Just vc -> pure $ pcEnabled config && not (T.null $ vcProjectId vc)
 
 -- | Check if model is supported
 -- Vertex supports Gemini models and some partner models
 supportsModel :: Text -> Bool
 supportsModel modelId =
-    any (`T.isPrefixOf` modelId)
-        [ "gemini-"
-        , "claude-"  -- Anthropic via Model Garden
-        , "llama-"   -- Meta via Model Garden
-        ]
+  any
+    (`T.isPrefixOf` modelId)
+    [ "gemini-",
+      "claude-", -- Anthropic via Model Garden
+      "llama-" -- Meta via Model Garden
+    ]
 
 -- | Get the base URL for Vertex AI
 getVertexBaseUrl :: VertexConfig -> Text
 getVertexBaseUrl vc =
-    "https://" <> vcLocation vc <> "-aiplatform.googleapis.com/v1/projects/"
-    <> vcProjectId vc <> "/locations/" <> vcLocation vc <> "/endpoints/openapi"
+  "https://"
+    <> vcLocation vc
+    <> "-aiplatform.googleapis.com/v1/projects/"
+    <> vcProjectId vc
+    <> "/locations/"
+    <> vcLocation vc
+    <> "/endpoints/openapi"
 
 -- | Non-streaming chat completion
 chat :: IORef ProviderConfig -> MVar (Maybe TokenCache) -> RequestContext -> ChatRequest -> GatewayM (ProviderResult ChatResponse)
 chat configRef tokenCache ctx req = do
-    recordProvider "vertex"
-    recordModel (unModelId $ crModel req)
-    config <- liftGatewayIO $ readIORef configRef
-    case pcVertexConfig config of
-        Nothing -> pure $ Failure $ AuthError "Vertex AI not configured"
-        Just vc -> do
-            recordAuthUsage "vertex" "oauth"
-            tokenResult <- liftGatewayIO $ getAccessToken tokenCache (vcServiceAccountKeyPath vc)
-            case tokenResult of
-                Left err -> pure $ Failure $ AuthError err
-                Right token -> do
-                    let url = T.unpack (getVertexBaseUrl vc) <> "/chat/completions"
-                    recordHttpAccess (T.pack url) "POST" Nothing
-                    result <- withLatency $ makeRequest (rcManager ctx) url token (encode req)
-                    case result of
-                        Left err -> liftGatewayIO $ classifyErrorWithCacheInvalidation tokenCache err
-                        Right body -> pure $ case eitherDecode body of
-                            Left parseErr -> Failure $ UnknownError $ "Parse error: " <> T.pack parseErr
-                            Right resp -> Success resp
+  recordProvider "vertex"
+  recordModel (unModelId $ crModel req)
+  config <- liftGatewayIO $ readIORef configRef
+  case pcVertexConfig config of
+    Nothing -> pure $ Failure $ AuthError "Vertex AI not configured"
+    Just vc -> do
+      recordAuthUsage "vertex" "oauth"
+      tokenResult <- liftGatewayIO $ getAccessToken tokenCache (vcServiceAccountKeyPath vc)
+      case tokenResult of
+        Left err -> pure $ Failure $ AuthError err
+        Right token -> do
+          let url = T.unpack (getVertexBaseUrl vc) <> "/chat/completions"
+          recordHttpAccess (T.pack url) "POST" Nothing
+          result <- withLatency $ makeRequest (rcManager ctx) url token (encode req)
+          case result of
+            Left err -> liftGatewayIO $ classifyErrorWithCacheInvalidation tokenCache err
+            Right body -> pure $ case eitherDecode body of
+              Left parseErr -> Failure $ UnknownError $ "Parse error: " <> T.pack parseErr
+              Right resp -> Success resp
 
 -- | Streaming chat completion
 chatStream :: IORef ProviderConfig -> MVar (Maybe TokenCache) -> RequestContext -> ChatRequest -> StreamCallback -> GatewayM (ProviderResult ())
 chatStream configRef tokenCache ctx req callback = do
-    recordProvider "vertex"
-    recordModel (unModelId $ crModel req)
-    config <- liftGatewayIO $ readIORef configRef
-    case pcVertexConfig config of
-        Nothing -> pure $ Failure $ AuthError "Vertex AI not configured"
-        Just vc -> do
-            recordAuthUsage "vertex" "oauth"
-            tokenResult <- liftGatewayIO $ getAccessToken tokenCache (vcServiceAccountKeyPath vc)
-            case tokenResult of
-                Left err -> pure $ Failure $ AuthError err
-                Right token -> do
-                    let url = T.unpack (getVertexBaseUrl vc) <> "/chat/completions"
-                        streamReq = req { crStream = Just True }
-                    recordHttpAccess (T.pack url) "POST" Nothing
-                    result <- withLatency $ makeStreamingRequest (rcManager ctx) url token (encode streamReq) callback
-                    case result of
-                        Left err -> liftGatewayIO $ classifyErrorWithCacheInvalidation tokenCache err
-                        Right () -> pure $ Success ()
+  recordProvider "vertex"
+  recordModel (unModelId $ crModel req)
+  config <- liftGatewayIO $ readIORef configRef
+  case pcVertexConfig config of
+    Nothing -> pure $ Failure $ AuthError "Vertex AI not configured"
+    Just vc -> do
+      recordAuthUsage "vertex" "oauth"
+      tokenResult <- liftGatewayIO $ getAccessToken tokenCache (vcServiceAccountKeyPath vc)
+      case tokenResult of
+        Left err -> pure $ Failure $ AuthError err
+        Right token -> do
+          let url = T.unpack (getVertexBaseUrl vc) <> "/chat/completions"
+              streamReq = req {crStream = Just True}
+          recordHttpAccess (T.pack url) "POST" Nothing
+          result <- withLatency $ makeStreamingRequest (rcManager ctx) url token (encode streamReq) callback
+          case result of
+            Left err -> liftGatewayIO $ classifyErrorWithCacheInvalidation tokenCache err
+            Right () -> pure $ Success ()
 
 -- | Generate embeddings
 embeddings :: IORef ProviderConfig -> MVar (Maybe TokenCache) -> RequestContext -> EmbeddingRequest -> GatewayM (ProviderResult EmbeddingResponse)
 embeddings configRef tokenCache ctx req = do
-    recordProvider "vertex"
-    recordModel (unModelId $ embModel req)
-    config <- liftGatewayIO $ readIORef configRef
-    case pcVertexConfig config of
-        Nothing -> pure $ Failure $ AuthError "Vertex AI not configured"
-        Just vc -> do
-            recordAuthUsage "vertex" "oauth"
-            tokenResult <- liftGatewayIO $ getAccessToken tokenCache (vcServiceAccountKeyPath vc)
-            case tokenResult of
-                Left err -> pure $ Failure $ AuthError err
-                Right token -> do
-                    let url = T.unpack (getVertexBaseUrl vc) <> "/embeddings"
-                    recordHttpAccess (T.pack url) "POST" Nothing
-                    result <- withLatency $ makeRequest (rcManager ctx) url token (encode req)
-                    case result of
-                        Left err -> liftGatewayIO $ classifyErrorWithCacheInvalidation tokenCache err
-                        Right body -> pure $ case eitherDecode body of
-                            Left parseErr -> Failure $ UnknownError $ "Parse error: " <> T.pack parseErr
-                            Right resp -> Success resp
+  recordProvider "vertex"
+  recordModel (unModelId $ embModel req)
+  config <- liftGatewayIO $ readIORef configRef
+  case pcVertexConfig config of
+    Nothing -> pure $ Failure $ AuthError "Vertex AI not configured"
+    Just vc -> do
+      recordAuthUsage "vertex" "oauth"
+      tokenResult <- liftGatewayIO $ getAccessToken tokenCache (vcServiceAccountKeyPath vc)
+      case tokenResult of
+        Left err -> pure $ Failure $ AuthError err
+        Right token -> do
+          let url = T.unpack (getVertexBaseUrl vc) <> "/embeddings"
+          recordHttpAccess (T.pack url) "POST" Nothing
+          result <- withLatency $ makeRequest (rcManager ctx) url token (encode req)
+          case result of
+            Left err -> liftGatewayIO $ classifyErrorWithCacheInvalidation tokenCache err
+            Right body -> pure $ case eitherDecode body of
+              Left parseErr -> Failure $ UnknownError $ "Parse error: " <> T.pack parseErr
+              Right resp -> Success resp
 
 -- | List available models
 -- n.b. Vertex doesn't have a direct /models endpoint like OpenAI
 -- Return a static list of known Vertex models
 models :: IORef ProviderConfig -> MVar (Maybe TokenCache) -> RequestContext -> GatewayM (ProviderResult ModelList)
 models configRef _tokenCache _ctx = do
-    recordProvider "vertex"
-    recordConfigAccess "vertex.models"
-    config <- liftGatewayIO $ readIORef configRef
-    case pcVertexConfig config of
-        Nothing -> pure $ Failure $ AuthError "Vertex AI not configured"
-        Just _ -> do
-            -- Return static list of Vertex AI models
-            let vertexModels =
-                    [ Model (ModelId "gemini-2.0-flash") "model" (Timestamp 0) "google"
-                    , Model (ModelId "gemini-2.0-pro") "model" (Timestamp 0) "google"
-                    , Model (ModelId "gemini-1.5-flash") "model" (Timestamp 0) "google"
-                    , Model (ModelId "gemini-1.5-pro") "model" (Timestamp 0) "google"
-                    , Model (ModelId "claude-3-5-sonnet@20240620") "model" (Timestamp 0) "anthropic"
-                    , Model (ModelId "claude-3-opus@20240229") "model" (Timestamp 0) "anthropic"
-                    ]
-            pure $ Success $ ModelList "list" vertexModels
-
+  recordProvider "vertex"
+  recordConfigAccess "vertex.models"
+  config <- liftGatewayIO $ readIORef configRef
+  case pcVertexConfig config of
+    Nothing -> pure $ Failure $ AuthError "Vertex AI not configured"
+    Just _ -> do
+      -- Return static list of Vertex AI models
+      let vertexModels =
+            [ Model (ModelId "gemini-2.0-flash") "model" (Timestamp 0) "google",
+              Model (ModelId "gemini-2.0-pro") "model" (Timestamp 0) "google",
+              Model (ModelId "gemini-1.5-flash") "model" (Timestamp 0) "google",
+              Model (ModelId "gemini-1.5-pro") "model" (Timestamp 0) "google",
+              Model (ModelId "claude-3-5-sonnet@20240620") "model" (Timestamp 0) "anthropic",
+              Model (ModelId "claude-3-opus@20240229") "model" (Timestamp 0) "anthropic"
+            ]
+      pure $ Success $ ModelList "list" vertexModels
 
 -- ════════════════════════════════════════════════════════════════════════════
 --                                                                    // http
@@ -243,63 +271,65 @@ models configRef _tokenCache _ctx = do
 -- | Make a POST request with OAuth Bearer token
 makeRequest :: HC.Manager -> String -> Text -> LBS.ByteString -> IO (Either (Int, Text) LBS.ByteString)
 makeRequest manager url token body = do
-    initReq <- HC.parseRequest url
-    let req = initReq
-            { HC.method = "POST"
-            , HC.requestHeaders =
-                [ ("Content-Type", "application/json")
-                , ("Authorization", "Bearer " <> encodeUtf8 token)
-                ]
-            , HC.requestBody = HC.RequestBodyLBS body
-            }
+  initReq <- HC.parseRequest url
+  let req =
+        initReq
+          { HC.method = "POST",
+            HC.requestHeaders =
+              [ ("Content-Type", "application/json"),
+                ("Authorization", "Bearer " <> encodeUtf8 token)
+              ],
+            HC.requestBody = HC.RequestBodyLBS body
+          }
 
-    result <- try @HttpException $ HC.httpLbs req manager
-    case result of
-        Left e -> pure $ Left (0, T.pack $ show e)
-        Right resp -> do
-            let status = HT.statusCode $ HC.responseStatus resp
-            if status >= 200 && status < 300
-                then pure $ Right $ HC.responseBody resp
-                else pure $ Left (status, decodeBody $ HC.responseBody resp)
+  result <- try @HttpException $ HC.httpLbs req manager
+  case result of
+    Left e -> pure $ Left (0, T.pack $ show e)
+    Right resp -> do
+      let status = HT.statusCode $ HC.responseStatus resp
+      if status >= 200 && status < 300
+        then pure $ Right $ HC.responseBody resp
+        else pure $ Left (status, decodeBody $ HC.responseBody resp)
 
 -- | Make a streaming POST request
 makeStreamingRequest :: HC.Manager -> String -> Text -> LBS.ByteString -> StreamCallback -> IO (Either (Int, Text) ())
 makeStreamingRequest manager url token body callback = do
-    initReq <- HC.parseRequest url
-    let req = initReq
-            { HC.method = "POST"
-            , HC.requestHeaders =
-                [ ("Content-Type", "application/json")
-                , ("Authorization", "Bearer " <> encodeUtf8 token)
-                ]
-            , HC.requestBody = HC.RequestBodyLBS body
-            }
+  initReq <- HC.parseRequest url
+  let req =
+        initReq
+          { HC.method = "POST",
+            HC.requestHeaders =
+              [ ("Content-Type", "application/json"),
+                ("Authorization", "Bearer " <> encodeUtf8 token)
+              ],
+            HC.requestBody = HC.RequestBodyLBS body
+          }
 
-    result <- try @HttpException $ HC.withResponse req manager $ \resp -> do
-        let status = HT.statusCode $ HC.responseStatus resp
-        if status >= 200 && status < 300
-            then do
-                streamBody (HC.responseBody resp) callback
-                pure $ Right ()
-            else do
-                body' <- HC.brConsume $ HC.responseBody resp
-                pure $ Left (status, decodeBody $ LBS.fromChunks body')
+  result <- try @HttpException $ HC.withResponse req manager $ \resp -> do
+    let status = HT.statusCode $ HC.responseStatus resp
+    if status >= 200 && status < 300
+      then do
+        streamBody (HC.responseBody resp) callback
+        pure $ Right ()
+      else do
+        body' <- HC.brConsume $ HC.responseBody resp
+        pure $ Left (status, decodeBody $ LBS.fromChunks body')
 
-    case result of
-        Left e -> pure $ Left (0, T.pack $ show e)
-        Right r -> pure r
+  case result of
+    Left e -> pure $ Left (0, T.pack $ show e)
+    Right r -> pure r
 
 -- | Stream response body chunks
 streamBody :: HC.BodyReader -> StreamCallback -> IO ()
 streamBody bodyReader callback = loop
   where
     loop = do
-        chunk <- HC.brRead bodyReader
-        if BS.null chunk
-            then pure ()
-            else do
-                callback chunk
-                loop
+      chunk <- HC.brRead bodyReader
+      if BS.null chunk
+        then pure ()
+        else do
+          callback chunk
+          loop
 
 -- | Decode response body to text
 decodeBody :: LBS.ByteString -> Text
@@ -308,27 +338,27 @@ decodeBody = T.pack . show . LBS.toStrict
 -- | Invalidate the token cache (called on 401 errors)
 invalidateTokenCache :: MVar (Maybe TokenCache) -> IO ()
 invalidateTokenCache cacheVar = do
-    _ <- modifyMVar cacheVar $ \_ -> pure (Nothing, ())
-    pure ()
+  _ <- modifyMVar cacheVar $ \_ -> pure (Nothing, ())
+  pure ()
 
 -- | Classify HTTP error into ProviderError
 -- For 401 errors, the caller must invalidate the token cache before retrying
 classifyError :: (Int, Text) -> ProviderResult a
 classifyError (status, msg)
-    | status == 401 = Retry $ AuthError msg    -- Token expired, retry with refresh
-    | status == 403 = Failure $ AuthError msg  -- Permission denied
-    | status == 429 = Retry $ RateLimitError msg
-    | status == 404 = Retry $ ModelNotFoundError msg  -- Model not found should try next provider
-    | status >= 500 = Retry $ ProviderUnavailable msg
-    | status >= 400 = Failure $ InvalidRequestError msg
-    | status == 0 = Retry $ TimeoutError msg
-    | otherwise = Failure $ UnknownError msg
+  | status == 401 = Retry $ AuthError msg -- Token expired, retry with refresh
+  | status == 403 = Failure $ AuthError msg -- Permission denied
+  | status == 429 = Retry $ RateLimitError msg
+  | status == 404 = Retry $ ModelNotFoundError msg -- Model not found should try next provider
+  | status >= 500 = Retry $ ProviderUnavailable msg
+  | status >= 400 = Failure $ InvalidRequestError msg
+  | status == 0 = Retry $ TimeoutError msg
+  | otherwise = Failure $ UnknownError msg
 
 -- | Classify error, invalidating token cache on 401
 classifyErrorWithCacheInvalidation :: MVar (Maybe TokenCache) -> (Int, Text) -> IO (ProviderResult a)
 classifyErrorWithCacheInvalidation cacheVar err@(status, _) = do
-    -- Invalidate token cache on 401 so retry will fetch a fresh token
-    if status == 401
-        then invalidateTokenCache cacheVar
-        else pure ()
-    pure $ classifyError err
+  -- Invalidate token cache on 401 so retry will fetch a fresh token
+  if status == 401
+    then invalidateTokenCache cacheVar
+    else pure ()
+  pure $ classifyError err

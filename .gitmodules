@@ -19,3 +19,12 @@
 [submodule "weapon-server-reference"]
 	path = weapon-server-reference
 	url = https://github.com/straylight-software/weapon-server-hs.git
+[submodule "weapon-cli"]
+	path = weapon-cli
+	url = git@github.com:straylight-software/weapon-cli.git
+[submodule "weapon-server-hs"]
+	path = weapon-server-hs
+	url = git@github.com:straylight-software/weapon-server-hs.git
+[submodule "libevring"]
+	path = libevring
+	url = git@github.com:straylight-software/libevring.git

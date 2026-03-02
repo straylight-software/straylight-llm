@@ -58,7 +58,7 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time.Clock (UTCTime, diffUTCTime, getCurrentTime)
 import Data.Word (Word64)
-import Provider.Types (ProviderError (AuthError, ProviderUnavailable, RateLimitError, TimeoutError), ProviderName (Anthropic, Baseten, OpenRouter, Triton, Venice, Vertex))
+import Provider.Types (ProviderError (AuthError, ProviderUnavailable, RateLimitError, TimeoutError), ProviderName (Anthropic, Baseten, LambdaLabs, OpenRouter, RunPod, Triton, VastAI, Venice, Vertex))
 
 -- ════════════════════════════════════════════════════════════════════════════
 --                                                                   // types
@@ -208,12 +208,15 @@ instance ToJSON Metrics where
       providersToJson = Map.mapKeys providerNameToText
 
       providerNameToText :: ProviderName -> Text
+      providerNameToText Triton = "triton"
       providerNameToText Venice = "venice"
       providerNameToText Vertex = "vertex"
       providerNameToText Baseten = "baseten"
       providerNameToText OpenRouter = "openrouter"
       providerNameToText Anthropic = "anthropic"
-      providerNameToText Triton = "triton"
+      providerNameToText LambdaLabs = "lambdalabs"
+      providerNameToText RunPod = "runpod"
+      providerNameToText VastAI = "vastai"
 
 instance FromJSON Metrics where
   parseJSON = withObject "Metrics" $ \v -> do
@@ -234,12 +237,15 @@ instance FromJSON Metrics where
     pure $ Metrics requestsTotal requestsActive latency providers startTime
     where
       textToProviderName :: Text -> ProviderName
+      textToProviderName "triton" = Triton
       textToProviderName "venice" = Venice
       textToProviderName "vertex" = Vertex
       textToProviderName "baseten" = Baseten
       textToProviderName "openrouter" = OpenRouter
       textToProviderName "anthropic" = Anthropic
-      textToProviderName "triton" = Triton
+      textToProviderName "lambdalabs" = LambdaLabs
+      textToProviderName "runpod" = RunPod
+      textToProviderName "vastai" = VastAI
       textToProviderName _ = Venice -- Default fallback
 
 -- ════════════════════════════════════════════════════════════════════════════
