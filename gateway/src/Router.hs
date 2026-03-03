@@ -79,7 +79,8 @@ import Provider.Types
         providerEmbeddings,
         providerEnabled,
         providerModels,
-        providerName
+        providerName,
+        providerSupportsModel
       ),
     ProviderError
       ( AuthError,
@@ -256,8 +257,12 @@ makeRouter config = do
   let openrouterProvider = makeOpenRouterProvider openrouterRef
   let anthropicProvider = makeAnthropicProvider anthropicRef
 
-  -- Build chain in priority order (Triton first for local inference, Anthropic last for direct API access)
-  let providers = [tritonProvider, veniceProvider, vertexProvider, basetenProvider, openrouterProvider, anthropicProvider]
+  -- Build chain in priority order:
+  -- 1. Triton first for local inference (fastest, no cost)
+  -- 2. Venice, Vertex, Baseten for their specific models
+  -- 3. Anthropic for Claude models (direct API access, preferred over aggregators)
+  -- 4. OpenRouter LAST as universal fallback (aggregator, use only when no direct provider)
+  let providers = [tritonProvider, veniceProvider, vertexProvider, basetenProvider, anthropicProvider, openrouterProvider]
 
   -- Create proof cache
   proofCacheRef <- newIORef Map.empty
@@ -664,12 +669,17 @@ collectModelsAcc ctx (p : ps) acc = G.do
 -- Returns providers ordered: supporting first, then others
 partitionByModelSupport :: ModelRegistry -> Text -> [Provider] -> IO [Provider]
 partitionByModelSupport registry modelId providers = do
-  -- Check each provider against the registry
+  -- Check each provider against the registry first, then fall back to provider's own check
   supported <- mapM checkSupport providers
   let (supporting, others) = foldr classify ([], []) (zip providers supported)
-  pure $ supporting ++ others
+  -- ONLY return supporting providers - don't try providers that don't support the model
+  pure $ if null supporting then others else supporting
   where
-    checkSupport p = registrySupportsModel registry (providerName p) modelId
+    checkSupport p = do
+      registrySupport <- registrySupportsModel registry (providerName p) modelId
+      -- Also check provider's own supportsModel as fallback
+      let providerSupport = providerSupportsModel p modelId
+      pure $ registrySupport || providerSupport
     classify (p, True) (s, o) = (p : s, o)
     classify (p, False) (s, o) = (s, p : o)
 

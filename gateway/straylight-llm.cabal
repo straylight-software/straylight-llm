@@ -79,6 +79,12 @@ library
     Evring.Sigil
     Evring.Trace
     Evring.Wai
+    Evring.Wai.Conn
+    Evring.Wai.Loop
+    Evring.Wai.MultiCore
+    Evring.Wai.MultiCoreRR
+    Evring.Wai.Pool
+    Evring.Wai.Server
     -- // slide (wire protocol)
     Slide.Parse
     Slide.Wire.Types

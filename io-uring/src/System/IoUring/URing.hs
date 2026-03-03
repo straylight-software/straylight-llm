@@ -17,19 +17,25 @@ module System.IoUring.URing
     submitIO,
     awaitIO,
     peekIO,
+    -- * Batch operations (for high-throughput polling loops)
+    submitWaitTimeoutDrain,
     IOCompletion (..),
     IOResult (..),
     IOOpId (..),
   )
 where
 
+-- Control.Monad not needed
 import Data.Int (Int32, Int64)
 import Data.Word (Word32, Word64)
+import Data.Primitive (MutablePrimArray, writePrimArray)
 import Foreign (Ptr, alloca, callocBytes, free, peek, peekByteOff)
+import GHC.Exts (RealWorld)
 import System.IoUring.Internal.FFI
   ( c_hs_uring_cqe_seen,
     c_hs_uring_peek_cqe,
     c_hs_uring_wait_cqe,
+    c_hs_uring_wait_cqe_timeout,
     c_io_uring_queue_exit,
     c_io_uring_queue_init,
     c_io_uring_submit,
@@ -136,4 +142,64 @@ peekIO (URing ringPtr) = alloca $ \cqePtrPtr -> do
       return $ Just $ IOCompletion (IOOpId userData) (IOResult (fromIntegral res32))
     else return Nothing
 
--- Constants are re-exported from FFI module
+-- ============================================================================
+-- BATCH OPERATIONS
+-- ============================================================================
+
+-- | Submit pending SQEs, wait for completions with timeout, drain into arrays.
+-- 
+-- This is optimized for high-throughput polling loops:
+-- 1. Submits any pending SQEs
+-- 2. Waits for at least one completion (or timeout in milliseconds, 0 = non-blocking)
+-- 3. Drains up to maxCount completions into the provided arrays
+-- 4. Returns the count of completions drained
+--
+-- The arrays must have at least maxCount capacity.
+submitWaitTimeoutDrain 
+  :: URing 
+  -> MutablePrimArray RealWorld Int64  -- ^ Output: user data (slot IDs)
+  -> MutablePrimArray RealWorld Int64  -- ^ Output: results
+  -> Int                               -- ^ Maximum completions to drain
+  -> Int                               -- ^ Timeout in milliseconds (0 = non-blocking)
+  -> IO Int                            -- ^ Number of completions drained
+submitWaitTimeoutDrain (URing ringPtr) userDataArr resultsArr maxCount timeoutMs = do
+  -- Submit pending SQEs first
+  _ <- c_io_uring_submit ringPtr
+  
+  -- Wait for first completion (with timeout)
+  alloca $ \cqePtrPtr -> do
+    res <- if timeoutMs <= 0
+           then c_hs_uring_peek_cqe ringPtr cqePtrPtr
+           else c_hs_uring_wait_cqe_timeout ringPtr cqePtrPtr (fromIntegral timeoutMs)
+    
+    if res /= 0
+      then return 0  -- No completions available (timeout or empty)
+      else do
+        -- Got first completion, process it
+        cqePtr <- peek cqePtrPtr
+        userData <- peekByteOff cqePtr 0 :: IO Word64
+        res32 <- peekByteOff cqePtr 8 :: IO Int32
+        c_hs_uring_cqe_seen ringPtr cqePtr
+        
+        writePrimArray userDataArr 0 (fromIntegral userData)
+        writePrimArray resultsArr 0 (fromIntegral res32)
+        
+        -- Drain remaining completions (non-blocking)
+        drainMore 1
+  where
+    drainMore !count
+      | count >= maxCount = return count
+      | otherwise = alloca $ \cqePtrPtr -> do
+          res <- c_hs_uring_peek_cqe ringPtr cqePtrPtr
+          if res /= 0
+            then return count  -- No more completions
+            else do
+              cqePtr <- peek cqePtrPtr
+              userData <- peekByteOff cqePtr 0 :: IO Word64
+              res32 <- peekByteOff cqePtr 8 :: IO Int32
+              c_hs_uring_cqe_seen ringPtr cqePtr
+              
+              writePrimArray userDataArr count (fromIntegral userData)
+              writePrimArray resultsArr count (fromIntegral res32)
+              
+              drainMore (count + 1)

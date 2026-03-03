@@ -98,7 +98,8 @@ supportsModel modelId =
       "mistral-",
       "mixtral-",
       "qwen-",
-      "deepseek-"
+      "deepseek-",
+      "deepseek-ai/"  -- Full org/model format (e.g., deepseek-ai/DeepSeek-V3.1)
     ]
 
 -- | Non-streaming chat completion
