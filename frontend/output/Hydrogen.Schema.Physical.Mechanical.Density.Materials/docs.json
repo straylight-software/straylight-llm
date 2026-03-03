@@ -1,0 +1,1 @@
+{"comments":"Material density database in kg/m³.\n\n## Data Sources\n\nCRC Handbook of Chemistry and Physics, MatWeb materials database,\nengineering reference tables. All values at 20°C unless noted.\n\nThis module re-exports all material categories for convenience.\n","declarations":[],"name":"Hydrogen.Schema.Physical.Mechanical.Density.Materials","reExports":[]}

@@ -1,0 +1,1 @@
+{"comments":"Shape modifier property records.\n\nModifiers apply visual styling to shapes: Fill, Stroke, Gradients.\nAll values are bounded and composable.\n\nThis is a leader module that re-exports all modifier submodules.\n","declarations":[],"name":"Hydrogen.Schema.Motion.Shapes.Modifiers","reExports":[]}

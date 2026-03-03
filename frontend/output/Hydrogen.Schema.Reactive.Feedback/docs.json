@@ -1,0 +1,1 @@
+{"comments":"Feedback - notification and messaging atoms.\n\nLeader module re-exporting all feedback submodules.\nModels toast, snackbar, banner, alert, dialog, tooltip,\npopover, drawer, and sheet patterns for user feedback\nand system messaging.\n","declarations":[],"name":"Hydrogen.Schema.Reactive.Feedback","reExports":[]}

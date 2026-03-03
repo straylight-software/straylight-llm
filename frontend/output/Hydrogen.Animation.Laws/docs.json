@@ -1,0 +1,1 @@
+{"comments":"Laws that must hold for the animation algebra.\n\nThese serve as documentation, test specifications, and proof obligations.\nEvery combinator must satisfy these laws for the algebra to be lawful.\n","declarations":[],"name":"Hydrogen.Animation.Laws","reExports":[]}

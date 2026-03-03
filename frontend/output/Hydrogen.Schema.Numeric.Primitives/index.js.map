@@ -1,0 +1,1 @@
+{"file":"index.js","mappings":";;;AAkCA,iBAAA;WACe;eAAS;gBAAW;;;;AAXnC;AAsBA,cAAA;WAAA;QAGI,kBAAc,UAAU;QAGxB,+CAAe;QADf,+CAAe;QADf,mBAAe,WAAW;QAG1B,WAAO,IAAI;QAEX,eAAY,KAAK,QAAS,KAAK,IAAI,gBAAc;eAEjD;mBAAS;oBACC;uDACO","names":[],"sources":["../../../../hydrogen/src/Hydrogen/Schema/Numeric/Primitives.purs"],"version":3}

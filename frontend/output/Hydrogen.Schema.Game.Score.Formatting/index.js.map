@@ -1,0 +1,1 @@
+{"file":"index.js","mappings":";;;;;;;;;AAgEA,oBAAA;IAGI,0DAAe;IACf,6DAAsB,OAAO;IAC7B,gBAAQ,SAAU;IAClB,sDAAe,WAAW,QAAQ,KAAR,KAAX;gBAEV,UAAS,YAAY,QAAQ;;AA5BtC,mBAAA;iEAC4C;;AAQ5C,mBAAA;IACa,IAAb,SACa;eAAI,WADjB;;IAAa,IAAb,SAEa;oBAFb;;IAAa;eAGI;;mIAHjB","names":[],"sources":["../../../../hydrogen/src/Hydrogen/Schema/Game/Score/Formatting.purs"],"version":3}

@@ -1,0 +1,1 @@
+{"file":"index.js","mappings":";;AAgFA,kBAAA;WAAA;eAEE;qBAAW;mBACF;mBACA;mBACA;uBACI;;;;AAsCf,kBAAA;WACoB;;AAMpB,UAAA;aACe,cAAc;IAAjB;eAA0B,SAAS;;IAAnC,OAAoD;;AAfhE,gBAAA;WACkB,gBAAgB;;AARlC,cAAA;WACgB;;AAlBhB,kBAAA;WAAA;eAEE;qBAAW;mBACF,UAAU;mBACV,cAAc,IAAd;mBACA;uBACI","names":[],"sources":["../../../../hydrogen/src/Hydrogen/GPU/FrameState/Time.purs"],"version":3}

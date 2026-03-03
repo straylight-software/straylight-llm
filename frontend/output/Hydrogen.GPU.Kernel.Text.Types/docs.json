@@ -1,0 +1,1 @@
+{"comments":"Core Types for Text Rendering Kernels\n\nRe-exports all types from Core and Kernels submodules.\nThis module provides a single import point for all text kernel types.\n","declarations":[],"name":"Hydrogen.GPU.Kernel.Text.Types","reExports":[]}
