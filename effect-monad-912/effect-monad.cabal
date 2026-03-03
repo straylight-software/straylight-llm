@@ -1,0 +1,73 @@
+cabal-version:          2.4
+name:                   effect-monad
+version:                0.9.0.0
+synopsis:               Embeds effect systems and program logics into Haskell using graded monads and parameterised monads
+description:
+   Provides the graded monad structure to Haskell via Control.Effect
+   with a number of analogs of familiar monads and some new things:
+        Reader, Writer, State, Maybe, Counter, Update
+
+   and a wrapper over normal monads (Control.Effect.Monad). This provides a way
+   to embed effect systems into Haskell. For more information see the paper
+   \"Embedding effect systems in Haskell\" by Orchard and Petricek
+   <http://dorchard.co.uk/publ/haskell14-effects.pdf> (Haskell, 2014)
+
+   Also provides the parameterised monad structure due to Atkey in
+   Control.Effect.Parameterised along with some instances:
+       AtomicState, SafeFiles, ExtensibleState
+
+   New in 0.9: QualifiedDo support via Control.Effect.Do and
+   Control.Coeffect.Do — no more RebindableSyntax required.
+
+   and the examples in <https://github.com/dorchard/effect-monad/tree/master/examples>.
+
+  (note, this package was previously called 'ixmonad' until September 2014).
+
+license:                BSD-3-Clause
+license-file:           LICENSE
+category:               Control, Monads
+copyright:              2013-18 University of Kent
+author:                 Dominic Orchard
+maintainer:             Dominic Orchard
+stability:              experimental
+build-type:             Simple
+tested-with:            GHC == 9.12.2
+
+extra-source-files:     examples/*.hs
+
+
+source-repository head
+  type: git
+  location: https://github.com/dorchard/effect-monad
+
+library
+  hs-source-dirs:       src
+  default-language:     Haskell2010
+
+  -- Core modules (no type-level-sets dependency) per CHANGELOG-0.9.md
+  exposed-modules:      Control.Coeffect
+                        Control.Coeffect.Do
+                        Control.Effect
+                        Control.Effect.Cond
+                        Control.Effect.Counter
+                        Control.Effect.CounterNat
+                        Control.Effect.Do
+                        Control.Effect.Helpers.List
+                        Control.Effect.Maybe
+                        Control.Effect.Monad
+                        Control.Effect.Parameterised
+                        Control.Effect.Parameterised.AtomicState
+                        Control.Effect.Parameterised.State
+                        Control.Effect.ParameterisedAsGraded
+
+  -- Requires type-level-sets (disabled until tls builds on GHC 9.12):
+  -- Control.Coeffect.Coreader
+  -- Control.Effect.Reader, State, Writer, Update, Vector
+  -- Control.Effect.ReadOnceReader, WriteOnceWriter
+  -- Control.Effect.Parameterised.ExtensibleState, SafeFiles
+
+  build-depends:        base >= 4.18 && < 5
+  ghc-options:          -Wall
+                        -Wno-orphans
+                        -Wno-unused-imports
+                        -Wno-name-shadowing

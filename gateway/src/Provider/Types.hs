@@ -17,6 +17,7 @@
 --   - Provider/model recorded in provenance
 --
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Provider.Types
@@ -37,7 +38,7 @@ where
 import Data.Aeson (FromJSON (parseJSON), ToJSON (toJSON), Value (String))
 import Data.ByteString (ByteString)
 import Data.Text (Text)
-import Effects.Graded (GatewayM)
+import Effects.Graded (Full, GatewayM)
 import Network.HTTP.Client (Manager)
 import Types (ChatRequest, ChatResponse, EmbeddingRequest, EmbeddingResponse, ModelList)
 
@@ -128,18 +129,23 @@ type StreamCallback = ByteString -> IO ()
 --   - HTTP access, auth usage recorded as co-effects
 --   - Latency, token counts recorded in grade
 --   - Provider/model recorded in provenance
+--
+-- NOTE: During migration, all provider operations use 'Full' grade.
+-- After migration is complete, these will be tightened to specific grades:
+--   - providerEnabled: '[Config, Auth]
+--   - providerChat/Stream/Embeddings/Models: '[Net, Auth, Config]
 data Provider = Provider
   { providerName :: ProviderName,
     -- | Check if provider is configured and ready
-    providerEnabled :: GatewayM Bool,
+    providerEnabled :: GatewayM Full Bool,
     -- | Non-streaming chat completion
-    providerChat :: RequestContext -> ChatRequest -> GatewayM (ProviderResult ChatResponse),
+    providerChat :: RequestContext -> ChatRequest -> GatewayM Full (ProviderResult ChatResponse),
     -- | Streaming chat completion (calls callback with SSE chunks)
-    providerChatStream :: RequestContext -> ChatRequest -> StreamCallback -> GatewayM (ProviderResult ()),
+    providerChatStream :: RequestContext -> ChatRequest -> StreamCallback -> GatewayM Full (ProviderResult ()),
     -- | Generate embeddings
-    providerEmbeddings :: RequestContext -> EmbeddingRequest -> GatewayM (ProviderResult EmbeddingResponse),
+    providerEmbeddings :: RequestContext -> EmbeddingRequest -> GatewayM Full (ProviderResult EmbeddingResponse),
     -- | List available models
-    providerModels :: RequestContext -> GatewayM (ProviderResult ModelList),
+    providerModels :: RequestContext -> GatewayM Full (ProviderResult ModelList),
     -- | Check if this provider supports a given model ID (pure, no effects)
     providerSupportsModel :: Text -> Bool
   }

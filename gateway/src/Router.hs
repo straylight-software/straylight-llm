@@ -15,7 +15,9 @@
 -- Non-retryable errors (auth, invalid request) fail immediately.
 --
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QualifiedDo #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Router
@@ -61,7 +63,8 @@ import Data.Map.Strict qualified as Map
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time.Clock (UTCTime, diffUTCTime, getCurrentTime)
-import Effects.Graded (GatewayM, gpProvidersUsed, liftGatewayIO, recordProvider, recordRequestId, runGatewayM, withRetry)
+import Effects.Do qualified as G
+import Effects.Graded (Full, GatewayM, gpProvidersUsed, liftIO', recordProvider, recordRequestId, runGatewayM, withRetry)
 import Network.HTTP.Client qualified as HC
 import Network.HTTP.Client.TLS qualified as HCT
 import Provider.Anthropic (makeAnthropicProvider)
@@ -371,7 +374,7 @@ routeChat router requestId req = do
         orderedProviders <- sortProvidersByLatency (routerMetrics router) modelSupportProviders
 
         -- Run the computation and capture tracking
-        (result, _grade, prov, coeff) <- runGatewayM $ do
+        (result, _grade, prov, coeff) <- runGatewayM $ G.do
           recordRequestId requestId
           let ctx =
                 RequestContext
@@ -450,7 +453,7 @@ routeChatStream router requestId req callback = do
     -- Sort by historical latency (fastest first) for billion-agent optimization
     orderedProviders <- sortProvidersByLatency (routerMetrics router) modelSupportProviders
 
-    (result, _grade, prov, coeff) <- runGatewayM $ do
+    (result, _grade, prov, coeff) <- runGatewayM $ G.do
       recordRequestId requestId
       let ctx =
             RequestContext
@@ -511,7 +514,7 @@ routeEmbeddings router requestId req = do
   emitRequestStarted (routerEventBroadcaster router) requestId modelId startTimestamp
 
   mResult <- tryWithRequestSlot (routerBackpressure router) $ do
-    (result, _grade, prov, coeff) <- runGatewayM $ do
+    (result, _grade, prov, coeff) <- runGatewayM $ G.do
       recordRequestId requestId
       let ctx =
             RequestContext
@@ -573,7 +576,7 @@ routeModels router requestId = do
   emitRequestStarted (routerEventBroadcaster router) requestId modelType startTimestamp
 
   mResult <- tryWithRequestSlot (routerBackpressure router) $ do
-    (result, _grade, prov, coeff) <- runGatewayM $ do
+    (result, _grade, prov, coeff) <- runGatewayM $ G.do
       recordRequestId requestId
       let ctx =
             RequestContext
@@ -585,14 +588,8 @@ routeModels router requestId = do
       enabledProviders <- filterEnabledProviders (routerProviders router)
 
       -- Collect models from all providers (no circuit breaker for this read-only op)
-      results <- mapM (\p -> providerModels p ctx) enabledProviders
-
-      -- Merge successful model lists
-      let successModels = concatMap extractModels results
-
-      if null successModels
-        then pure $ Left $ ProviderUnavailable "No providers available"
-        else pure $ Right $ ModelList "list" successModels
+      -- Use collectModels helper to work around graded monad constraints
+      collectModels ctx enabledProviders
 
     -- Generate discharge proof (models endpoint has no request body)
     let respBody = either (const "") (LBS.toStrict . encode) result
@@ -629,19 +626,38 @@ routeModels router requestId = do
       emitRequestCompleted (routerEventBroadcaster router) requestId modelType provider success latencyMs errMsg endTimestamp
 
       pure result
-  where
-    extractModels (Success (ModelList _ models)) = models
-    extractModels _ = []
 
 -- ════════════════════════════════════════════════════════════════════════════
 --                                                                 // helpers
 -- ════════════════════════════════════════════════════════════════════════════
 
 -- | Filter to only enabled providers
-filterEnabledProviders :: [Provider] -> GatewayM [Provider]
-filterEnabledProviders providers = do
-  enabled <- mapM (\p -> (,) p <$> providerEnabled p) providers
-  pure [p | (p, True) <- enabled]
+filterEnabledProviders :: [Provider] -> GatewayM Full [Provider]
+filterEnabledProviders [] = liftIO' $ pure []
+filterEnabledProviders (p : ps) = G.do
+  enabled <- providerEnabled p
+  rest <- filterEnabledProviders ps
+  liftIO' $ pure $ if enabled then p : rest else rest
+
+-- | Collect models from all providers
+collectModels :: RequestContext -> [Provider] -> GatewayM Full (Either ProviderError ModelList)
+collectModels _ctx [] = liftIO' $ pure $ Left $ ProviderUnavailable "No providers available"
+collectModels ctx providers = G.do
+  results <- collectModelsAcc ctx providers []
+  let successModels = concatMap extractModelsFromResult results
+  if null successModels
+    then liftIO' $ pure $ Left $ ProviderUnavailable "No providers available"
+    else liftIO' $ pure $ Right $ ModelList "list" successModels
+  where
+    extractModelsFromResult (Success (ModelList _ models)) = models
+    extractModelsFromResult _ = []
+
+-- | Accumulate model results from providers
+collectModelsAcc :: RequestContext -> [Provider] -> [ProviderResult ModelList] -> GatewayM Full [ProviderResult ModelList]
+collectModelsAcc _ctx [] acc = liftIO' $ pure (reverse acc)
+collectModelsAcc ctx (p : ps) acc = G.do
+  result <- providerModels p ctx
+  collectModelsAcc ctx ps (result : acc)
 
 -- | Partition providers by whether they support a given model
 -- Uses the model registry for dynamic model support (fetched from provider APIs)
@@ -719,69 +735,79 @@ listRecentProofs router n = do
 -- | Try providers with circuit breakers (fail fast if circuit open)
 -- Also emits SSE events when circuit breaker state changes.
 -- Records latency metrics on success for latency-based provider selection.
-tryProvidersWithCircuitBreakers :: Router -> [Provider] -> (Provider -> GatewayM (ProviderResult a)) -> GatewayM (Either ProviderError a)
+tryProvidersWithCircuitBreakers :: Router -> [Provider] -> (Provider -> GatewayM Full (ProviderResult a)) -> GatewayM Full (Either ProviderError a)
 tryProvidersWithCircuitBreakers router providers action = go providers Nothing
   where
-    go [] lastErr = pure $ Left $ maybe (ProviderUnavailable "All providers failed") id lastErr
-    go (p : ps) _lastErr = do
+    go [] lastErr = liftIO' $ pure $ Left $ maybe (ProviderUnavailable "All providers failed") id lastErr
+    go (p : ps) _lastErr = G.do
       let pName = providerName p
 
       -- Record provider request in metrics
-      liftGatewayIO $ recordProviderRequest (routerMetrics router) pName
+      liftIO' $ recordProviderRequest (routerMetrics router) pName
 
       -- Get circuit breaker for this provider
-      case Map.lookup pName (routerCircuitBreakers router) of
-        Nothing -> do
-          -- No circuit breaker (shouldn't happen, but handle gracefully)
-          result <- action p
-          handleResult result ps
-        Just cb -> do
-          -- Capture circuit state BEFORE the operation
-          stateBefore <- liftGatewayIO $ getCircuitState cb
+      tryProviderWithCB router p ps action (Map.lookup pName (routerCircuitBreakers router))
 
-          -- Time the provider call for latency tracking
-          callStart <- liftGatewayIO getCurrentTime
+-- | Try a single provider with circuit breaker
+tryProviderWithCB :: Router -> Provider -> [Provider] -> (Provider -> GatewayM Full (ProviderResult a)) -> Maybe CircuitBreaker -> GatewayM Full (Either ProviderError a)
+tryProviderWithCB _router p ps action Nothing = G.do
+  -- No circuit breaker (shouldn't happen, but handle gracefully)
+  result <- action p
+  handleProviderResult result ps
+  where
+    handleProviderResult result remainingProviders = case result of
+      Success a -> liftIO' $ pure $ Right a
+      Failure err -> liftIO' $ pure $ Left err -- Non-retryable
+      Retry _err -> withRetry $ tryProvidersWithCircuitBreakers _router remainingProviders action
+tryProviderWithCB router p ps action (Just cb) = G.do
+  let pName = providerName p
 
-          -- Check circuit breaker - need to convert ProviderResult to Either for circuit breaker
-          cbResult <- liftGatewayIO $ withCircuitBreaker cb $ do
-            (provResult, _, _, _) <- runGatewayM (action p)
-            case provResult of
-              Success a -> pure $ Right a
-              Failure err -> pure $ Left err
-              Retry err -> pure $ Left err
+  -- Capture circuit state BEFORE the operation
+  stateBefore <- liftIO' $ getCircuitState cb
 
-          callEnd <- liftGatewayIO getCurrentTime
-          let callLatencySeconds = realToFrac (diffUTCTime callEnd callStart) :: Double
+  -- Time the provider call for latency tracking
+  callStart <- liftIO' getCurrentTime
 
-          -- Capture circuit state AFTER the operation and emit event if changed
-          stateAfter <- liftGatewayIO $ getCircuitState cb
-          liftGatewayIO $ do
-            stats <- getCircuitStats cb
-            emitProviderStatusChange (routerEventBroadcaster router) pName stateBefore stateAfter stats
+  -- Check circuit breaker - need to convert ProviderResult to Either for circuit breaker
+  cbResult <- liftIO' $ withCircuitBreaker cb $ do
+    (provResult, _, _, _) <- runGatewayM (action p)
+    case provResult of
+      Success a -> pure $ Right a
+      Failure err -> pure $ Left err
+      Retry err -> pure $ Left err
 
-          case cbResult of
-            Left circuitOpenMsg -> do
-              -- Circuit is open, skip this provider
-              let err = ProviderUnavailable circuitOpenMsg
-              liftGatewayIO $ recordProviderError (routerMetrics router) pName err
-              withRetry $ go ps (Just err)
-            Right (Left provErr) -> do
-              -- Provider returned error
-              liftGatewayIO $ recordProviderError (routerMetrics router) pName provErr
-              -- Circuit breaker already recorded the failure
-              pure $ Left provErr
-            Right (Right a) -> do
-              -- Provider call succeeded, circuit breaker recorded success
-              -- Record latency for latency-based provider selection
-              liftGatewayIO $ recordProviderSuccess (routerMetrics router) pName callLatencySeconds
-              -- Record the successful provider in provenance
-              recordProvider (providerNameToText pName)
-              pure $ Right a
-      where
-        handleResult result remainingProviders = case result of
-          Success a -> pure $ Right a
-          Failure err -> pure $ Left err -- Non-retryable
-          Retry err -> withRetry $ go remainingProviders (Just err)
+  callEnd <- liftIO' getCurrentTime
+  let callLatencySeconds = realToFrac (diffUTCTime callEnd callStart) :: Double
+
+  -- Capture circuit state AFTER the operation and emit event if changed
+  stateAfter <- liftIO' $ getCircuitState cb
+  liftIO' $ do
+    stats <- getCircuitStats cb
+    emitProviderStatusChange (routerEventBroadcaster router) pName stateBefore stateAfter stats
+
+  handleCBResult router pName ps action cbResult callLatencySeconds
+
+-- | Handle circuit breaker result
+handleCBResult :: Router -> ProviderName -> [Provider] -> (Provider -> GatewayM Full (ProviderResult a)) -> Either Text (Either ProviderError a) -> Double -> GatewayM Full (Either ProviderError a)
+handleCBResult router pName ps action cbResult callLatencySeconds =
+  case cbResult of
+    Left circuitOpenMsg -> G.do
+      -- Circuit is open, skip this provider
+      let err = ProviderUnavailable circuitOpenMsg
+      liftIO' $ recordProviderError (routerMetrics router) pName err
+      withRetry $ tryProvidersWithCircuitBreakers router ps action
+    Right (Left provErr) -> G.do
+      -- Provider returned error
+      liftIO' $ recordProviderError (routerMetrics router) pName provErr
+      -- Circuit breaker already recorded the failure
+      liftIO' $ pure $ Left provErr
+    Right (Right a) -> G.do
+      -- Provider call succeeded, circuit breaker recorded success
+      -- Record latency for latency-based provider selection
+      liftIO' $ recordProviderSuccess (routerMetrics router) pName callLatencySeconds
+      -- Record the successful provider in provenance
+      recordProvider (providerNameToText pName)
+      liftIO' $ pure $ Right a
 
 -- | Store request in history cache for audit trail
 storeRequestHistory :: Router -> Text -> Text -> Maybe Text -> Either ProviderError a -> UTCTime -> IO ()

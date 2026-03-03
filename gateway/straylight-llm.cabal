@@ -45,8 +45,10 @@ library
     Handlers
     Router
     Types
-    -- // effects (Phase 2)
+    -- // effects (Phase 2 → Phase 7: Orchard & Petricek graded monad)
+    Effects.Grade
     Effects.Graded
+    Effects.Do
     -- // coeffects (Phase 3)
     Coeffect.Types
     Coeffect.Discharge
@@ -118,6 +120,7 @@ library
   build-depends:
     , aeson               >=2.0
     , base                >=4.17 && <5
+    , effect-monad        >=0.9
     , base16-bytestring   >=1.0
     , base64-bytestring   >=1.2
     , bytestring          >=0.11
@@ -238,6 +241,7 @@ test-suite straylight-llm-test
     , base                        >=4.17 && <5
     , bytestring
     , containers
+    , effect-monad                >=0.9
     , haskemathesis
     , hedgehog                    >=1.0
     , http-client

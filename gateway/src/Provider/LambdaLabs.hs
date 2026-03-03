@@ -14,7 +14,9 @@
 -- service. This module provides pricing aggregation for their GPU instances.
 --
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QualifiedDo #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Provider.LambdaLabs
@@ -53,7 +55,8 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Encoding (encodeUtf8)
 import Data.Time.Clock (UTCTime, getCurrentTime)
-import Effects.Graded (GatewayM, liftGatewayIO, recordConfigAccess)
+import Effects.Do qualified as G
+import Effects.Graded (Full, GatewayM, liftIO', recordConfigAccess)
 import Network.HTTP.Client (HttpException)
 import Network.HTTP.Client qualified as HC
 import Network.HTTP.Types qualified as HT
@@ -191,33 +194,36 @@ instance FromJSON InstanceSpecs where
 makeLambdaLabsProvider :: IORef ProviderConfig -> Provider
 makeLambdaLabsProvider configRef =
   Provider
-    { providerName = LambdaLabs, -- Need to add to ProviderName
+    { providerName = LambdaLabs,
       providerEnabled = isEnabled configRef,
       providerChat = \_ _ ->
-        pure $
-          Failure $
-            InvalidRequestError
-              "Lambda Labs is a GPU compute provider, not an LLM service. Use for rate aggregation only.",
+        liftIO' $
+          pure $
+            Failure $
+              InvalidRequestError
+                "Lambda Labs is a GPU compute provider, not an LLM service. Use for rate aggregation only.",
       providerChatStream = \_ _ _ ->
-        pure $
-          Failure $
-            InvalidRequestError
-              "Lambda Labs is a GPU compute provider, not an LLM service. Use for rate aggregation only.",
+        liftIO' $
+          pure $
+            Failure $
+              InvalidRequestError
+                "Lambda Labs is a GPU compute provider, not an LLM service. Use for rate aggregation only.",
       providerEmbeddings = \_ _ ->
-        pure $
-          Failure $
-            InvalidRequestError
-              "Lambda Labs is a GPU compute provider, not an LLM service. Use for rate aggregation only.",
-      providerModels = \_ -> pure $ Success $ ModelList "list" [],
+        liftIO' $
+          pure $
+            Failure $
+              InvalidRequestError
+                "Lambda Labs is a GPU compute provider, not an LLM service. Use for rate aggregation only.",
+      providerModels = \_ -> liftIO' $ pure $ Success $ ModelList "list" [],
       providerSupportsModel = const False
     }
 
 -- | Check if Lambda Labs is configured
-isEnabled :: IORef ProviderConfig -> GatewayM Bool
-isEnabled configRef = do
+isEnabled :: IORef ProviderConfig -> GatewayM Full Bool
+isEnabled configRef = G.do
   recordConfigAccess "lambdalabs.enabled"
-  config <- liftGatewayIO $ readIORef configRef
-  pure $ pcEnabled config && pcApiKey config /= Nothing
+  config <- liftIO' $ readIORef configRef
+  liftIO' $ pure $ pcEnabled config && pcApiKey config /= Nothing
 
 -- ════════════════════════════════════════════════════════════════════════════
 --                                                           // rate fetching

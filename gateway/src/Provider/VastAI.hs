@@ -13,7 +13,9 @@
 -- Prices are highly variable and competitive.
 --
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QualifiedDo #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Provider.VastAI
@@ -62,7 +64,8 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Encoding (encodeUtf8)
 import Data.Time.Clock (UTCTime, getCurrentTime)
-import Effects.Graded (GatewayM, liftGatewayIO, recordConfigAccess)
+import Effects.Do qualified as G
+import Effects.Graded (Full, GatewayM, liftIO', recordConfigAccess)
 import Network.HTTP.Client (HttpException)
 import Network.HTTP.Client qualified as HC
 import Network.HTTP.Types qualified as HT
@@ -204,30 +207,33 @@ makeVastAIProvider configRef =
     { providerName = VastAI,
       providerEnabled = isEnabled configRef,
       providerChat = \_ _ ->
-        pure $
-          Failure $
-            InvalidRequestError
-              "vast.ai is a GPU marketplace, not an LLM service. Use for rate aggregation only.",
+        liftIO' $
+          pure $
+            Failure $
+              InvalidRequestError
+                "vast.ai is a GPU marketplace, not an LLM service. Use for rate aggregation only.",
       providerChatStream = \_ _ _ ->
-        pure $
-          Failure $
-            InvalidRequestError
-              "vast.ai is a GPU marketplace, not an LLM service. Use for rate aggregation only.",
+        liftIO' $
+          pure $
+            Failure $
+              InvalidRequestError
+                "vast.ai is a GPU marketplace, not an LLM service. Use for rate aggregation only.",
       providerEmbeddings = \_ _ ->
-        pure $
-          Failure $
-            InvalidRequestError
-              "vast.ai is a GPU marketplace, not an LLM service. Use for rate aggregation only.",
-      providerModels = \_ -> pure $ Success $ ModelList "list" [],
+        liftIO' $
+          pure $
+            Failure $
+              InvalidRequestError
+                "vast.ai is a GPU marketplace, not an LLM service. Use for rate aggregation only.",
+      providerModels = \_ -> liftIO' $ pure $ Success $ ModelList "list" [],
       providerSupportsModel = const False
     }
 
 -- | Check if vast.ai is configured
-isEnabled :: IORef ProviderConfig -> GatewayM Bool
-isEnabled configRef = do
+isEnabled :: IORef ProviderConfig -> GatewayM Full Bool
+isEnabled configRef = G.do
   recordConfigAccess "vastai.enabled"
-  config <- liftGatewayIO $ readIORef configRef
-  pure $ pcEnabled config && pcApiKey config /= Nothing
+  config <- liftIO' $ readIORef configRef
+  liftIO' $ pure $ pcEnabled config && pcApiKey config /= Nothing
 
 -- ════════════════════════════════════════════════════════════════════════════
 --                                                           // rate fetching

@@ -15,7 +15,9 @@
 -- - GPU Pods (hourly instances like Lambda Labs)
 --
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QualifiedDo #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Provider.RunPod
@@ -74,7 +76,8 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Encoding (encodeUtf8)
 import Data.Time.Clock (UTCTime, getCurrentTime)
-import Effects.Graded (GatewayM, liftGatewayIO, recordConfigAccess)
+import Effects.Do qualified as G
+import Effects.Graded (Full, GatewayM, liftIO', recordConfigAccess)
 import Network.HTTP.Client (HttpException)
 import Network.HTTP.Client qualified as HC
 import Network.HTTP.Types qualified as HT
@@ -205,30 +208,33 @@ makeRunPodProvider configRef =
     { providerName = RunPod,
       providerEnabled = isEnabled configRef,
       providerChat = \_ _ ->
-        pure $
-          Failure $
-            InvalidRequestError
-              "RunPod rate provider - use serverless endpoints directly for inference",
+        liftIO' $
+          pure $
+            Failure $
+              InvalidRequestError
+                "RunPod rate provider - use serverless endpoints directly for inference",
       providerChatStream = \_ _ _ ->
-        pure $
-          Failure $
-            InvalidRequestError
-              "RunPod rate provider - use serverless endpoints directly for inference",
+        liftIO' $
+          pure $
+            Failure $
+              InvalidRequestError
+                "RunPod rate provider - use serverless endpoints directly for inference",
       providerEmbeddings = \_ _ ->
-        pure $
-          Failure $
-            InvalidRequestError
-              "RunPod rate provider - use serverless endpoints directly for inference",
-      providerModels = \_ -> pure $ Success $ ModelList "list" [],
+        liftIO' $
+          pure $
+            Failure $
+              InvalidRequestError
+                "RunPod rate provider - use serverless endpoints directly for inference",
+      providerModels = \_ -> liftIO' $ pure $ Success $ ModelList "list" [],
       providerSupportsModel = const False
     }
 
 -- | Check if RunPod is configured
-isEnabled :: IORef ProviderConfig -> GatewayM Bool
-isEnabled configRef = do
+isEnabled :: IORef ProviderConfig -> GatewayM Full Bool
+isEnabled configRef = G.do
   recordConfigAccess "runpod.enabled"
-  config <- liftGatewayIO $ readIORef configRef
-  pure $ pcEnabled config && pcApiKey config /= Nothing
+  config <- liftIO' $ readIORef configRef
+  liftIO' $ pure $ pcEnabled config && pcApiKey config /= Nothing
 
 -- ════════════════════════════════════════════════════════════════════════════
 --                                                           // rate fetching

@@ -16,7 +16,9 @@
 -- Uses Types.Anthropic for Anthropic-native types, not OpenAI-compatible.
 --
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QualifiedDo #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Provider.Anthropic
@@ -40,9 +42,11 @@ import Data.IORef (IORef, modifyIORef', newIORef, readIORef)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
+import Effects.Do qualified as G
 import Effects.Graded
-  ( GatewayM,
-    liftGatewayIO,
+  ( Full,
+    GatewayM,
+    liftIO',
     recordAuthUsage,
     recordConfigAccess,
     recordHttpAccess,
@@ -86,11 +90,11 @@ makeAnthropicProvider configRef =
     }
 
 -- | Check if Anthropic is configured
-isEnabled :: IORef ProviderConfig -> GatewayM Bool
-isEnabled configRef = do
+isEnabled :: IORef ProviderConfig -> GatewayM Full Bool
+isEnabled configRef = G.do
   recordConfigAccess "anthropic.enabled"
-  config <- liftGatewayIO $ readIORef configRef
-  pure $ pcEnabled config && pcApiKey config /= Nothing
+  config <- liftIO' $ readIORef configRef
+  liftIO' $ pure $ pcEnabled config && pcApiKey config /= Nothing
 
 -- | Check if model is supported (Claude models)
 supportsModel :: Text -> Bool
@@ -102,67 +106,82 @@ supportsModel modelId =
     ]
 
 -- | Non-streaming chat completion (OpenAI-compatible wrapper)
-chat :: IORef ProviderConfig -> RequestContext -> OpenAI.ChatRequest -> GatewayM (ProviderResult OpenAI.ChatResponse)
-chat configRef ctx req = do
+chat :: IORef ProviderConfig -> RequestContext -> OpenAI.ChatRequest -> GatewayM Full (ProviderResult OpenAI.ChatResponse)
+chat configRef ctx req = G.do
   recordProvider "anthropic"
   recordModel (OpenAI.unModelId $ OpenAI.crModel req)
-  config <- liftGatewayIO $ readIORef configRef
+  config <- liftIO' $ readIORef configRef
+  chatWithConfig config ctx req
+
+-- | Chat helper after config loaded
+chatWithConfig :: ProviderConfig -> RequestContext -> OpenAI.ChatRequest -> GatewayM Full (ProviderResult OpenAI.ChatResponse)
+chatWithConfig config ctx req =
   case pcApiKey config of
-    Nothing -> pure $ Failure $ AuthError "Anthropic API key not configured"
-    Just apiKey -> do
+    Nothing -> liftIO' $ pure $ Failure $ AuthError "Anthropic API key not configured"
+    Just apiKey -> G.do
       recordAuthUsage "anthropic" "api-key"
       -- Convert OpenAI request to Anthropic format
       let anthropicReq = toAnthropicRequest req
           url = T.unpack (pcBaseUrl config) <> "/messages"
       recordHttpAccess (T.pack url) "POST" Nothing
       result <- withLatency $ makeRequest (rcManager ctx) url apiKey (encode anthropicReq)
-      pure $ case result of
+      liftIO' $ pure $ case result of
         Left err -> classifyError err
         Right body -> case eitherDecode body of
           Left parseErr -> Failure $ UnknownError $ "Parse error: " <> T.pack parseErr
           Right resp -> Success $ fromAnthropicResponse resp
 
 -- | Streaming chat completion (OpenAI-compatible wrapper)
-chatStream :: IORef ProviderConfig -> RequestContext -> OpenAI.ChatRequest -> StreamCallback -> GatewayM (ProviderResult ())
-chatStream configRef ctx req callback = do
+chatStream :: IORef ProviderConfig -> RequestContext -> OpenAI.ChatRequest -> StreamCallback -> GatewayM Full (ProviderResult ())
+chatStream configRef ctx req callback = G.do
   recordProvider "anthropic"
   recordModel (OpenAI.unModelId $ OpenAI.crModel req)
-  config <- liftGatewayIO $ readIORef configRef
+  config <- liftIO' $ readIORef configRef
+  chatStreamWithConfig config ctx req callback
+
+-- | Streaming chat helper after config loaded
+chatStreamWithConfig :: ProviderConfig -> RequestContext -> OpenAI.ChatRequest -> StreamCallback -> GatewayM Full (ProviderResult ())
+chatStreamWithConfig config ctx req callback =
   case pcApiKey config of
-    Nothing -> pure $ Failure $ AuthError "Anthropic API key not configured"
-    Just apiKey -> do
+    Nothing -> liftIO' $ pure $ Failure $ AuthError "Anthropic API key not configured"
+    Just apiKey -> G.do
       recordAuthUsage "anthropic" "api-key"
       let anthropicReq = (toAnthropicRequest req) {A.crStream = True}
           url = T.unpack (pcBaseUrl config) <> "/messages"
       recordHttpAccess (T.pack url) "POST" Nothing
       result <- withLatency $ makeStreamingRequest (rcManager ctx) url apiKey (encode anthropicReq) callback
-      pure $ case result of
+      liftIO' $ pure $ case result of
         Left err -> classifyError err
         Right () -> Success ()
 
 -- | Anthropic doesn't provide embeddings
-embeddings :: RequestContext -> OpenAI.EmbeddingRequest -> GatewayM (ProviderResult OpenAI.EmbeddingResponse)
-embeddings _ctx _req = do
+embeddings :: RequestContext -> OpenAI.EmbeddingRequest -> GatewayM Full (ProviderResult OpenAI.EmbeddingResponse)
+embeddings _ctx _req = G.do
   recordProvider "anthropic"
-  pure $ Failure $ ModelNotFoundError "Anthropic does not provide embedding models"
+  liftIO' $ pure $ Failure $ ModelNotFoundError "Anthropic does not provide embedding models"
 
 -- | List available models
-models :: IORef ProviderConfig -> RequestContext -> GatewayM (ProviderResult OpenAI.ModelList)
-models configRef ctx = do
+models :: IORef ProviderConfig -> RequestContext -> GatewayM Full (ProviderResult OpenAI.ModelList)
+models configRef ctx = G.do
   recordProvider "anthropic"
-  config <- liftGatewayIO $ readIORef configRef
+  config <- liftIO' $ readIORef configRef
+  modelsWithConfig config ctx
+
+-- | Models helper after config loaded
+modelsWithConfig :: ProviderConfig -> RequestContext -> GatewayM Full (ProviderResult OpenAI.ModelList)
+modelsWithConfig config ctx =
   case pcApiKey config of
-    Nothing -> pure $ Failure $ AuthError "Anthropic API key not configured"
-    Just apiKey -> do
+    Nothing -> liftIO' $ pure $ Failure $ AuthError "Anthropic API key not configured"
+    Just apiKey -> G.do
       recordAuthUsage "anthropic" "api-key"
       let url = T.unpack (pcBaseUrl config) <> "/models"
       recordHttpAccess (T.pack url) "GET" Nothing
       result <- withLatency $ makeModelsRequest (rcManager ctx) url apiKey
-      case result of
-        Left err -> pure $ classifyError err
+      liftIO' $ pure $ case result of
+        Left err -> classifyError err
         Right body -> case eitherDecode body of
-          Left parseErr -> pure $ Failure $ UnknownError $ "Parse error: " <> T.pack parseErr
-          Right anthropicModels -> pure $ Success $ toOpenAIModelList anthropicModels
+          Left parseErr -> Failure $ UnknownError $ "Parse error: " <> T.pack parseErr
+          Right anthropicModels -> Success $ toOpenAIModelList anthropicModels
 
 -- | Anthropic model response type
 data AnthropicModel = AnthropicModel
@@ -238,15 +257,15 @@ anthropicChat ::
   -- | Base URL
   Text ->
   A.ChatRequest ->
-  GatewayM (ProviderResult A.ChatResponse)
-anthropicChat manager apiKey baseUrl req = do
+  GatewayM Full (ProviderResult A.ChatResponse)
+anthropicChat manager apiKey baseUrl req = G.do
   recordProvider "anthropic"
   recordModel (A.crModel req)
   recordAuthUsage "anthropic" "api-key"
   let url = T.unpack baseUrl <> "/messages"
   recordHttpAccess (T.pack url) "POST" Nothing
   result <- withLatency $ makeRequest manager url apiKey (encode req)
-  pure $ case result of
+  liftIO' $ pure $ case result of
     Left err -> classifyError err
     Right body -> case eitherDecode body of
       Left parseErr -> Failure $ UnknownError $ "Parse error: " <> T.pack parseErr
@@ -265,8 +284,8 @@ anthropicChatStream ::
   A.ChatRequest ->
   -- | Content delta handler
   (Text -> IO ()) ->
-  GatewayM (ProviderResult StreamResult)
-anthropicChatStream manager apiKey baseUrl req onDelta = do
+  GatewayM Full (ProviderResult StreamResult)
+anthropicChatStream manager apiKey baseUrl req onDelta = G.do
   recordProvider "anthropic"
   recordModel (A.crModel req)
   recordAuthUsage "anthropic" "api-key"
@@ -275,9 +294,9 @@ anthropicChatStream manager apiKey baseUrl req onDelta = do
   recordHttpAccess (T.pack url) "POST" Nothing
 
   -- Track state across stream
-  toolCallsRef <- liftGatewayIO $ newIORef ([] :: [A.ToolUse])
-  stopReasonRef <- liftGatewayIO $ newIORef (Nothing :: Maybe A.StopReason)
-  usageRef <- liftGatewayIO $ newIORef (Nothing :: Maybe A.Usage)
+  toolCallsRef <- liftIO' $ newIORef ([] :: [A.ToolUse])
+  stopReasonRef <- liftIO' $ newIORef (Nothing :: Maybe A.StopReason)
+  usageRef <- liftIO' $ newIORef (Nothing :: Maybe A.Usage)
 
   result <-
     withLatency $
@@ -291,19 +310,30 @@ anthropicChatStream manager apiKey baseUrl req onDelta = do
         stopReasonRef
         usageRef
 
+  anthropicChatStreamResult result toolCallsRef stopReasonRef usageRef
+
+-- | Process stream result
+anthropicChatStreamResult ::
+  Either (Int, Text) () ->
+  IORef [A.ToolUse] ->
+  IORef (Maybe A.StopReason) ->
+  IORef (Maybe A.Usage) ->
+  GatewayM Full (ProviderResult StreamResult)
+anthropicChatStreamResult result toolCallsRef stopReasonRef usageRef =
   case result of
-    Left err -> pure $ classifyError err
-    Right () -> do
-      toolCalls <- liftGatewayIO $ readIORef toolCallsRef
-      stopReason <- liftGatewayIO $ readIORef stopReasonRef
-      usage <- liftGatewayIO $ readIORef usageRef
-      pure $
-        Success $
-          StreamResult
-            { srStopReason = stopReason,
-              srToolCalls = toolCalls,
-              srUsage = usage
-            }
+    Left err -> liftIO' $ pure $ classifyError err
+    Right () -> G.do
+      toolCalls <- liftIO' $ readIORef toolCallsRef
+      stopReason <- liftIO' $ readIORef stopReasonRef
+      usage <- liftIO' $ readIORef usageRef
+      liftIO' $
+        pure $
+          Success $
+            StreamResult
+              { srStopReason = stopReason,
+                srToolCalls = toolCalls,
+                srUsage = usage
+              }
 
 -- | Result from streaming with tool calls
 data StreamResult = StreamResult

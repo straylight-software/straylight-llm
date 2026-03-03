@@ -16,7 +16,9 @@
 -- No authentication required for local inference.
 --
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QualifiedDo #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Provider.Triton
@@ -34,9 +36,11 @@ import Data.ByteString.Lazy qualified as LBS
 import Data.IORef (IORef, readIORef)
 import Data.Text (Text)
 import Data.Text qualified as T
+import Effects.Do qualified as G
 import Effects.Graded
-  ( GatewayM,
-    liftGatewayIO,
+  ( Full,
+    GatewayM,
+    liftIO',
     recordConfigAccess,
     recordHttpAccess,
     recordModel,
@@ -84,11 +88,11 @@ makeTritonProvider configRef =
 
 -- | Check if Triton is configured and enabled
 -- Unlike cloud providers, Triton doesn't require an API key
-isEnabled :: IORef ProviderConfig -> GatewayM Bool
-isEnabled configRef = do
+isEnabled :: IORef ProviderConfig -> GatewayM Full Bool
+isEnabled configRef = G.do
   recordConfigAccess "triton.enabled"
-  config <- liftGatewayIO $ readIORef configRef
-  pure $ pcEnabled config
+  config <- liftIO' $ readIORef configRef
+  liftIO' $ pure $ pcEnabled config
 
 -- | Check if model is supported by Triton
 -- Triton typically runs specific models like Llama variants
@@ -119,59 +123,59 @@ supportsModel modelId =
 -- ════════════════════════════════════════════════════════════════════════════
 
 -- | Non-streaming chat completion via Triton
-chat :: IORef ProviderConfig -> RequestContext -> ChatRequest -> GatewayM (ProviderResult ChatResponse)
-chat configRef ctx req = do
+chat :: IORef ProviderConfig -> RequestContext -> ChatRequest -> GatewayM Full (ProviderResult ChatResponse)
+chat configRef ctx req = G.do
   recordProvider "triton"
   recordModel (unModelId $ crModel req)
-  config <- liftGatewayIO $ readIORef configRef
+  config <- liftIO' $ readIORef configRef
   let url = T.unpack (pcBaseUrl config) <> "/chat/completions"
   recordHttpAccess (T.pack url) "POST" Nothing
   result <- withLatency $ makeRequest (rcManager ctx) url (encode req)
-  pure $ case result of
+  liftIO' $ pure $ case result of
     Left err -> classifyError err
     Right body -> case eitherDecode body of
       Left parseErr -> Failure $ UnknownError $ "Parse error: " <> T.pack parseErr
       Right resp -> Success resp
 
 -- | Streaming chat completion via Triton
-chatStream :: IORef ProviderConfig -> RequestContext -> ChatRequest -> StreamCallback -> GatewayM (ProviderResult ())
-chatStream configRef ctx req callback = do
+chatStream :: IORef ProviderConfig -> RequestContext -> ChatRequest -> StreamCallback -> GatewayM Full (ProviderResult ())
+chatStream configRef ctx req callback = G.do
   recordProvider "triton"
   recordModel (unModelId $ crModel req)
-  config <- liftGatewayIO $ readIORef configRef
+  config <- liftIO' $ readIORef configRef
   let url = T.unpack (pcBaseUrl config) <> "/chat/completions"
       streamReq = req {crStream = Just True}
   recordHttpAccess (T.pack url) "POST" Nothing
   result <- withLatency $ makeStreamingRequest (rcManager ctx) url (encode streamReq) callback
-  pure $ case result of
+  liftIO' $ pure $ case result of
     Left err -> classifyError err
     Right () -> Success ()
 
 -- | Generate embeddings via Triton
 -- TensorRT-LLM can also serve embedding models
-embeddings :: IORef ProviderConfig -> RequestContext -> EmbeddingRequest -> GatewayM (ProviderResult EmbeddingResponse)
-embeddings configRef ctx req = do
+embeddings :: IORef ProviderConfig -> RequestContext -> EmbeddingRequest -> GatewayM Full (ProviderResult EmbeddingResponse)
+embeddings configRef ctx req = G.do
   recordProvider "triton"
-  config <- liftGatewayIO $ readIORef configRef
+  config <- liftIO' $ readIORef configRef
   let url = T.unpack (pcBaseUrl config) <> "/embeddings"
   recordHttpAccess (T.pack url) "POST" Nothing
   result <- withLatency $ makeRequest (rcManager ctx) url (encode req)
-  pure $ case result of
+  liftIO' $ pure $ case result of
     Left err -> classifyError err
     Right body -> case eitherDecode body of
       Left parseErr -> Failure $ UnknownError $ "Parse error: " <> T.pack parseErr
       Right resp -> Success resp
 
 -- | List available models from Triton
-models :: IORef ProviderConfig -> RequestContext -> GatewayM (ProviderResult ModelList)
-models configRef ctx = do
+models :: IORef ProviderConfig -> RequestContext -> GatewayM Full (ProviderResult ModelList)
+models configRef ctx = G.do
   recordProvider "triton"
   recordConfigAccess "triton.models"
-  config <- liftGatewayIO $ readIORef configRef
+  config <- liftIO' $ readIORef configRef
   let url = T.unpack (pcBaseUrl config) <> "/models"
   recordHttpAccess (T.pack url) "GET" Nothing
   result <- withLatency $ makeGetRequest (rcManager ctx) url
-  pure $ case result of
+  liftIO' $ pure $ case result of
     Left err ->
       -- If Triton models endpoint fails, return synthetic list
       -- based on commonly-loaded models

@@ -17,7 +17,9 @@
 -- account key via GOOGLE_APPLICATION_CREDENTIALS environment variable.
 --
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QualifiedDo #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Provider.Vertex
@@ -41,9 +43,11 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Encoding (encodeUtf8)
 import Data.Time.Clock (UTCTime, addUTCTime, getCurrentTime)
+import Effects.Do qualified as G
 import Effects.Graded
-  ( GatewayM,
-    liftGatewayIO,
+  ( Full,
+    GatewayM,
+    liftIO',
     recordAuthUsage,
     recordConfigAccess,
     recordHttpAccess,
@@ -144,13 +148,13 @@ makeVertexProvider configRef = do
       }
 
 -- | Check if Vertex is configured
-isEnabled :: IORef ProviderConfig -> GatewayM Bool
-isEnabled configRef = do
+isEnabled :: IORef ProviderConfig -> GatewayM Full Bool
+isEnabled configRef = G.do
   recordConfigAccess "vertex.enabled"
-  config <- liftGatewayIO $ readIORef configRef
-  case pcVertexConfig config of
-    Nothing -> pure False
-    Just vc -> pure $ pcEnabled config && not (T.null $ vcProjectId vc)
+  config <- liftIO' $ readIORef configRef
+  liftIO' $ pure $ case pcVertexConfig config of
+    Nothing -> False
+    Just vc -> pcEnabled config && not (T.null $ vcProjectId vc)
 
 -- | Check if model is supported
 -- Vertex supports Gemini models and some partner models
@@ -175,94 +179,129 @@ getVertexBaseUrl vc =
     <> "/endpoints/openapi"
 
 -- | Non-streaming chat completion
-chat :: IORef ProviderConfig -> MVar (Maybe TokenCache) -> RequestContext -> ChatRequest -> GatewayM (ProviderResult ChatResponse)
-chat configRef tokenCache ctx req = do
+chat :: IORef ProviderConfig -> MVar (Maybe TokenCache) -> RequestContext -> ChatRequest -> GatewayM Full (ProviderResult ChatResponse)
+chat configRef tokenCache ctx req = G.do
   recordProvider "vertex"
   recordModel (unModelId $ crModel req)
-  config <- liftGatewayIO $ readIORef configRef
+  config <- liftIO' $ readIORef configRef
+  chatWithConfig config tokenCache ctx req
+
+-- | Chat implementation after config is loaded
+chatWithConfig :: ProviderConfig -> MVar (Maybe TokenCache) -> RequestContext -> ChatRequest -> GatewayM Full (ProviderResult ChatResponse)
+chatWithConfig config tokenCache ctx req =
   case pcVertexConfig config of
-    Nothing -> pure $ Failure $ AuthError "Vertex AI not configured"
-    Just vc -> do
+    Nothing -> liftIO' $ pure $ Failure $ AuthError "Vertex AI not configured"
+    Just vc -> G.do
       recordAuthUsage "vertex" "oauth"
-      tokenResult <- liftGatewayIO $ getAccessToken tokenCache (vcServiceAccountKeyPath vc)
-      case tokenResult of
-        Left err -> pure $ Failure $ AuthError err
-        Right token -> do
-          let url = T.unpack (getVertexBaseUrl vc) <> "/chat/completions"
-          recordHttpAccess (T.pack url) "POST" Nothing
-          result <- withLatency $ makeRequest (rcManager ctx) url token (encode req)
-          case result of
-            Left err -> liftGatewayIO $ classifyErrorWithCacheInvalidation tokenCache err
-            Right body -> pure $ case eitherDecode body of
-              Left parseErr -> Failure $ UnknownError $ "Parse error: " <> T.pack parseErr
-              Right resp -> Success resp
+      tokenResult <- liftIO' $ getAccessToken tokenCache (vcServiceAccountKeyPath vc)
+      chatWithToken tokenCache vc ctx req tokenResult
+
+-- | Chat implementation after token is obtained
+chatWithToken :: MVar (Maybe TokenCache) -> VertexConfig -> RequestContext -> ChatRequest -> Either Text Text -> GatewayM Full (ProviderResult ChatResponse)
+chatWithToken tokenCache vc ctx req tokenResult =
+  case tokenResult of
+    Left err -> liftIO' $ pure $ Failure $ AuthError err
+    Right token -> G.do
+      let url = T.unpack (getVertexBaseUrl vc) <> "/chat/completions"
+      recordHttpAccess (T.pack url) "POST" Nothing
+      result <- withLatency $ makeRequest (rcManager ctx) url token (encode req)
+      liftIO' $ case result of
+        Left err -> classifyErrorWithCacheInvalidation tokenCache err
+        Right body -> pure $ case eitherDecode body of
+          Left parseErr -> Failure $ UnknownError $ "Parse error: " <> T.pack parseErr
+          Right resp -> Success resp
 
 -- | Streaming chat completion
-chatStream :: IORef ProviderConfig -> MVar (Maybe TokenCache) -> RequestContext -> ChatRequest -> StreamCallback -> GatewayM (ProviderResult ())
-chatStream configRef tokenCache ctx req callback = do
+chatStream :: IORef ProviderConfig -> MVar (Maybe TokenCache) -> RequestContext -> ChatRequest -> StreamCallback -> GatewayM Full (ProviderResult ())
+chatStream configRef tokenCache ctx req callback = G.do
   recordProvider "vertex"
   recordModel (unModelId $ crModel req)
-  config <- liftGatewayIO $ readIORef configRef
+  config <- liftIO' $ readIORef configRef
+  chatStreamWithConfig config tokenCache ctx req callback
+
+-- | Streaming chat implementation after config is loaded
+chatStreamWithConfig :: ProviderConfig -> MVar (Maybe TokenCache) -> RequestContext -> ChatRequest -> StreamCallback -> GatewayM Full (ProviderResult ())
+chatStreamWithConfig config tokenCache ctx req callback =
   case pcVertexConfig config of
-    Nothing -> pure $ Failure $ AuthError "Vertex AI not configured"
-    Just vc -> do
+    Nothing -> liftIO' $ pure $ Failure $ AuthError "Vertex AI not configured"
+    Just vc -> G.do
       recordAuthUsage "vertex" "oauth"
-      tokenResult <- liftGatewayIO $ getAccessToken tokenCache (vcServiceAccountKeyPath vc)
-      case tokenResult of
-        Left err -> pure $ Failure $ AuthError err
-        Right token -> do
-          let url = T.unpack (getVertexBaseUrl vc) <> "/chat/completions"
-              streamReq = req {crStream = Just True}
-          recordHttpAccess (T.pack url) "POST" Nothing
-          result <- withLatency $ makeStreamingRequest (rcManager ctx) url token (encode streamReq) callback
-          case result of
-            Left err -> liftGatewayIO $ classifyErrorWithCacheInvalidation tokenCache err
-            Right () -> pure $ Success ()
+      tokenResult <- liftIO' $ getAccessToken tokenCache (vcServiceAccountKeyPath vc)
+      chatStreamWithToken tokenCache vc ctx req callback tokenResult
+
+-- | Streaming chat implementation after token is obtained
+chatStreamWithToken :: MVar (Maybe TokenCache) -> VertexConfig -> RequestContext -> ChatRequest -> StreamCallback -> Either Text Text -> GatewayM Full (ProviderResult ())
+chatStreamWithToken tokenCache vc ctx req callback tokenResult =
+  case tokenResult of
+    Left err -> liftIO' $ pure $ Failure $ AuthError err
+    Right token -> G.do
+      let url = T.unpack (getVertexBaseUrl vc) <> "/chat/completions"
+          streamReq = req {crStream = Just True}
+      recordHttpAccess (T.pack url) "POST" Nothing
+      result <- withLatency $ makeStreamingRequest (rcManager ctx) url token (encode streamReq) callback
+      liftIO' $ case result of
+        Left err -> classifyErrorWithCacheInvalidation tokenCache err
+        Right () -> pure $ Success ()
 
 -- | Generate embeddings
-embeddings :: IORef ProviderConfig -> MVar (Maybe TokenCache) -> RequestContext -> EmbeddingRequest -> GatewayM (ProviderResult EmbeddingResponse)
-embeddings configRef tokenCache ctx req = do
+embeddings :: IORef ProviderConfig -> MVar (Maybe TokenCache) -> RequestContext -> EmbeddingRequest -> GatewayM Full (ProviderResult EmbeddingResponse)
+embeddings configRef tokenCache ctx req = G.do
   recordProvider "vertex"
   recordModel (unModelId $ embModel req)
-  config <- liftGatewayIO $ readIORef configRef
+  config <- liftIO' $ readIORef configRef
+  embeddingsWithConfig config tokenCache ctx req
+
+-- | Embeddings implementation after config is loaded
+embeddingsWithConfig :: ProviderConfig -> MVar (Maybe TokenCache) -> RequestContext -> EmbeddingRequest -> GatewayM Full (ProviderResult EmbeddingResponse)
+embeddingsWithConfig config tokenCache ctx req =
   case pcVertexConfig config of
-    Nothing -> pure $ Failure $ AuthError "Vertex AI not configured"
-    Just vc -> do
+    Nothing -> liftIO' $ pure $ Failure $ AuthError "Vertex AI not configured"
+    Just vc -> G.do
       recordAuthUsage "vertex" "oauth"
-      tokenResult <- liftGatewayIO $ getAccessToken tokenCache (vcServiceAccountKeyPath vc)
-      case tokenResult of
-        Left err -> pure $ Failure $ AuthError err
-        Right token -> do
-          let url = T.unpack (getVertexBaseUrl vc) <> "/embeddings"
-          recordHttpAccess (T.pack url) "POST" Nothing
-          result <- withLatency $ makeRequest (rcManager ctx) url token (encode req)
-          case result of
-            Left err -> liftGatewayIO $ classifyErrorWithCacheInvalidation tokenCache err
-            Right body -> pure $ case eitherDecode body of
-              Left parseErr -> Failure $ UnknownError $ "Parse error: " <> T.pack parseErr
-              Right resp -> Success resp
+      tokenResult <- liftIO' $ getAccessToken tokenCache (vcServiceAccountKeyPath vc)
+      embeddingsWithToken tokenCache vc ctx req tokenResult
+
+-- | Embeddings implementation after token is obtained
+embeddingsWithToken :: MVar (Maybe TokenCache) -> VertexConfig -> RequestContext -> EmbeddingRequest -> Either Text Text -> GatewayM Full (ProviderResult EmbeddingResponse)
+embeddingsWithToken tokenCache vc ctx req tokenResult =
+  case tokenResult of
+    Left err -> liftIO' $ pure $ Failure $ AuthError err
+    Right token -> G.do
+      let url = T.unpack (getVertexBaseUrl vc) <> "/embeddings"
+      recordHttpAccess (T.pack url) "POST" Nothing
+      result <- withLatency $ makeRequest (rcManager ctx) url token (encode req)
+      liftIO' $ case result of
+        Left err -> classifyErrorWithCacheInvalidation tokenCache err
+        Right body -> pure $ case eitherDecode body of
+          Left parseErr -> Failure $ UnknownError $ "Parse error: " <> T.pack parseErr
+          Right resp -> Success resp
 
 -- | List available models
 -- n.b. Vertex doesn't have a direct /models endpoint like OpenAI
 -- Return a static list of known Vertex models
-models :: IORef ProviderConfig -> MVar (Maybe TokenCache) -> RequestContext -> GatewayM (ProviderResult ModelList)
-models configRef _tokenCache _ctx = do
+models :: IORef ProviderConfig -> MVar (Maybe TokenCache) -> RequestContext -> GatewayM Full (ProviderResult ModelList)
+models configRef _tokenCache _ctx = G.do
   recordProvider "vertex"
   recordConfigAccess "vertex.models"
-  config <- liftGatewayIO $ readIORef configRef
+  config <- liftIO' $ readIORef configRef
+  modelsWithConfig config
+
+-- | Models implementation after config is loaded
+modelsWithConfig :: ProviderConfig -> GatewayM Full (ProviderResult ModelList)
+modelsWithConfig config =
   case pcVertexConfig config of
-    Nothing -> pure $ Failure $ AuthError "Vertex AI not configured"
-    Just _ -> do
-      -- Return static list of Vertex AI models
-      let vertexModels =
-            [ Model (ModelId "gemini-2.0-flash") "model" (Timestamp 0) "google",
-              Model (ModelId "gemini-2.0-pro") "model" (Timestamp 0) "google",
-              Model (ModelId "gemini-1.5-flash") "model" (Timestamp 0) "google",
-              Model (ModelId "gemini-1.5-pro") "model" (Timestamp 0) "google",
-              Model (ModelId "claude-3-5-sonnet@20240620") "model" (Timestamp 0) "anthropic",
-              Model (ModelId "claude-3-opus@20240229") "model" (Timestamp 0) "anthropic"
-            ]
-      pure $ Success $ ModelList "list" vertexModels
+    Nothing -> liftIO' $ pure $ Failure $ AuthError "Vertex AI not configured"
+    Just _ -> liftIO' $ pure $ Success $ ModelList "list" vertexModels
+  where
+    -- Static list of Vertex AI models
+    vertexModels =
+      [ Model (ModelId "gemini-2.0-flash") "model" (Timestamp 0) "google",
+        Model (ModelId "gemini-2.0-pro") "model" (Timestamp 0) "google",
+        Model (ModelId "gemini-1.5-flash") "model" (Timestamp 0) "google",
+        Model (ModelId "gemini-1.5-pro") "model" (Timestamp 0) "google",
+        Model (ModelId "claude-3-5-sonnet@20240620") "model" (Timestamp 0) "anthropic",
+        Model (ModelId "claude-3-opus@20240229") "model" (Timestamp 0) "anthropic"
+      ]
 
 -- ════════════════════════════════════════════════════════════════════════════
 --                                                                    // http

@@ -2,6 +2,7 @@ packages:
   .
   ../haskemathesis-reference
   ../io-uring
+  ../effect-monad-912
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- // haskemathesis - OpenAPI property testing

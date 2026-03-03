@@ -10,7 +10,9 @@
 -- OpenAI-compatible API at https://inference.baseten.co/v1
 --
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QualifiedDo #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Provider.Baseten
@@ -29,9 +31,11 @@ import Data.IORef (IORef, readIORef)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Encoding (encodeUtf8)
+import Effects.Do qualified as G
 import Effects.Graded
-  ( GatewayM,
-    liftGatewayIO,
+  ( Full,
+    GatewayM,
+    liftIO',
     recordAuthUsage,
     recordConfigAccess,
     recordHttpAccess,
@@ -77,11 +81,11 @@ makeBasetenProvider configRef =
     }
 
 -- | Check if Baseten is configured
-isEnabled :: IORef ProviderConfig -> GatewayM Bool
-isEnabled configRef = do
+isEnabled :: IORef ProviderConfig -> GatewayM Full Bool
+isEnabled configRef = G.do
   recordConfigAccess "baseten.enabled"
-  config <- liftGatewayIO $ readIORef configRef
-  pure $ pcEnabled config && pcApiKey config /= Nothing
+  config <- liftIO' $ readIORef configRef
+  liftIO' $ pure $ pcEnabled config && pcApiKey config /= Nothing
 
 -- | Check if model is supported
 -- Baseten hosts custom deployments, model support varies by account
@@ -98,56 +102,71 @@ supportsModel modelId =
     ]
 
 -- | Non-streaming chat completion
-chat :: IORef ProviderConfig -> RequestContext -> ChatRequest -> GatewayM (ProviderResult ChatResponse)
-chat configRef ctx req = do
+chat :: IORef ProviderConfig -> RequestContext -> ChatRequest -> GatewayM Full (ProviderResult ChatResponse)
+chat configRef ctx req = G.do
   recordProvider "baseten"
   recordModel (unModelId $ crModel req)
-  config <- liftGatewayIO $ readIORef configRef
+  config <- liftIO' $ readIORef configRef
+  chatWithConfig config ctx req
+
+-- | Chat helper after config loaded
+chatWithConfig :: ProviderConfig -> RequestContext -> ChatRequest -> GatewayM Full (ProviderResult ChatResponse)
+chatWithConfig config ctx req =
   case pcApiKey config of
-    Nothing -> pure $ Failure $ AuthError "Baseten API key not configured"
-    Just apiKey -> do
+    Nothing -> liftIO' $ pure $ Failure $ AuthError "Baseten API key not configured"
+    Just apiKey -> G.do
       recordAuthUsage "baseten" "api-key"
       let url = T.unpack (pcBaseUrl config) <> "/chat/completions"
       recordHttpAccess (T.pack url) "POST" Nothing
       result <- withLatency $ makeRequest (rcManager ctx) url apiKey (encode req)
-      pure $ case result of
+      liftIO' $ pure $ case result of
         Left err -> classifyError err
         Right body -> case eitherDecode body of
           Left parseErr -> Failure $ UnknownError $ "Parse error: " <> T.pack parseErr
           Right resp -> Success resp
 
 -- | Streaming chat completion
-chatStream :: IORef ProviderConfig -> RequestContext -> ChatRequest -> StreamCallback -> GatewayM (ProviderResult ())
-chatStream configRef ctx req callback = do
+chatStream :: IORef ProviderConfig -> RequestContext -> ChatRequest -> StreamCallback -> GatewayM Full (ProviderResult ())
+chatStream configRef ctx req callback = G.do
   recordProvider "baseten"
   recordModel (unModelId $ crModel req)
-  config <- liftGatewayIO $ readIORef configRef
+  config <- liftIO' $ readIORef configRef
+  chatStreamWithConfig config ctx req callback
+
+-- | Streaming helper after config loaded
+chatStreamWithConfig :: ProviderConfig -> RequestContext -> ChatRequest -> StreamCallback -> GatewayM Full (ProviderResult ())
+chatStreamWithConfig config ctx req callback =
   case pcApiKey config of
-    Nothing -> pure $ Failure $ AuthError "Baseten API key not configured"
-    Just apiKey -> do
+    Nothing -> liftIO' $ pure $ Failure $ AuthError "Baseten API key not configured"
+    Just apiKey -> G.do
       recordAuthUsage "baseten" "api-key"
       let url = T.unpack (pcBaseUrl config) <> "/chat/completions"
           streamReq = req {crStream = Just True}
       recordHttpAccess (T.pack url) "POST" Nothing
       result <- withLatency $ makeStreamingRequest (rcManager ctx) url apiKey (encode streamReq) callback
-      pure $ case result of
+      liftIO' $ pure $ case result of
         Left err -> classifyError err
         Right () -> Success ()
 
 -- | Generate embeddings
-embeddings :: IORef ProviderConfig -> RequestContext -> EmbeddingRequest -> GatewayM (ProviderResult EmbeddingResponse)
-embeddings configRef ctx req = do
+embeddings :: IORef ProviderConfig -> RequestContext -> EmbeddingRequest -> GatewayM Full (ProviderResult EmbeddingResponse)
+embeddings configRef ctx req = G.do
   recordProvider "baseten"
   recordModel (unModelId $ embModel req)
-  config <- liftGatewayIO $ readIORef configRef
+  config <- liftIO' $ readIORef configRef
+  embeddingsWithConfig config ctx req
+
+-- | Embeddings helper after config loaded
+embeddingsWithConfig :: ProviderConfig -> RequestContext -> EmbeddingRequest -> GatewayM Full (ProviderResult EmbeddingResponse)
+embeddingsWithConfig config ctx req =
   case pcApiKey config of
-    Nothing -> pure $ Failure $ AuthError "Baseten API key not configured"
-    Just apiKey -> do
+    Nothing -> liftIO' $ pure $ Failure $ AuthError "Baseten API key not configured"
+    Just apiKey -> G.do
       recordAuthUsage "baseten" "api-key"
       let url = T.unpack (pcBaseUrl config) <> "/embeddings"
       recordHttpAccess (T.pack url) "POST" Nothing
       result <- withLatency $ makeRequest (rcManager ctx) url apiKey (encode req)
-      pure $ case result of
+      liftIO' $ pure $ case result of
         Left err -> classifyError err
         Right body -> case eitherDecode body of
           Left parseErr -> Failure $ UnknownError $ "Parse error: " <> T.pack parseErr
@@ -155,19 +174,24 @@ embeddings configRef ctx req = do
 
 -- | List available models
 -- n.b. Baseten models are account-specific deployments
-models :: IORef ProviderConfig -> RequestContext -> GatewayM (ProviderResult ModelList)
-models configRef ctx = do
+models :: IORef ProviderConfig -> RequestContext -> GatewayM Full (ProviderResult ModelList)
+models configRef ctx = G.do
   recordProvider "baseten"
   recordConfigAccess "baseten.models"
-  config <- liftGatewayIO $ readIORef configRef
+  config <- liftIO' $ readIORef configRef
+  modelsWithConfig config ctx
+
+-- | Models helper after config loaded
+modelsWithConfig :: ProviderConfig -> RequestContext -> GatewayM Full (ProviderResult ModelList)
+modelsWithConfig config ctx =
   case pcApiKey config of
-    Nothing -> pure $ Failure $ AuthError "Baseten API key not configured"
-    Just apiKey -> do
+    Nothing -> liftIO' $ pure $ Failure $ AuthError "Baseten API key not configured"
+    Just apiKey -> G.do
       recordAuthUsage "baseten" "api-key"
       let url = T.unpack (pcBaseUrl config) <> "/models"
       recordHttpAccess (T.pack url) "GET" Nothing
       result <- withLatency $ makeGetRequest (rcManager ctx) url apiKey
-      pure $ case result of
+      liftIO' $ pure $ case result of
         Left err -> classifyError err
         Right body -> case eitherDecode body of
           Left parseErr -> Failure $ UnknownError $ "Parse error: " <> T.pack parseErr
