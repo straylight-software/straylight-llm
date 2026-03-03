@@ -1,8 +1,30 @@
 # straylight-llm
 
+[![Build](https://github.com/straylight-software/straylight-llm/actions/workflows/build-container.yml/badge.svg)](https://github.com/straylight-software/straylight-llm/actions)
+[![Tests](https://img.shields.io/badge/tests-249%20passing-brightgreen)]()
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 **OpenAI-compatible LLM gateway with provider fallback, effect tracking, and formal verification.**
 
 A production-grade Haskell gateway that routes LLM requests through multiple providers with automatic failover, circuit breakers, and cryptographic discharge proofs for every request.
+
+## Why straylight-llm?
+
+| Feature | straylight-llm | LiteLLM | OpenRouter |
+|---------|---------------|---------|------------|
+| **Self-hosted** | Yes | Yes | No |
+| **Formal verification** | Lean4 proofs | No | No |
+| **Discharge proofs** | Ed25519 signed | No | No |
+| **Effect tracking** | Graded monads | No | No |
+| **io_uring backend** | Yes (5x throughput) | No | N/A |
+| **Circuit breakers** | Per-provider | Limited | N/A |
+| **Language** | Haskell | Python | N/A |
+
+**straylight-llm** is for teams who need:
+- Cryptographic proof that requests were handled correctly
+- Verifiable security guarantees (not just "trust us")
+- Maximum throughput with minimal latency
+- Self-hosted control over their AI infrastructure
 
 ## Features
 
@@ -45,7 +67,7 @@ cabal run straylight-llm
 nix build .#production
 
 # Or pull from GHCR
-docker pull ghcr.io/weyl-ai/straylight-llm:latest
+docker pull ghcr.io/straylight-software/straylight-llm:latest
 ```
 
 ## Configuration
@@ -241,6 +263,12 @@ nix fmt
 nix build .#dhall-verify
 ```
 
+## Documentation
+
+- [Architecture](docs/ARCHITECTURE.md) — Technical deep dive, effect system, formal proofs
+- [Deployment](docs/DEPLOYMENT.md) — Production deployment guide, systemd, Docker, NixOS
+- [Roadmap](docs/ROADMAP.md) — Versioned feature plan
+
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.
@@ -252,3 +280,5 @@ MIT License - see [LICENSE](LICENSE) for details.
 3. Verify Dhall manifests: `nix build .#dhall-verify`
 4. No partial functions (`head`, `tail`, `fromJust`, `read`, `!!`)
 5. No `SomeException` — use specific exception types
+
+See the [Roadmap](docs/ROADMAP.md) for planned features. Open an issue to discuss contributions.
