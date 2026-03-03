@@ -26,7 +26,19 @@ import Handlers (server)
 import Network.HTTP.Types (methodOptions, status200)
 import Network.Wai (Middleware, mapResponseHeaders, requestMethod, responseLBS)
 import Network.Wai.Handler.Warp qualified as Warp
-import Observability.Tracing (TracingConfig (..), initTracer, loadTracingConfig, tracingMiddleware)
+import Observability.Logging
+  ( LogConfig (lcLevel),
+    LogLevel (LogDebug, LogError, LogInfo, LogWarn),
+    initLogger,
+    loadLogConfig,
+    loggingMiddleware,
+  )
+import Observability.Tracing
+  ( TracingConfig (tcEnabled, tcOtlpEndpoint),
+    initTracer,
+    loadTracingConfig,
+    tracingMiddleware,
+  )
 import Router (makeRouter)
 import Servant (serve)
 import System.Environment (lookupEnv)
@@ -90,11 +102,16 @@ main = do
   -- Create router with provider chain
   router <- makeRouter config
 
+  -- Initialize structured logging
+  logConfig <- loadLogConfig
+  logger <- initLogger logConfig
+
   -- Initialize OpenTelemetry tracing
   tracingConfig <- loadTracingConfig
   tracer <- initTracer tracingConfig
 
-  -- Log tracing status
+  -- Log observability status
+  TIO.putStrLn $ "  Logging: [" <> logLevelText (lcLevel logConfig) <> "] (set LOG_LEVEL to change)"
   if tcEnabled tracingConfig
     then TIO.putStrLn $ "  OpenTelemetry: [enabled] -> " <> tcOtlpEndpoint tracingConfig
     else TIO.putStrLn "  OpenTelemetry: [disabled] (set OTEL_ENABLED=true to enable)"
@@ -109,8 +126,8 @@ main = do
 
   -- Start server
   let port = cfgPort config
-      -- Middleware stack: CORS -> Tracing -> Servant
-      app = enableCors $ tracingMiddleware tracer $ serve api (server router)
+      -- Middleware stack: CORS -> Logging -> Tracing -> Servant
+      app = enableCors $ loggingMiddleware logger $ tracingMiddleware tracer $ serve api (server router)
 
   -- Log server backend info
   TIO.putStrLn "════════════════════════════════════════════════════════════════════════════════"
@@ -146,3 +163,10 @@ logProviderStatus name cfg = do
           then "[enabled]"
           else "[disabled]"
   TIO.putStrLn $ "  " <> name <> ": " <> status
+
+-- | Convert log level to display text
+logLevelText :: LogLevel -> T.Text
+logLevelText LogDebug = "debug"
+logLevelText LogInfo = "info"
+logLevelText LogWarn = "warn"
+logLevelText LogError = "error"

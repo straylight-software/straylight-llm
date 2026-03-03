@@ -99,6 +99,7 @@ library
     Security.WalletExfiltration
     Security.OutputValidation
     -- // observability
+    Observability.Logging
     Observability.Tracing
     -- // streaming (SSE events)
     Streaming.Events
@@ -230,6 +231,7 @@ test-suite straylight-llm-test
     Integration.LifecycleTests
     Integration.OpenApiSpec
     Integration.TracingTests
+    Integration.LoggingTests
     -- // adversarial tests
     Adversarial.RaceConditions
     Adversarial.InjectionEdgeCases

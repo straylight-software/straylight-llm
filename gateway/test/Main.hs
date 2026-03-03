@@ -19,6 +19,7 @@ import Adversarial.XSSVectors qualified as XSSVectors
 import Formal.ProofCorrespondence qualified as ProofCorrespondence
 import Integration.ApiTests qualified as ApiTests
 import Integration.LifecycleTests qualified as LifecycleTests
+import Integration.LoggingTests qualified as LoggingTests
 import Integration.OpenApiSpec qualified as OpenApiSpec
 import Integration.ProofTests qualified as ProofTests
 import Integration.TracingTests qualified as TracingTests
@@ -50,7 +51,8 @@ main =
             ProofTests.tests,
             LifecycleTests.tests,
             OpenApiSpec.tests,
-            TracingTests.tests
+            TracingTests.tests,
+            LoggingTests.tests
           ],
         testGroup
           "Adversarial Tests"
