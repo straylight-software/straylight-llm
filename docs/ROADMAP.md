@@ -24,7 +24,7 @@ straylight-llm is a production-grade OpenAI-compatible LLM gateway with:
 - [x] Nix build and NixOS module
 - [x] 270 tests (property, integration, adversarial, formal)
 
-## v0.2 - Performance & Observability
+## v0.2 - Performance & Observability (Complete)
 
 - [x] Prometheus metrics endpoint (`/metrics`)
 - [x] OpenTelemetry tracing (via `OTEL_ENABLED=true`)

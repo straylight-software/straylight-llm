@@ -35,6 +35,10 @@ A production-grade Haskell gateway that routes LLM requests through multiple pro
 - **Discharge proofs** — Ed25519-signed cryptographic proofs for every request
 - **Effect tracking** — Graded monad system tracks all IO effects
 - **Formal verification** — 904 lines of Lean4 proofs (no `sorry`, no axioms)
+- **Prometheus metrics** — `/metrics` endpoint for observability
+- **OpenTelemetry tracing** — Distributed tracing with configurable OTLP export
+- **Rate limiting** — Per-API-key token bucket rate limiting
+- **Response caching** — Configurable LRU cache with TTL
 - **270 tests** — Property tests, integration tests, adversarial tests, formal correspondence tests
 
 ## Quick Start
@@ -74,6 +78,8 @@ docker pull ghcr.io/straylight-software/straylight-llm:latest
 
 Configure via environment variables:
 
+### Core Settings
+
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `PORT` | Server port | `8080` |
@@ -81,6 +87,38 @@ Configure via environment variables:
 | `LOG_LEVEL` | Logging level (`debug`, `info`, `warn`, `error`) | `info` |
 | `REQUEST_TIMEOUT` | Request timeout in seconds | `120` |
 | `MAX_RETRIES` | Max retry attempts per provider | `3` |
+
+### Observability
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `OTEL_ENABLED` | Enable OpenTelemetry tracing | `false` |
+| `OTEL_ENDPOINT` | OTLP exporter endpoint | `http://localhost:4317` |
+| `OTEL_SERVICE_NAME` | Service name for traces | `straylight-llm` |
+
+### Rate Limiting
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `RATE_LIMIT_ENABLED` | Enable rate limiting | `false` |
+| `RATE_LIMIT_RPM` | Requests per minute per API key | `60` |
+| `RATE_LIMIT_BURST` | Burst allowance above RPM | `10` |
+
+### Response Cache
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `CACHE_ENABLED` | Enable response caching | `true` |
+| `CACHE_MAX_SIZE` | Maximum cached entries | `10000` |
+| `CACHE_TTL_SECONDS` | Cache entry TTL | `300` |
+
+### Connection Pool
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `POOL_CONNECTIONS_PER_HOST` | Max connections per upstream host | `100` |
+| `POOL_IDLE_CONNECTIONS` | Max idle connections total | `200` |
+| `POOL_IDLE_TIMEOUT_SECONDS` | Idle connection timeout | `60` |
 
 ### Provider Configuration
 
@@ -147,6 +185,14 @@ curl http://localhost:8080/v1/models
 ```bash
 curl http://localhost:8080/health
 ```
+
+### Prometheus Metrics
+
+```bash
+curl http://localhost:8080/metrics
+```
+
+Returns Prometheus text format with request counts, latencies, provider status, and rate limiter stats.
 
 ### Discharge Proofs
 
