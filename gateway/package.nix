@@ -49,10 +49,12 @@ hp.mkDerivation {
     hp.data-default-class
     hp.deepseq
     hp.directory
+    hp.effect-monad # Graded monad for effect tracking (local package)
     hp.filepath
     hp.http-client
     hp.http-client-tls
     hp.http-types
+    hp.io-uring # io_uring bindings for evring-wai (local package)
     hp.katip
     hp.megaparsec # Evring.Sigil parser
     hp.memory

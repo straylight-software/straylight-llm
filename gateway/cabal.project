@@ -5,6 +5,8 @@ packages:
   ../effect-monad-912
 
 -- ════════════════════════════════════════════════════════════════════════════
--- // haskemathesis - OpenAPI property testing
+-- // local packages
 -- ════════════════════════════════════════════════════════════════════════════
--- n.b. haskemathesis is not on Hackage. Using local checkout for development.
+-- haskemathesis: OpenAPI property testing (not on Hackage)
+-- io-uring: io_uring FFI bindings
+-- effect-monad-912: GHC 9.12 compatible graded monads

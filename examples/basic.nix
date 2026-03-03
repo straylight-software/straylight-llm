@@ -13,11 +13,17 @@
 { lib, ... }:
 {
   perSystem =
-    { pkgs, ... }:
+    { pkgs, self', ... }:
+    let
+      # Get the straylight-llm package from our flake's packages output
+      straylightPackage = self'.packages.straylight-llm;
+    in
     {
       nix2gpu.basic = {
         services.straylight-gateway = {
-          imports = [ (lib.modules.importApply ../services/straylight-gateway.nix { inherit pkgs; }) ];
+          imports = [
+            (lib.modules.importApply ../services/straylight-gateway.nix { inherit pkgs straylightPackage; })
+          ];
           straylightGateway = {
             enable = true;
             port = 4096;

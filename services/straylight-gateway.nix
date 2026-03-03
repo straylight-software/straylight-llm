@@ -10,7 +10,7 @@
 # n.b. curried function pattern: outer receives pkgs, inner receives config
 #
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-{ pkgs, ... }:
+{ pkgs, straylightPackage, ... }:
 { lib, config, ... }:
 let
   inherit (lib)
@@ -22,9 +22,6 @@ let
     ;
 
   cfg = config.straylightGateway;
-
-  # Build the gateway package
-  straylightPackage = pkgs.callPackage ../gateway/package.nix { };
 
   # Runtime tools needed by weapon-server tool execution
   runtimePkgs = [

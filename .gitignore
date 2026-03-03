@@ -31,3 +31,11 @@ nix/build/
 Thumbs.db
 .spago/
 frontend/dist/
+
+# Internal docs (not for public repo)
+CLAUDE.md
+CONTINUITY_VISION.md
+master-spec.md
+requests-for-hydrogen.md
+docs/TEST_COVERAGE_GAPS.md
+docs/CONTINUITY_VISION.md

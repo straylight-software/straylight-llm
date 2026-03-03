@@ -27,8 +27,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # Haskell OpenAPI property testing
-    haskemathesis.url = "github:weyl-ai/haskemathesis";
+    # Haskell OpenAPI property testing (private repo, use SSH)
+    haskemathesis = {
+      url = "git+ssh://git@github.com/weyl-ai/haskemathesis.git";
+      flake = false;
+    };
 
     # Home manager for container config
     home-manager = {
@@ -130,13 +133,30 @@
         }:
         let
           # GHC 9.12 for StrictData and latest language features
-          hpkgs = pkgs.haskell.packages.ghc912;
+          # Overlay local packages (effect-monad, io-uring, haskemathesis) into the package set
+          hpkgs = pkgs.haskell.packages.ghc912.override {
+            overrides = hself: hsuper: {
+              # effect-monad 0.9 with GHC 9.12 support (QualifiedDo)
+              effect-monad = hself.callCabal2nix "effect-monad" ./effect-monad-912 { };
 
-          # The gateway package
-          straylightPackage = pkgs.callPackage ./gateway/package.nix {
-            haskellPackages = hpkgs;
-            inherit (pkgs) liburing;
+              # haskemathesis - OpenAPI property testing (from flake input via SSH)
+              haskemathesis = hself.callCabal2nix "haskemathesis" inputs.haskemathesis { };
+
+              # io-uring bindings for evring-wai backend
+              # n.b. extra-libraries: uring in cabal requires passing liburing as 'uring'
+              io-uring = hself.callCabal2nix "io-uring" ./io-uring {
+                uring = pkgs.liburing;
+              };
+
+              # straylight-llm gateway (depends on effect-monad, io-uring, haskemathesis)
+              straylight-llm = pkgs.haskell.lib.compose.addExtraLibrary pkgs.liburing (
+                hself.callCabal2nix "straylight-llm" ./gateway { }
+              );
+            };
           };
+
+          # The gateway package from our overlay
+          straylightPackage = hpkgs.straylight-llm;
 
         in
         {
