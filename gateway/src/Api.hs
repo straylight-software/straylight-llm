@@ -40,6 +40,7 @@ module Api
     EventsAPI,
     ConfigGetAPI,
     ConfigPutAPI,
+    DashboardAPI,
 
     -- * Types
     HealthResponse (HealthResponse, hrStatus, hrVersion),
@@ -51,6 +52,8 @@ module Api
     ConfigResponse (ConfigResponse, crPort, crHost, crLogLevel, crProviders),
     ConfigUpdateRequest (ConfigUpdateRequest, curLogLevel, curProviderUpdates),
     ProofVerifyResponse (ProofVerifyResponse, pvrValid, pvrMessage, pvrDetails),
+    DashboardResponse (DashboardResponse, drTimestamp, drUptime, drProviders, drTotalRequests, drActiveRequests, drCacheHitRate),
+    ProviderHealth (ProviderHealth, phName, phEnabled, phCircuitState, phHealthScore, phLatencyAvg, phLatencyP50, phLatencyP95, phLatencyP99, phErrorRate, phRequestCount, phErrorCount, phLastError),
   )
 where
 
@@ -262,6 +265,86 @@ instance FromJSON ProofVerifyResponse where
       <*> v .: "message"
       <*> v .:? "details"
 
+-- | Provider health for dashboard
+data ProviderHealth = ProviderHealth
+  { phName :: ProviderName,
+    phEnabled :: Bool,
+    phCircuitState :: CircuitState,
+    phHealthScore :: Double, -- 0-100, computed from error rate + circuit state
+    phLatencyAvg :: Maybe Double, -- Average latency in ms
+    phLatencyP50 :: Maybe Double, -- p50 latency in ms
+    phLatencyP95 :: Maybe Double, -- p95 latency in ms
+    phLatencyP99 :: Maybe Double, -- p99 latency in ms
+    phErrorRate :: Double, -- errors / total (0.0-1.0)
+    phRequestCount :: Int, -- Total requests
+    phErrorCount :: Int, -- Total errors
+    phLastError :: Maybe Text -- Last error message
+  }
+
+instance ToJSON ProviderHealth where
+  toJSON ph =
+    object
+      [ "name" .= phName ph,
+        "enabled" .= phEnabled ph,
+        "circuit_state" .= phCircuitState ph,
+        "health_score" .= phHealthScore ph,
+        "latency_avg_ms" .= phLatencyAvg ph,
+        "latency_p50_ms" .= phLatencyP50 ph,
+        "latency_p95_ms" .= phLatencyP95 ph,
+        "latency_p99_ms" .= phLatencyP99 ph,
+        "error_rate" .= phErrorRate ph,
+        "request_count" .= phRequestCount ph,
+        "error_count" .= phErrorCount ph,
+        "last_error" .= phLastError ph
+      ]
+
+instance FromJSON ProviderHealth where
+  parseJSON = withObject "ProviderHealth" $ \v ->
+    ProviderHealth
+      <$> v .: "name"
+      <*> v .: "enabled"
+      <*> v .: "circuit_state"
+      <*> v .: "health_score"
+      <*> v .:? "latency_avg_ms"
+      <*> v .:? "latency_p50_ms"
+      <*> v .:? "latency_p95_ms"
+      <*> v .:? "latency_p99_ms"
+      <*> v .: "error_rate"
+      <*> v .: "request_count"
+      <*> v .: "error_count"
+      <*> v .:? "last_error"
+
+-- | Dashboard response with aggregate provider health
+data DashboardResponse = DashboardResponse
+  { drTimestamp :: Text, -- ISO8601 timestamp
+    drUptime :: Double, -- Uptime in seconds
+    drProviders :: [ProviderHealth],
+    drTotalRequests :: Int,
+    drActiveRequests :: Int,
+    drCacheHitRate :: Maybe Double -- Cache hit rate (0.0-1.0)
+  }
+
+instance ToJSON DashboardResponse where
+  toJSON dr =
+    object
+      [ "timestamp" .= drTimestamp dr,
+        "uptime_seconds" .= drUptime dr,
+        "providers" .= drProviders dr,
+        "total_requests" .= drTotalRequests dr,
+        "active_requests" .= drActiveRequests dr,
+        "cache_hit_rate" .= drCacheHitRate dr
+      ]
+
+instance FromJSON DashboardResponse where
+  parseJSON = withObject "DashboardResponse" $ \v ->
+    DashboardResponse
+      <$> v .: "timestamp"
+      <*> v .: "uptime_seconds"
+      <*> v .: "providers"
+      <*> v .: "total_requests"
+      <*> v .: "active_requests"
+      <*> v .:? "cache_hit_rate"
+
 -- | Chat completions endpoint (non-streaming)
 -- POST /v1/chat/completions
 -- Returns X-Request-Id header for proof retrieval
@@ -389,6 +472,15 @@ type ProofVerifyAPI =
     :> "verify"
     :> Post '[JSON] ProofVerifyResponse
 
+-- | Dashboard endpoint (admin only)
+-- GET /v1/admin/dashboard — aggregate provider health dashboard
+type DashboardAPI =
+  "v1"
+    :> "admin"
+    :> "dashboard"
+    :> Header "Authorization" Text
+    :> Get '[JSON] DashboardResponse
+
 -- ════════════════════════════════════════════════════════════════════════════
 --                                                           // combined api
 -- ════════════════════════════════════════════════════════════════════════════
@@ -411,6 +503,7 @@ type GatewayAPI =
     :<|> EventsAPI
     :<|> ConfigGetAPI
     :<|> ConfigPutAPI
+    :<|> DashboardAPI
 
 -- | API proxy
 api :: Proxy GatewayAPI

@@ -43,6 +43,7 @@ import Type.Proxy (Proxy(..))
 import Straylight.API.Client as Api
 import Straylight.Components.HealthPanel as HealthPanel
 import Straylight.Components.ProvidersPanel as ProvidersPanel
+import Straylight.Components.ProviderHealthDashboard as ProviderHealthDashboard
 import Straylight.Components.ModelsPanel as ModelsPanel
 import Straylight.Components.TimelinePanel as TimelinePanel
 import Straylight.Components.ProofPanel as ProofPanel
@@ -70,6 +71,7 @@ type State =
   , health :: Q.QueryState String Api.HealthResponse
   , models :: Q.QueryState String Api.ModelList
   , requests :: Q.QueryState String Api.RequestsResponse
+  , dashboard :: Q.QueryState String Api.DashboardResponse
   , requestFilter :: Api.RequestFilter
   -- Direct state (not cached)
   , providers :: Array ProvidersPanel.ProviderInfo
@@ -101,6 +103,7 @@ data Action
   | FetchRequests
   | FetchRequestDetail String
   | FetchProof
+  | FetchDashboard
   -- SSE
   | HandleSSE Stream.GatewayEvent
   -- Proof
@@ -120,6 +123,7 @@ type Slots =
   ( tabs :: Tabs.Slot Unit
   , healthPanel :: H.Slot (Const Void) Void Unit
   , providersPanel :: H.Slot (Const Void) Void Unit
+  , dashboardPanel :: H.Slot (Const Void) Void Unit
   , modelsPanel :: H.Slot (Const Void) Void Unit
   , timelinePanel :: H.Slot (Const Void) TimelinePanel.Output Unit
   , proofPanel :: H.Slot (Const Void) ProofPanel.Output Unit
@@ -128,6 +132,7 @@ type Slots =
 _tabs = Proxy :: Proxy "tabs"
 _healthPanel = Proxy :: Proxy "healthPanel"
 _providersPanel = Proxy :: Proxy "providersPanel"
+_dashboardPanel = Proxy :: Proxy "dashboardPanel"
 _modelsPanel = Proxy :: Proxy "modelsPanel"
 _timelinePanel = Proxy :: Proxy "timelinePanel"
 _proofPanel = Proxy :: Proxy "proofPanel"
@@ -156,6 +161,7 @@ initialState input =
   , health: Q.initialQueryState
   , models: Q.initialQueryState
   , requests: Q.initialQueryState
+  , dashboard: Q.initialQueryState
   , requestFilter: Api.defaultFilter
   , providers: []
   , selectedRequest: Nothing
@@ -276,6 +282,10 @@ renderPanel state = case state.route of
       { providers: state.providers
       , connectionState: state.sseState
       } absurd
+
+  Route.Dashboard ->
+    HH.slot _dashboardPanel unit ProviderHealthDashboard.component
+      { dashboard: state.dashboard } absurd
 
   Route.Models ->
     HH.slot _modelsPanel unit ModelsPanel.component
@@ -463,6 +473,14 @@ handleAction = case _ of
       Left err -> H.modify_ _ { toastError = Just err }
       Right detail -> H.modify_ _ { selectedRequest = Just detail }
 
+  FetchDashboard -> do
+    state <- H.get
+    H.modify_ _ { dashboard = state.dashboard { isFetching = true } }
+    result <- liftAff $ Api.getDashboard state.config
+    case result of
+      Left err -> H.modify_ _ { dashboard = { data: Failure err, isFetching: false, isStale: false } }
+      Right dash -> H.modify_ _ { dashboard = { data: Success dash, isFetching: false, isStale: false } }
+
   FetchProof -> do
     state <- H.get
     when (state.proofId /= "") do
@@ -585,6 +603,10 @@ ensureDataForRoute = case _ of
     state <- H.get
     when (RD.isNotAsked state.requests.data) do
       handleAction FetchRequests
+  Route.Dashboard -> do
+    state <- H.get
+    when (RD.isNotAsked state.dashboard.data) do
+      handleAction FetchDashboard
   Route.ProofLookup rid -> do
     H.modify_ _ { proofId = rid }
     handleAction FetchProof

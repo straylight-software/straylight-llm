@@ -39,13 +39,14 @@ module Handlers
     eventsHandler,
     configGetHandler,
     configPutHandler,
+    dashboardHandler,
   )
 where
 
 import Api
 import Coeffect.Types (DischargeProof, dpSignature)
 import Config
-  ( Config (cfgAnthropic, cfgBaseten, cfgHost, cfgLogLevel, cfgOpenRouter, cfgPort, cfgVenice, cfgVertex),
+  ( Config (cfgAnthropic, cfgBaseten, cfgHost, cfgLogLevel, cfgOpenRouter, cfgPort, cfgTriton, cfgVenice, cfgVertex),
     ProviderConfig (pcBaseUrl, pcEnabled),
     cfgAdminApiKey,
   )
@@ -57,9 +58,12 @@ import Data.ByteString qualified as BS
 import Data.ByteString.Builder (byteString, lazyByteString, string8)
 import Data.ByteString.Lazy qualified as LBS
 import Data.IORef (atomicModifyIORef', newIORef, readIORef)
+import Data.Map.Strict qualified as Map
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Encoding qualified as TE
+import Data.Time.Clock (diffUTCTime, getCurrentTime)
+import Data.Time.Format.ISO8601 (iso8601Show)
 import Data.Word (Word64)
 import Network.HTTP.Types (status200, status400)
 import Network.Wai (getRequestBodyChunk, responseStream)
@@ -76,11 +80,12 @@ import Provider.Types
         TimeoutError,
         UnknownError
       ),
+    ProviderName (Anthropic, Baseten, OpenRouter, Triton, Venice, Vertex),
   )
 import Resilience.Backpressure (tryWithRequestSlot)
 import Resilience.Cache (cacheRecentValues)
-import Resilience.CircuitBreaker (csState)
-import Resilience.Metrics (renderPrometheus)
+import Resilience.CircuitBreaker (CircuitState (Closed, HalfOpen, Open), CircuitStats, csLastFailure, csState)
+import Resilience.Metrics (LatencyBuckets (lbCount, lbLe05, lbLe1, lbLe25, lbLe5, lbSum), Metrics (mProviders, mRequestsActive, mRequestsTotal, mStartTime), ProviderMetrics (pmErrorsAuth, pmErrorsOther, pmErrorsRateLimit, pmErrorsTimeout, pmErrorsUnavailable, pmLatency, pmRequestsTotal), renderPrometheus)
 import Router
 import Security.ConstantTime (constantTimeCompareText)
 import Servant
@@ -114,6 +119,7 @@ server router =
     :<|> eventsHandler router
     :<|> configGetHandler router
     :<|> configPutHandler router
+    :<|> dashboardHandler router
 
 -- ════════════════════════════════════════════════════════════════════════════
 --                                                                // handlers
@@ -733,3 +739,174 @@ configPutHandler router mAuth _updateReq = do
 
   -- Return current config
   configGetHandler router mAuth
+
+-- | Dashboard handler (admin only)
+-- GET /v1/admin/dashboard — aggregate provider health view
+dashboardHandler :: Router -> Maybe Text -> Handler DashboardResponse
+dashboardHandler router mAuth = do
+  requireAdminAuth router mAuth "dashboard"
+
+  -- Rate limit admin endpoint
+  mResult <- liftIO $ tryWithRequestSlot (routerAdminSemaphore router) $ do
+    -- Get current time for uptime calculation
+    now <- getCurrentTime
+
+    -- Get metrics snapshot
+    metrics <- getRouterMetrics router
+
+    -- Get circuit breaker stats for all providers
+    circuitStats <- getProviderCircuitStats router
+
+    -- Build provider health list
+    let cfg = routerConfig router
+        providerHealths = buildProviderHealths cfg metrics circuitStats
+
+    -- Calculate uptime
+    let uptimeSeconds = realToFrac (diffUTCTime now (mStartTime metrics)) :: Double
+
+    pure
+      ( now,
+        uptimeSeconds,
+        providerHealths,
+        fromIntegral (mRequestsTotal metrics) :: Int,
+        mRequestsActive metrics
+      )
+
+  case mResult of
+    Nothing ->
+      throwError
+        err503
+          { errBody =
+              encode $
+                ApiError $
+                  ErrorDetail
+                    "Admin endpoint overloaded (too many concurrent requests)"
+                    "rate_limited"
+                    Nothing
+                    Nothing
+          }
+    Just (now, uptimeSeconds, providerHealths, totalReqs, activeReqs) ->
+      pure $
+        DashboardResponse
+          { drTimestamp = T.pack $ iso8601Show now,
+            drUptime = uptimeSeconds,
+            drProviders = providerHealths,
+            drTotalRequests = totalReqs,
+            drActiveRequests = activeReqs,
+            drCacheHitRate = Nothing -- TODO: Add cache hit rate tracking
+          }
+
+-- | Build ProviderHealth list from metrics and circuit breaker stats
+buildProviderHealths :: Config -> Metrics -> [(ProviderName, CircuitStats)] -> [ProviderHealth]
+buildProviderHealths cfg metrics circuitStats =
+  let providerConfigs =
+        [ (Triton, cfgTriton cfg),
+          (Venice, cfgVenice cfg),
+          (Vertex, cfgVertex cfg),
+          (Baseten, cfgBaseten cfg),
+          (OpenRouter, cfgOpenRouter cfg),
+          (Anthropic, cfgAnthropic cfg)
+        ]
+   in map (buildProviderHealth metrics circuitStats) providerConfigs
+
+-- | Build a single ProviderHealth from provider config, metrics and circuit stats
+buildProviderHealth :: Metrics -> [(ProviderName, CircuitStats)] -> (ProviderName, ProviderConfig) -> ProviderHealth
+buildProviderHealth metrics circuitStats (name, providerCfg) =
+  let -- Look up circuit breaker stats
+      mCircuitStats = lookup name circuitStats
+      circuitState = maybe Closed csState mCircuitStats
+
+      -- Look up provider metrics
+      mProviderMetrics = Map.lookup name (mProviders metrics)
+
+      -- Calculate request/error counts
+      requestCount = maybe 0 (fromIntegral . pmRequestsTotal) mProviderMetrics
+      errorCount = maybe 0 totalErrors mProviderMetrics
+
+      -- Calculate error rate
+      errorRate =
+        if requestCount > 0
+          then fromIntegral errorCount / fromIntegral requestCount
+          else 0.0
+
+      -- Calculate latencies
+      (avgLatency, p50, p95, p99) = case mProviderMetrics of
+        Nothing -> (Nothing, Nothing, Nothing, Nothing)
+        Just pm ->
+          let lb = pmLatency pm
+              count = lbCount lb
+           in if count == 0
+                then (Nothing, Nothing, Nothing, Nothing)
+                else
+                  let avgMs = (lbSum lb / fromIntegral count) * 1000.0
+                      -- Approximate percentiles from histogram buckets
+                      -- p50: ~50% of requests <= this value
+                      p50Ms = estimatePercentile lb 0.50 * 1000.0
+                      p95Ms = estimatePercentile lb 0.95 * 1000.0
+                      p99Ms = estimatePercentile lb 0.99 * 1000.0
+                   in (Just avgMs, Just p50Ms, Just p95Ms, Just p99Ms)
+
+      -- Calculate health score (0-100)
+      healthScore = calculateHealthScore circuitState errorRate
+
+      -- Get last error info from circuit breaker
+      lastError = case mCircuitStats of
+        Nothing -> Nothing
+        Just cs -> case csLastFailure cs of
+          Nothing -> Nothing
+          Just _ts -> Just "Recent failure recorded" -- We don't store the message
+   in ProviderHealth
+        { phName = name,
+          phEnabled = pcEnabled providerCfg,
+          phCircuitState = circuitState,
+          phHealthScore = healthScore,
+          phLatencyAvg = avgLatency,
+          phLatencyP50 = p50,
+          phLatencyP95 = p95,
+          phLatencyP99 = p99,
+          phErrorRate = errorRate,
+          phRequestCount = requestCount,
+          phErrorCount = errorCount,
+          phLastError = lastError
+        }
+
+-- | Calculate total errors from ProviderMetrics
+totalErrors :: ProviderMetrics -> Int
+totalErrors pm =
+  fromIntegral $
+    pmErrorsAuth pm
+      + pmErrorsRateLimit pm
+      + pmErrorsTimeout pm
+      + pmErrorsUnavailable pm
+      + pmErrorsOther pm
+
+-- | Calculate health score (0-100) based on circuit state and error rate
+calculateHealthScore :: CircuitState -> Double -> Double
+calculateHealthScore circuitState errorRate =
+  let baseScore = case circuitState of
+        Closed -> 100.0
+        HalfOpen -> 50.0
+        Open -> 0.0
+      -- Reduce score based on error rate (up to 50 points)
+      errorPenalty = min 50.0 (errorRate * 100.0)
+   in max 0.0 (baseScore - errorPenalty)
+
+-- | Estimate latency percentile from histogram buckets
+-- This is an approximation since we only have bucket counts
+estimatePercentile :: LatencyBuckets -> Double -> Double
+estimatePercentile lb percentile =
+  let count = lbCount lb
+      target = floor (fromIntegral count * percentile) :: Int
+      -- Check buckets in order to find where target falls
+      -- Buckets: 5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2.5s, 5s, 10s
+      buckets =
+        [ (0.005, lbLe05 lb), -- Note: lbLe005 would be 5ms but we'll use available buckets
+          (0.050, lbLe05 lb),
+          (0.100, lbLe1 lb),
+          (0.250, lbLe25 lb),
+          (0.500, lbLe5 lb)
+        ]
+   in -- Simple estimation: find first bucket that exceeds target
+      case dropWhile (\(_, c) -> fromIntegral c < target) buckets of
+        [] -> 10.0 -- Fallback: assume > 10s
+        ((latency, _) : _) -> latency

@@ -4,6 +4,8 @@
 -- | Convention: ["resource"] for lists, ["resource", id] for singles.
 module Straylight.QueryKeys where
 
+import Prelude
+
 import Hydrogen.Query (QueryKey)
 
 
@@ -35,3 +37,7 @@ proof rid = ["proof", rid]
 -- | Providers (invalidated by SSE, not directly fetched)
 providers :: QueryKey
 providers = ["providers"]
+
+-- | Dashboard (aggregate provider health)
+dashboard :: QueryKey
+dashboard = ["dashboard"]

@@ -26,6 +26,7 @@ import Hydrogen.Router (class IsRoute, class RouteMetadata)
 data Route
   = Health
   | Providers
+  | Dashboard   -- Provider health dashboard with rich metrics
   | Models
   | Timeline
   | Proofs
@@ -36,7 +37,7 @@ derive instance eqRoute :: Eq Route
 
 -- | All tab routes in sidebar order (excludes ProofLookup and NotFound).
 allTabs :: Array Route
-allTabs = [ Health, Providers, Models, Timeline, Proofs ]
+allTabs = [ Health, Providers, Dashboard, Models, Timeline, Proofs ]
 
 
 -- ════════════════════════════════════════════════════════════════════════════
@@ -47,6 +48,7 @@ instance isRouteRoute :: IsRoute Route where
   parseRoute "/" = Health
   parseRoute "/health" = Health
   parseRoute "/providers" = Providers
+  parseRoute "/dashboard" = Dashboard
   parseRoute "/models" = Models
   parseRoute "/timeline" = Timeline
   parseRoute "/proofs" = Proofs
@@ -56,6 +58,7 @@ instance isRouteRoute :: IsRoute Route where
 
   routeToPath Health = "/"
   routeToPath Providers = "/providers"
+  routeToPath Dashboard = "/dashboard"
   routeToPath Models = "/models"
   routeToPath Timeline = "/timeline"
   routeToPath Proofs = "/proofs"
@@ -81,6 +84,7 @@ instance routeMetadataRoute :: RouteMetadata Route where
   isStaticRoute _ = false
   routeTitle Health = "Gateway Health — Straylight"
   routeTitle Providers = "Providers — Straylight"
+  routeTitle Dashboard = "Provider Dashboard — Straylight"
   routeTitle Models = "Models — Straylight"
   routeTitle Timeline = "Request Timeline — Straylight"
   routeTitle Proofs = "Discharge Proofs — Straylight"
@@ -98,6 +102,7 @@ instance routeMetadataRoute :: RouteMetadata Route where
 routeToTabValue :: Route -> String
 routeToTabValue Health = "health"
 routeToTabValue Providers = "providers"
+routeToTabValue Dashboard = "dashboard"
 routeToTabValue Models = "models"
 routeToTabValue Timeline = "timeline"
 routeToTabValue Proofs = "proofs"
@@ -108,6 +113,7 @@ routeToTabValue NotFound = "health"
 tabValueToRoute :: String -> Route
 tabValueToRoute "health" = Health
 tabValueToRoute "providers" = Providers
+tabValueToRoute "dashboard" = Dashboard
 tabValueToRoute "models" = Models
 tabValueToRoute "timeline" = Timeline
 tabValueToRoute "proofs" = Proofs
@@ -117,6 +123,7 @@ tabValueToRoute _ = Health
 routeIcon :: Route -> String
 routeIcon Health = "gauge"
 routeIcon Providers = "activity"
+routeIcon Dashboard = "bar-chart"
 routeIcon Models = "list-checks"
 routeIcon Timeline = "clock"
 routeIcon Proofs = "git-compare"
@@ -127,6 +134,7 @@ routeIcon NotFound = "gauge"
 routeLabel :: Route -> String
 routeLabel Health = "Health"
 routeLabel Providers = "Providers"
+routeLabel Dashboard = "Dashboard"
 routeLabel Models = "Models"
 routeLabel Timeline = "Timeline"
 routeLabel Proofs = "Proofs"
