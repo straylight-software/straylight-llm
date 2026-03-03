@@ -39,6 +39,12 @@ import Observability.Tracing
     loadTracingConfig,
     tracingMiddleware,
   )
+import Resilience.RateLimiter
+  ( RateLimitConfig (rlcEnabled),
+    loadRateLimitConfig,
+    newRateLimiter,
+    rateLimitMiddleware,
+  )
 import Router (makeRouter)
 import Servant (serve)
 import System.Environment (lookupEnv)
@@ -110,11 +116,18 @@ main = do
   tracingConfig <- loadTracingConfig
   tracer <- initTracer tracingConfig
 
+  -- Initialize rate limiter
+  rateLimitConfig <- loadRateLimitConfig
+  rateLimiter <- newRateLimiter rateLimitConfig
+
   -- Log observability status
   TIO.putStrLn $ "  Logging: [" <> logLevelText (lcLevel logConfig) <> "] (set LOG_LEVEL to change)"
   if tcEnabled tracingConfig
     then TIO.putStrLn $ "  OpenTelemetry: [enabled] -> " <> tcOtlpEndpoint tracingConfig
     else TIO.putStrLn "  OpenTelemetry: [disabled] (set OTEL_ENABLED=true to enable)"
+  if rlcEnabled rateLimitConfig
+    then TIO.putStrLn "  Rate Limiting: [enabled] (set RATE_LIMIT_RPM/RATE_LIMIT_BURST to configure)"
+    else TIO.putStrLn "  Rate Limiting: [disabled] (set RATE_LIMIT_ENABLED=true to enable)"
   TIO.putStrLn ""
 
   -- Check backend selection environment variables
@@ -126,8 +139,13 @@ main = do
 
   -- Start server
   let port = cfgPort config
-      -- Middleware stack: CORS -> Logging -> Tracing -> Servant
-      app = enableCors $ loggingMiddleware logger $ tracingMiddleware tracer $ serve api (server router)
+      -- Middleware stack: CORS -> RateLimit -> Logging -> Tracing -> Servant
+      app =
+        enableCors $
+          rateLimitMiddleware rateLimiter $
+            loggingMiddleware logger $
+              tracingMiddleware tracer $
+                serve api (server router)
 
   -- Log server backend info
   TIO.putStrLn "════════════════════════════════════════════════════════════════════════════════"

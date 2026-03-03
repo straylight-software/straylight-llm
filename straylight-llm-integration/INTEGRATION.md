@@ -111,7 +111,7 @@ Functions that aren't migrated yet keep using regular `do` with `UngradedM`.
 - **Discharge proofs**: `Coeffect.Types` and `Coeffect.Discharge` don't change.
   They consume the value-level tracking data.
 
-- **Test suite**: Tests call `runGatewayM` which erases the grade. All 249 tests
+- **Test suite**: Tests call `runGatewayM` which erases the grade. All 270 tests
   continue to pass without modification.
 
 - **Benchmarks**: Same — `runGatewayM` erases the grade, no runtime overhead.

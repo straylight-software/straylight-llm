@@ -22,6 +22,7 @@ import Integration.LifecycleTests qualified as LifecycleTests
 import Integration.LoggingTests qualified as LoggingTests
 import Integration.OpenApiSpec qualified as OpenApiSpec
 import Integration.ProofTests qualified as ProofTests
+import Integration.RateLimiterTests qualified as RateLimiterTests
 import Integration.TracingTests qualified as TracingTests
 import Property.CoeffectProps qualified as CoeffectProps
 import Property.GradedMonadProps qualified as GradedMonadProps
@@ -52,7 +53,8 @@ main =
             LifecycleTests.tests,
             OpenApiSpec.tests,
             TracingTests.tests,
-            LoggingTests.tests
+            LoggingTests.tests,
+            RateLimiterTests.tests
           ],
         testGroup
           "Adversarial Tests"

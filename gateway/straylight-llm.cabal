@@ -87,6 +87,7 @@ library
     Resilience.Backpressure
     Resilience.CircuitBreaker
     Resilience.Metrics
+    Resilience.RateLimiter
     Resilience.Retry
     -- // security
     Security.CommandInjection
@@ -232,6 +233,7 @@ test-suite straylight-llm-test
     Integration.OpenApiSpec
     Integration.TracingTests
     Integration.LoggingTests
+    Integration.RateLimiterTests
     -- // adversarial tests
     Adversarial.RaceConditions
     Adversarial.InjectionEdgeCases

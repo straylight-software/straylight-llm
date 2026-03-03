@@ -1,7 +1,7 @@
 # straylight-llm
 
 [![Build](https://github.com/straylight-software/straylight-llm/actions/workflows/build-container.yml/badge.svg)](https://github.com/straylight-software/straylight-llm/actions)
-[![Tests](https://img.shields.io/badge/tests-249%20passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-270%20passing-brightgreen)]()
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 **OpenAI-compatible LLM gateway with provider fallback, effect tracking, and formal verification.**
@@ -35,7 +35,7 @@ A production-grade Haskell gateway that routes LLM requests through multiple pro
 - **Discharge proofs** — Ed25519-signed cryptographic proofs for every request
 - **Effect tracking** — Graded monad system tracks all IO effects
 - **Formal verification** — 904 lines of Lean4 proofs (no `sorry`, no axioms)
-- **249 tests** — Property tests, integration tests, adversarial tests, formal correspondence tests
+- **270 tests** — Property tests, integration tests, adversarial tests, formal correspondence tests
 
 ## Quick Start
 
@@ -200,7 +200,7 @@ Each provider has an independent circuit breaker. Failed providers are temporari
 ```bash
 cd gateway
 
-# Run all tests (249 tests)
+# Run all tests (270 tests)
 cabal test
 
 # Run benchmarks
@@ -275,7 +275,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## Contributing
 
-1. Ensure all 249 tests pass: `cd gateway && cabal test`
+1. Ensure all 270 tests pass: `cd gateway && cabal test`
 2. Run the formatter: `nix fmt`
 3. Verify Dhall manifests: `nix build .#dhall-verify`
 4. No partial functions (`head`, `tail`, `fromJust`, `read`, `!!`)

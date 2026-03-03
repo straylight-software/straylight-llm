@@ -7,7 +7,7 @@ straylight-llm is a production-grade OpenAI-compatible LLM gateway with:
 - Circuit breakers and automatic failover
 - Ed25519 discharge proofs for every request
 - io_uring backend for high-throughput
-- 249 tests passing
+- 270 tests passing
 - Formal verification via Lean4 proofs
 
 ---
@@ -22,14 +22,14 @@ straylight-llm is a production-grade OpenAI-compatible LLM gateway with:
 - [x] Discharge proofs (ed25519 signed)
 - [x] Effect tracking via graded monads
 - [x] Nix build and NixOS module
-- [x] 249 tests (property, integration, adversarial, formal)
+- [x] 270 tests (property, integration, adversarial, formal)
 
 ## v0.2 - Performance & Observability
 
 - [x] Prometheus metrics endpoint (`/metrics`)
 - [x] OpenTelemetry tracing (via `OTEL_ENABLED=true`)
 - [x] Request/response logging with configurable redaction (via `LOG_LEVEL`)
-- [ ] Rate limiting per API key
+- [x] Rate limiting per API key (via `RATE_LIMIT_ENABLED=true`, `RATE_LIMIT_RPM`, `RATE_LIMIT_BURST`)
 - [ ] Request caching (semantic deduplication)
 - [ ] Connection pooling improvements
 
