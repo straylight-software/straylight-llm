@@ -26,6 +26,7 @@ import Handlers (server)
 import Network.HTTP.Types (methodOptions, status200)
 import Network.Wai (Middleware, mapResponseHeaders, requestMethod, responseLBS)
 import Network.Wai.Handler.Warp qualified as Warp
+import Observability.Tracing (TracingConfig (..), initTracer, loadTracingConfig, tracingMiddleware)
 import Router (makeRouter)
 import Servant (serve)
 import System.Environment (lookupEnv)
@@ -89,6 +90,16 @@ main = do
   -- Create router with provider chain
   router <- makeRouter config
 
+  -- Initialize OpenTelemetry tracing
+  tracingConfig <- loadTracingConfig
+  tracer <- initTracer tracingConfig
+
+  -- Log tracing status
+  if tcEnabled tracingConfig
+    then TIO.putStrLn $ "  OpenTelemetry: [enabled] -> " <> tcOtlpEndpoint tracingConfig
+    else TIO.putStrLn "  OpenTelemetry: [disabled] (set OTEL_ENABLED=true to enable)"
+  TIO.putStrLn ""
+
   -- Check backend selection environment variables
   -- USE_URING=1 enables io_uring (5.1x throughput, 63x better tail latency)
   -- USE_WARP=1 forces Warp (for WSL2 or systems without io_uring)
@@ -98,7 +109,8 @@ main = do
 
   -- Start server
   let port = cfgPort config
-      app = enableCors $ serve api (server router)
+      -- Middleware stack: CORS -> Tracing -> Servant
+      app = enableCors $ tracingMiddleware tracer $ serve api (server router)
 
   -- Log server backend info
   TIO.putStrLn "════════════════════════════════════════════════════════════════════════════════"

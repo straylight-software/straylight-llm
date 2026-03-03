@@ -21,6 +21,7 @@ import Integration.ApiTests qualified as ApiTests
 import Integration.LifecycleTests qualified as LifecycleTests
 import Integration.OpenApiSpec qualified as OpenApiSpec
 import Integration.ProofTests qualified as ProofTests
+import Integration.TracingTests qualified as TracingTests
 import Property.CoeffectProps qualified as CoeffectProps
 import Property.GradedMonadProps qualified as GradedMonadProps
 import Property.OutputValidationProps qualified as OutputValidationProps
@@ -29,31 +30,37 @@ import Property.StreamingProps qualified as StreamingProps
 import Property.TypesProps qualified as TypesProps
 import Test.Tasty
 
-
 main :: IO ()
-main = defaultMain $
-    testGroup "straylight-llm"
-        [ testGroup "Property Tests"
-            [ TypesProps.tests
-            , CoeffectProps.tests
-            , GradedMonadProps.tests
-            , SecurityProps.tests
-            , StreamingProps.tests
-            , OutputValidationProps.tests
-            ]
-        , testGroup "Integration Tests"
-            [ ApiTests.tests
-            , ProofTests.tests
-            , LifecycleTests.tests
-            , OpenApiSpec.tests
-            ]
-        , testGroup "Adversarial Tests"
-            [ RaceConditions.tests
-            , InjectionEdgeCases.tests
-            , ProviderErrors.tests
-            , XSSVectors.tests
-            ]
-        , testGroup "Formal Tests"
-            [ ProofCorrespondence.tests
-            ]
-        ]
+main =
+  defaultMain $
+    testGroup
+      "straylight-llm"
+      [ testGroup
+          "Property Tests"
+          [ TypesProps.tests,
+            CoeffectProps.tests,
+            GradedMonadProps.tests,
+            SecurityProps.tests,
+            StreamingProps.tests,
+            OutputValidationProps.tests
+          ],
+        testGroup
+          "Integration Tests"
+          [ ApiTests.tests,
+            ProofTests.tests,
+            LifecycleTests.tests,
+            OpenApiSpec.tests,
+            TracingTests.tests
+          ],
+        testGroup
+          "Adversarial Tests"
+          [ RaceConditions.tests,
+            InjectionEdgeCases.tests,
+            ProviderErrors.tests,
+            XSSVectors.tests
+          ],
+        testGroup
+          "Formal Tests"
+          [ ProofCorrespondence.tests
+          ]
+      ]
