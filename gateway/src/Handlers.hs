@@ -706,11 +706,11 @@ proofVerifyHandler router requestId = do
 -- Subscribes to the event broadcaster and streams events to the client
 eventsHandler :: Router -> Tagged Handler Application
 eventsHandler router = Tagged $ \_req respond' -> do
+    -- n.b. CORS headers added by middleware in Main.hs, don't duplicate here
     respond' $ responseStream status200
         [ ("Content-Type", "text/event-stream")
         , ("Cache-Control", "no-cache")
         , ("Connection", "keep-alive")
-        , ("Access-Control-Allow-Origin", "*")
         ]
         $ \send flush -> do
             -- Subscribe to the event broadcaster

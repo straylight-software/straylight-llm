@@ -51,6 +51,7 @@ import Straylight.Components.Splash as Splash
 import Straylight.Route as Route
 import Straylight.QueryKeys as QK
 import Straylight.Streaming as Stream
+import Straylight.Location as Location
 
 
 -- ════════════════════════════════════════════════════════════════════════════
@@ -364,10 +365,13 @@ handleAction = case _ of
     _ <- H.subscribe (identity <$> linkEmitter)
 
     -- Start SSE connection
-    state <- H.get
+    -- Use window.location.hostname for cross-machine access
+    gatewayBaseUrl <- liftEffect Location.getGatewayBaseUrl
+    let apiConfig = { baseUrl: gatewayBaseUrl, port: 8080 }
+    H.modify_ _ { config = apiConfig }
     let streamConfig = Stream.defaultStreamConfig
-          { baseUrl = state.config.baseUrl
-          , port = state.config.port
+          { baseUrl = gatewayBaseUrl
+          , port = 8080
           }
     ee <- liftEffect $ Stream.createEventEmitter streamConfig
     H.modify_ _ { eventEmitter = Just ee }

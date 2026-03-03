@@ -1986,10 +1986,10 @@
           ;
           throw new Error("Failed pattern match at Control.Monad.Rec.Class (line 137, column 30 - line 137, column 44): " + [v.constructor.name]);
         };
-        return function __do2() {
+        return function __do3() {
           var r = bindFlipped2($$new)(f(a2))();
           (function() {
-            while (!(function __do3() {
+            while (!(function __do4() {
               var v = read(r)();
               if (v instanceof Loop) {
                 var e = f(v.value0)();
@@ -2773,7 +2773,7 @@
     return _makeFiber(ffiUtil, aff);
   };
   var launchAff = function(aff) {
-    return function __do2() {
+    return function __do3() {
       var fiber = makeFiber(aff)();
       fiber.run();
       return fiber;
@@ -3299,7 +3299,7 @@
   };
   var runHalogenAff = /* @__PURE__ */ runAff_(/* @__PURE__ */ either(throwException)(/* @__PURE__ */ $$const(/* @__PURE__ */ pure1(unit))));
   var awaitLoad = /* @__PURE__ */ makeAff(function(callback) {
-    return function __do2() {
+    return function __do3() {
       var rs = bindFlipped4(readyState)(bindFlipped4(document2)(windowImpl))();
       if (rs instanceof Loading) {
         var et = map9(toEventTarget)(windowImpl)();
@@ -4735,7 +4735,7 @@
   var thaw = /* @__PURE__ */ runSTFn1(thawImpl);
   var withArray = function(f) {
     return function(xs) {
-      return function __do2() {
+      return function __do3() {
         var result = thaw(xs)();
         f(result)();
         return unsafeFreeze(result)();
@@ -5739,7 +5739,7 @@
   var thawST = _copyST;
   var mutate = function(f) {
     return function(m) {
-      return runST(function __do2() {
+      return runST(function __do3() {
         var s = thawST(m)();
         f(s)();
         return s;
@@ -5992,7 +5992,7 @@
             ;
             var ref2 = $$new(v2.value1)();
             var listener = eventListener(function(ev) {
-              return function __do2() {
+              return function __do3() {
                 var f$prime = read(ref2)();
                 return mbEmit(f$prime(ev));
               };
@@ -6723,7 +6723,7 @@
     var subscribers = $$new([])();
     return {
       emitter: function(k) {
-        return function __do2() {
+        return function __do3() {
           modify_(function(v) {
             return append4(v)([k]);
           })(subscribers)();
@@ -7254,7 +7254,7 @@
     return function(input3) {
       return function(handler3) {
         return function(lchs) {
-          return function __do2() {
+          return function __do3() {
             var selfRef = $$new({})();
             var childrenIn = $$new(empty3)();
             var childrenOut = $$new(empty3)();
@@ -7321,7 +7321,7 @@
   var alter2 = /* @__PURE__ */ alter(ordString);
   var unsubscribe3 = function(sid) {
     return function(ref2) {
-      return function __do2() {
+      return function __do3() {
         var v = read(ref2)();
         var subs = read(v.subscriptions)();
         return traverse_4(unsubscribe)(bindFlipped5(lookup5(sid))(subs))();
@@ -7491,7 +7491,7 @@
               return bind12(fresh(ForkId)(ref2))(function(fid) {
                 return bind12(liftEffect4(read(ref2)))(function(v2) {
                   return bind12(liftEffect4($$new(false)))(function(doneRef) {
-                    return bind12(fork3($$finally(liftEffect4(function __do2() {
+                    return bind12(fork3($$finally(liftEffect4(function __do3() {
                       modify_($$delete2(fid))(v2.forks)();
                       return write(true)(doneRef)();
                     }))(evalM(render8)(ref2)(v1.value0))))(function(fiber) {
@@ -7606,7 +7606,7 @@
     });
   })();
   var handlePending = function(ref2) {
-    return function __do2() {
+    return function __do3() {
       var queue = read(ref2)();
       write(Nothing.value)(ref2)();
       return for_2(queue)((function() {
@@ -7618,7 +7618,7 @@
     };
   };
   var cleanupSubscriptionsAndForks = function(v) {
-    return function __do2() {
+    return function __do3() {
       bindFlipped6(traverse_23(traverse_33(unsubscribe)))(read(v.subscriptions))();
       write(Nothing.value)(v.subscriptions)();
       bindFlipped6(traverse_33((function() {
@@ -7641,7 +7641,7 @@
                 return {
                   initializers: new Cons(discard22(parSequence_3(reverse(handlers.initializers)))(function() {
                     return discard22(parentInitializer)(function() {
-                      return liftEffect5(function __do2() {
+                      return liftEffect5(function __do3() {
                         handlePending(st.pendingQueries)();
                         return handlePending(st.pendingOuts)();
                       });
@@ -7657,7 +7657,7 @@
           return function(handler3) {
             return function(j) {
               return unComponent(function(c) {
-                return function __do2() {
+                return function __do3() {
                   var lchs$prime = newLifecycleHandlers();
                   var $$var2 = initDriverState(c)(j)(handler3)(lchs$prime)();
                   var pre2 = read(lchs)();
@@ -7685,14 +7685,14 @@
             return function(childrenInRef) {
               return function(childrenOutRef) {
                 return unComponentSlot(function(slot7) {
-                  return function __do2() {
+                  return function __do3() {
                     var childrenIn = map18(slot7.pop)(read(childrenInRef))();
                     var $$var2 = (function() {
                       if (childrenIn instanceof Just) {
                         write(childrenIn.value0.value1)(childrenInRef)();
                         var dsx = read(childrenIn.value0.value0)();
                         unDriverStateX(function(st) {
-                          return function __do3() {
+                          return function __do4() {
                             flip(write)(st.handlerRef)((function() {
                               var $65 = maybe(pure12(unit))(handler3);
                               return function($66) {
@@ -7740,7 +7740,7 @@
         };
         var render8 = function(lchs) {
           return function($$var2) {
-            return function __do2() {
+            return function __do3() {
               var v = read($$var2)();
               var shouldProcessHandlers = map18(isNothing)(read(v.pendingHandlers))();
               when2(shouldProcessHandlers)(write(new Just(Nil.value))(v.pendingHandlers))();
@@ -7765,7 +7765,7 @@
               var children2 = read(v.childrenOut)();
               var childrenIn = read(v.childrenIn)();
               foreachSlot2(childrenIn)(function(v1) {
-                return function __do3() {
+                return function __do4() {
                   var childDS = read(v1)();
                   renderStateX_2(renderSpec2.removeChild)(childDS)();
                   return finalize(lchs)(childDS)();
@@ -7792,7 +7792,7 @@
                 };
               }))();
               return when2(shouldProcessHandlers)(flip(tailRecM3)(unit)(function(v1) {
-                return function __do3() {
+                return function __do4() {
                   var handlers = read(v.pendingHandlers)();
                   write(new Just(Nil.value))(v.pendingHandlers)();
                   traverse_23((function() {
@@ -7815,7 +7815,7 @@
         };
         var finalize = function(lchs) {
           return unDriverStateX(function(st) {
-            return function __do2() {
+            return function __do3() {
               cleanupSubscriptionsAndForks(st)();
               var f = evalM(render8)(st.selfRef)(st["component"]["eval"](new Finalize(unit)));
               modify_(function(handlers) {
@@ -7825,7 +7825,7 @@
                 };
               })(lchs)();
               return foreachSlot2(st.children)(function(v) {
-                return function __do3() {
+                return function __do4() {
                   var dsx = read(v)();
                   return finalize(lchs)(dsx)();
                 };
@@ -7849,7 +7849,7 @@
         var dispose = function(disposed) {
           return function(lchs) {
             return function(dsx) {
-              return handleLifecycle(lchs)(function __do2() {
+              return handleLifecycle(lchs)(function __do3() {
                 var v = read(disposed)();
                 if (v) {
                   return unit;
@@ -7858,7 +7858,7 @@
                 write(true)(disposed)();
                 finalize(lchs)(dsx)();
                 return unDriverStateX(function(v1) {
-                  return function __do3() {
+                  return function __do4() {
                     var v2 = liftEffect1(read(v1.selfRef))();
                     return for_2(v2.rendering)(renderSpec2.dispose)();
                   };
@@ -7869,7 +7869,7 @@
         };
         return bind13(liftEffect5(newLifecycleHandlers))(function(lchs) {
           return bind13(liftEffect5($$new(false)))(function(disposed) {
-            return handleLifecycle(lchs)(function __do2() {
+            return handleLifecycle(lchs)(function __do3() {
               var sio = create3();
               var dsx = bindFlipped6(read)(runComponent(lchs)((function() {
                 var $78 = notify(sio.listener);
@@ -7989,7 +7989,7 @@
     };
   };
   var removeChild3 = function(v) {
-    return function __do2() {
+    return function __do3() {
       var npn = parentNode2(v.node)();
       return traverse_6(function(pn) {
         return removeChild2(v.node)(pn);
@@ -8073,7 +8073,7 @@
           return function(v) {
             return function(v1) {
               if (v1 instanceof Nothing) {
-                return function __do2() {
+                return function __do3() {
                   var renderChildRef = $$new(child)();
                   var spec = mkSpec(handler3)(renderChildRef)(document3);
                   var machine = buildVDom(spec)(v);
@@ -8088,7 +8088,7 @@
               }
               ;
               if (v1 instanceof Just) {
-                return function __do2() {
+                return function __do3() {
                   write(child)(v1.value0.renderChildRef)();
                   var parent2 = parentNode2(v1.value0.node)();
                   var nextSib = nextSibling(v1.value0.node)();
@@ -8848,7 +8848,7 @@
   var insert8 = /* @__PURE__ */ insert(ordString);
   var show4 = /* @__PURE__ */ show(showJsonDecodeError);
   var newClientWith = function(options2) {
-    return function __do2() {
+    return function __do3() {
       var cache = $$new(empty2)();
       var inFlight = $$new(empty2)();
       return {
@@ -8891,7 +8891,7 @@
         };
       };
       var prefixStr = keyToString(prefix);
-      return function __do2() {
+      return function __do3() {
         var currentTime2 = now();
         return modify_(mapMaybeWithKey2(markStaleIfMatches(prefixStr)(currentTime2)))(v.cache)();
       };
@@ -10369,7 +10369,7 @@
   // output/Effect.Aff.Compat/index.js
   var fromEffectFnAff = function(v) {
     return makeAff(function(k) {
-      return function __do2() {
+      return function __do3() {
         var v1 = v(function($9) {
           return k(Left.create($9))();
         }, function($10) {
@@ -10377,7 +10377,7 @@
         });
         return function(e) {
           return makeAff(function(k2) {
-            return function __do3() {
+            return function __do4() {
               v1(e, function($11) {
                 return k2(Left.create($11))();
               }, function($12) {
@@ -10920,7 +10920,7 @@
       return "retrying";
     }
     ;
-    throw new Error("Failed pattern match at Straylight.API.Client (line 371, column 18 - line 375, column 25): " + [v.constructor.name]);
+    throw new Error("Failed pattern match at Straylight.API.Client (line 373, column 18 - line 377, column 25): " + [v.constructor.name]);
   };
   var mkUrl = function(cfg) {
     return function(path) {
@@ -10943,7 +10943,7 @@
         return v.value0.head + (sep + joinWith2(sep)(v.value0.tail));
       }
       ;
-      throw new Error("Failed pattern match at Straylight.API.Client (line 378, column 20 - line 383, column 44): " + [v.constructor.name]);
+      throw new Error("Failed pattern match at Straylight.API.Client (line 380, column 20 - line 385, column 44): " + [v.constructor.name]);
     };
   };
   var healthCheck = function(cfg) {
@@ -10963,10 +10963,10 @@
             return new Right(v.value0);
           }
           ;
-          throw new Error("Failed pattern match at Straylight.API.Client (line 309, column 23 - line 311, column 25): " + [v.constructor.name]);
+          throw new Error("Failed pattern match at Straylight.API.Client (line 311, column 23 - line 313, column 25): " + [v.constructor.name]);
         }
         ;
-        throw new Error("Failed pattern match at Straylight.API.Client (line 307, column 10 - line 311, column 25): " + [result.constructor.name]);
+        throw new Error("Failed pattern match at Straylight.API.Client (line 309, column 10 - line 313, column 25): " + [result.constructor.name]);
       })());
     });
   };
@@ -10987,10 +10987,10 @@
             return new Right(v.value0);
           }
           ;
-          throw new Error("Failed pattern match at Straylight.API.Client (line 319, column 23 - line 321, column 25): " + [v.constructor.name]);
+          throw new Error("Failed pattern match at Straylight.API.Client (line 321, column 23 - line 323, column 25): " + [v.constructor.name]);
         }
         ;
-        throw new Error("Failed pattern match at Straylight.API.Client (line 317, column 10 - line 321, column 25): " + [result.constructor.name]);
+        throw new Error("Failed pattern match at Straylight.API.Client (line 319, column 10 - line 323, column 25): " + [result.constructor.name]);
       })());
     });
   };
@@ -11044,7 +11044,7 @@
         });
       }
       ;
-      throw new Error("Failed pattern match at Straylight.API.Client (line 121, column 16 - line 127, column 95): " + [v.constructor.name]);
+      throw new Error("Failed pattern match at Straylight.API.Client (line 123, column 16 - line 129, column 95): " + [v.constructor.name]);
     }
   };
   var defaultFilter = /* @__PURE__ */ (function() {
@@ -11135,7 +11135,7 @@
                 return new Left(MissingValue.value);
               }
               ;
-              throw new Error("Failed pattern match at Straylight.API.Client (line 106, column 21 - line 108, column 41): " + [v2.constructor.name]);
+              throw new Error("Failed pattern match at Straylight.API.Client (line 108, column 21 - line 110, column 41): " + [v2.constructor.name]);
             }
             ;
             if (ty === "sandbox") {
@@ -11148,7 +11148,7 @@
                 return new Left(MissingValue.value);
               }
               ;
-              throw new Error("Failed pattern match at Straylight.API.Client (line 109, column 24 - line 111, column 41): " + [v2.constructor.name]);
+              throw new Error("Failed pattern match at Straylight.API.Client (line 111, column 24 - line 113, column 41): " + [v2.constructor.name]);
             }
             ;
             if (ty === "filesystem") {
@@ -11161,7 +11161,7 @@
                 return new Left(MissingValue.value);
               }
               ;
-              throw new Error("Failed pattern match at Straylight.API.Client (line 112, column 27 - line 114, column 41): " + [v2.constructor.name]);
+              throw new Error("Failed pattern match at Straylight.API.Client (line 114, column 27 - line 116, column 41): " + [v2.constructor.name]);
             }
             ;
             if (ty === "combined") {
@@ -11174,17 +11174,17 @@
                 return new Left(MissingValue.value);
               }
               ;
-              throw new Error("Failed pattern match at Straylight.API.Client (line 115, column 25 - line 117, column 41): " + [v2.constructor.name]);
+              throw new Error("Failed pattern match at Straylight.API.Client (line 117, column 25 - line 119, column 41): " + [v2.constructor.name]);
             }
             ;
             return new Left(new UnexpectedValue(json2));
           });
         }
         ;
-        throw new Error("Failed pattern match at Straylight.API.Client (line 99, column 17 - line 118, column 43): " + [v1.constructor.name]);
+        throw new Error("Failed pattern match at Straylight.API.Client (line 101, column 17 - line 120, column 43): " + [v1.constructor.name]);
       }
       ;
-      throw new Error("Failed pattern match at Straylight.API.Client (line 97, column 21 - line 118, column 43): " + [v.constructor.name]);
+      throw new Error("Failed pattern match at Straylight.API.Client (line 99, column 21 - line 120, column 43): " + [v.constructor.name]);
     }
   };
   var gDecodeJsonCons7 = /* @__PURE__ */ gDecodeJsonCons(/* @__PURE__ */ decodeFieldId(/* @__PURE__ */ decodeArray2(decodeJsonCoeffect)));
@@ -11284,10 +11284,10 @@
               return new Right(v.value0);
             }
             ;
-            throw new Error("Failed pattern match at Straylight.API.Client (line 329, column 23 - line 331, column 25): " + [v.constructor.name]);
+            throw new Error("Failed pattern match at Straylight.API.Client (line 331, column 23 - line 333, column 25): " + [v.constructor.name]);
           }
           ;
-          throw new Error("Failed pattern match at Straylight.API.Client (line 327, column 10 - line 331, column 25): " + [result.constructor.name]);
+          throw new Error("Failed pattern match at Straylight.API.Client (line 329, column 10 - line 333, column 25): " + [result.constructor.name]);
         })());
       });
     };
@@ -11310,10 +11310,10 @@
               return new Right(v.value0);
             }
             ;
-            throw new Error("Failed pattern match at Straylight.API.Client (line 351, column 23 - line 353, column 25): " + [v.constructor.name]);
+            throw new Error("Failed pattern match at Straylight.API.Client (line 353, column 23 - line 355, column 25): " + [v.constructor.name]);
           }
           ;
-          throw new Error("Failed pattern match at Straylight.API.Client (line 349, column 10 - line 353, column 25): " + [result.constructor.name]);
+          throw new Error("Failed pattern match at Straylight.API.Client (line 351, column 10 - line 355, column 25): " + [result.constructor.name]);
         })());
       });
     };
@@ -11373,10 +11373,10 @@
               return new Right(v.value0);
             }
             ;
-            throw new Error("Failed pattern match at Straylight.API.Client (line 341, column 23 - line 343, column 25): " + [v.constructor.name]);
+            throw new Error("Failed pattern match at Straylight.API.Client (line 343, column 23 - line 345, column 25): " + [v.constructor.name]);
           }
           ;
-          throw new Error("Failed pattern match at Straylight.API.Client (line 339, column 10 - line 343, column 25): " + [result.constructor.name]);
+          throw new Error("Failed pattern match at Straylight.API.Client (line 341, column 10 - line 345, column 25): " + [result.constructor.name]);
         })());
       });
     };
@@ -12345,11 +12345,11 @@
     };
   };
   var createEventEmitter = function(config) {
-    return function __do2() {
+    return function __do3() {
       var v = create3();
       var eventSourceRef = $$new(Nothing.value)();
       var stateRef = $$new(Connecting.value)();
-      var onOpen = function __do3() {
+      var onOpen = function __do4() {
         write(Connected.value)(stateRef)();
         return notify(v.listener)(ConnectionOpened.value)();
       };
@@ -12368,7 +12368,7 @@
         };
       };
       var onError = function(errMsg) {
-        return function __do3() {
+        return function __do4() {
           var currentState = read(stateRef)();
           if (currentState instanceof Failed) {
             return unit;
@@ -12378,7 +12378,7 @@
           return notify(v.listener)(new ConnectionError(errMsg))();
         };
       };
-      var onClose = function __do3() {
+      var onClose = function __do4() {
         write(Disconnected.value)(stateRef)();
         return notify(v.listener)(ConnectionClosed.value)();
       };
@@ -12396,7 +12396,7 @@
     };
   };
   var closeEventEmitter = function(ee) {
-    return function __do2() {
+    return function __do3() {
       var maybeEs = read(ee.eventSourceRef)();
       if (maybeEs instanceof Nothing) {
         return unit;
@@ -13272,6 +13272,25 @@
     });
   };
 
+  // output/Straylight.Location/foreign.js
+  var getHostname2 = () => window.location.hostname;
+  var getProtocol = () => window.location.protocol;
+
+  // output/Straylight.Location/index.js
+  var getGatewayBaseUrl = function __do2() {
+    var protocol2 = getProtocol();
+    var hostname2 = getHostname2();
+    var proto = (function() {
+      var $4 = protocol2 === "https:";
+      if ($4) {
+        return "https";
+      }
+      ;
+      return "http";
+    })();
+    return proto + ("://" + hostname2);
+  };
+
   // output/Straylight.QueryKeys/index.js
   var show15 = /* @__PURE__ */ show(showInt);
   var requestsWithFilter = function(f) {
@@ -13546,9 +13565,9 @@
   var bind11 = /* @__PURE__ */ bind(bindHalogenM);
   var map39 = /* @__PURE__ */ map(functorEmitter);
   var identity14 = /* @__PURE__ */ identity(categoryFn);
-  var get7 = /* @__PURE__ */ get(monadStateHalogenM);
   var modify_6 = /* @__PURE__ */ modify_2(monadStateHalogenM);
   var subscribeToEvents2 = /* @__PURE__ */ subscribeToEvents(monadEffectEffect);
+  var get7 = /* @__PURE__ */ get(monadStateHalogenM);
   var pure17 = /* @__PURE__ */ pure(applicativeHalogenM);
   var when5 = /* @__PURE__ */ when(applicativeHalogenM);
   var notEq2 = /* @__PURE__ */ notEq(eqRoute);
@@ -13936,7 +13955,7 @@
       return "failed";
     }
     ;
-    throw new Error("Failed pattern match at Straylight.App (line 606, column 12 - line 611, column 30): " + [v.constructor.name]);
+    throw new Error("Failed pattern match at Straylight.App (line 610, column 12 - line 615, column 30): " + [v.constructor.name]);
   };
   var sseClass = function(v) {
     if (v instanceof Connecting) {
@@ -13959,7 +13978,7 @@
       return "error";
     }
     ;
-    throw new Error("Failed pattern match at Straylight.App (line 598, column 12 - line 603, column 29): " + [v.constructor.name]);
+    throw new Error("Failed pattern match at Straylight.App (line 602, column 12 - line 607, column 29): " + [v.constructor.name]);
   };
   var renderToast = function(dictMonadAff) {
     return function(state3) {
@@ -13973,7 +13992,7 @@
         })])([span3([class_("error-toast-text")])([text5(state3.toastError.value0)]), button([class_("error-toast-close")])([iconSm("x")])]);
       }
       ;
-      throw new Error("Failed pattern match at Straylight.App (line 333, column 21 - line 339, column 8): " + [state3.toastError.constructor.name]);
+      throw new Error("Failed pattern match at Straylight.App (line 334, column 21 - line 340, column 8): " + [state3.toastError.constructor.name]);
     };
   };
   var renderTitlebar = function(dictMonadAff) {
@@ -13981,8 +14000,8 @@
       var swr = function(s) {
         var hasStale = s.health.isStale || (s.models.isStale || s.requests.isStale);
         var fetching = s.health.isFetching || (s.models.isFetching || s.requests.isFetching);
-        var $553 = fetching && hasStale;
-        if ($553) {
+        var $554 = fetching && hasStale;
+        if ($554) {
           return span3([class_("swr-indicator")])([span3([class_("loading-spinner-sm")])([]), text5("refreshing")]);
         }
         ;
@@ -14010,7 +14029,7 @@
           return "\u2014";
         }
         ;
-        throw new Error("Failed pattern match at Straylight.App (line 326, column 17 - line 330, column 20): " + [state3.health.data.constructor.name]);
+        throw new Error("Failed pattern match at Straylight.App (line 327, column 17 - line 331, column 20): " + [state3.health.data.constructor.name]);
       })();
       var connDot = (function() {
         if (state3.health.data instanceof Success) {
@@ -14081,7 +14100,7 @@
       return "";
     }
     ;
-    throw new Error("Failed pattern match at Straylight.App (line 613, column 1 - line 613, column 35): " + [r.constructor.name]);
+    throw new Error("Failed pattern match at Straylight.App (line 617, column 1 - line 617, column 35): " + [r.constructor.name]);
   };
   var cbStateToString = function(v) {
     if (v instanceof CBClosed) {
@@ -14096,7 +14115,7 @@
       return "CBHalfOpen";
     }
     ;
-    throw new Error("Failed pattern match at Straylight.App (line 620, column 19 - line 623, column 33): " + [v.constructor.name]);
+    throw new Error("Failed pattern match at Straylight.App (line 624, column 19 - line 627, column 33): " + [v.constructor.name]);
   };
   var handleAction4 = function(dictMonadAff) {
     var liftEffect9 = liftEffect(monadEffectHalogenM(dictMonadAff.MonadEffect0()));
@@ -14114,53 +14133,70 @@
                     return notify(v2.listener)(new HandlePopState(path));
                   })))(function() {
                     return bind11(subscribe2(map39(identity14)(v2.emitter)))(function() {
-                      return bind11(get7)(function(state3) {
-                        var streamConfig = {
-                          maxReconnectAttempts: defaultStreamConfig.maxReconnectAttempts,
-                          reconnectDelayMs: defaultStreamConfig.reconnectDelayMs,
-                          baseUrl: state3.config.baseUrl,
-                          port: state3.config.port
+                      return bind11(liftEffect9(getGatewayBaseUrl))(function(gatewayBaseUrl) {
+                        var apiConfig = {
+                          baseUrl: gatewayBaseUrl,
+                          port: 8080
                         };
-                        return bind11(liftEffect9(createEventEmitter(streamConfig)))(function(ee) {
-                          return discard9(modify_6(function(v3) {
-                            var $567 = {};
-                            for (var $568 in v3) {
-                              if ({}.hasOwnProperty.call(v3, $568)) {
-                                $567[$568] = v3[$568];
-                              }
-                              ;
+                        return discard9(modify_6(function(v3) {
+                          var $568 = {};
+                          for (var $569 in v3) {
+                            if ({}.hasOwnProperty.call(v3, $569)) {
+                              $568[$569] = v3[$569];
                             }
                             ;
-                            $567.eventEmitter = new Just(ee);
-                            return $567;
-                          }))(function() {
-                            return bind11(liftEffect9(subscribeToEvents2(ee)))(function(sseEmitter) {
-                              return bind11(subscribe2(map39(HandleSSE.create)(sseEmitter)))(function() {
-                                return discard9(handleAction4(dictMonadAff)(FetchHealth.value))(function() {
-                                  return discard9(handleAction4(dictMonadAff)(FetchModels.value))(function() {
-                                    return bind11(get7)(function(s) {
-                                      if (s.route instanceof Timeline) {
-                                        return handleAction4(dictMonadAff)(FetchRequests.value);
-                                      }
-                                      ;
-                                      if (s.route instanceof ProofLookup) {
-                                        return discard9(modify_6(function(v3) {
-                                          var $571 = {};
-                                          for (var $572 in v3) {
-                                            if ({}.hasOwnProperty.call(v3, $572)) {
-                                              $571[$572] = v3[$572];
+                          }
+                          ;
+                          $568.config = apiConfig;
+                          return $568;
+                        }))(function() {
+                          var streamConfig = {
+                            maxReconnectAttempts: defaultStreamConfig.maxReconnectAttempts,
+                            reconnectDelayMs: defaultStreamConfig.reconnectDelayMs,
+                            baseUrl: gatewayBaseUrl,
+                            port: 8080
+                          };
+                          return bind11(liftEffect9(createEventEmitter(streamConfig)))(function(ee) {
+                            return discard9(modify_6(function(v3) {
+                              var $571 = {};
+                              for (var $572 in v3) {
+                                if ({}.hasOwnProperty.call(v3, $572)) {
+                                  $571[$572] = v3[$572];
+                                }
+                                ;
+                              }
+                              ;
+                              $571.eventEmitter = new Just(ee);
+                              return $571;
+                            }))(function() {
+                              return bind11(liftEffect9(subscribeToEvents2(ee)))(function(sseEmitter) {
+                                return bind11(subscribe2(map39(HandleSSE.create)(sseEmitter)))(function() {
+                                  return discard9(handleAction4(dictMonadAff)(FetchHealth.value))(function() {
+                                    return discard9(handleAction4(dictMonadAff)(FetchModels.value))(function() {
+                                      return bind11(get7)(function(s) {
+                                        if (s.route instanceof Timeline) {
+                                          return handleAction4(dictMonadAff)(FetchRequests.value);
+                                        }
+                                        ;
+                                        if (s.route instanceof ProofLookup) {
+                                          return discard9(modify_6(function(v3) {
+                                            var $575 = {};
+                                            for (var $576 in v3) {
+                                              if ({}.hasOwnProperty.call(v3, $576)) {
+                                                $575[$576] = v3[$576];
+                                              }
+                                              ;
                                             }
                                             ;
-                                          }
-                                          ;
-                                          $571.proofId = s.route.value0;
-                                          return $571;
-                                        }))(function() {
-                                          return handleAction4(dictMonadAff)(FetchProof.value);
-                                        });
-                                      }
-                                      ;
-                                      return pure17(unit);
+                                            $575.proofId = s.route.value0;
+                                            return $575;
+                                          }))(function() {
+                                            return handleAction4(dictMonadAff)(FetchProof.value);
+                                          });
+                                        }
+                                        ;
+                                        return pure17(unit);
+                                      });
                                     });
                                   });
                                 });
@@ -14188,7 +14224,7 @@
             return liftEffect9(closeEventEmitter(state3.eventEmitter.value0));
           }
           ;
-          throw new Error("Failed pattern match at Straylight.App (line 392, column 5 - line 394, column 58): " + [state3.eventEmitter.constructor.name]);
+          throw new Error("Failed pattern match at Straylight.App (line 396, column 5 - line 398, column 58): " + [state3.eventEmitter.constructor.name]);
         });
       }
       ;
@@ -14196,16 +14232,16 @@
         return bind11(get7)(function(state3) {
           return when5(notEq2(v.value0)(state3.route))(discard9(liftEffect9(navigate2(v.value0)))(function() {
             return discard9(modify_6(function(v1) {
-              var $581 = {};
-              for (var $582 in v1) {
-                if ({}.hasOwnProperty.call(v1, $582)) {
-                  $581[$582] = v1[$582];
+              var $585 = {};
+              for (var $586 in v1) {
+                if ({}.hasOwnProperty.call(v1, $586)) {
+                  $585[$586] = v1[$586];
                 }
                 ;
               }
               ;
-              $581.route = v.value0;
-              return $581;
+              $585.route = v.value0;
+              return $585;
             }))(function() {
               return ensureDataForRoute(dictMonadAff)(v.value0);
             });
@@ -14217,16 +14253,16 @@
         var route = parseRoute2(v.value0);
         return bind11(get7)(function(state3) {
           return when5(notEq2(route)(state3.route))(discard9(modify_6(function(v1) {
-            var $585 = {};
-            for (var $586 in v1) {
-              if ({}.hasOwnProperty.call(v1, $586)) {
-                $585[$586] = v1[$586];
+            var $589 = {};
+            for (var $590 in v1) {
+              if ({}.hasOwnProperty.call(v1, $590)) {
+                $589[$590] = v1[$590];
               }
               ;
             }
             ;
-            $585.route = route;
-            return $585;
+            $589.route = route;
+            return $589;
           }))(function() {
             return ensureDataForRoute(dictMonadAff)(route);
           }));
@@ -14241,27 +14277,27 @@
       if (v instanceof FetchHealth) {
         return bind11(get7)(function(state3) {
           return discard9(modify_6(function(v1) {
-            var $594 = {};
-            for (var $595 in v1) {
-              if ({}.hasOwnProperty.call(v1, $595)) {
-                $594[$595] = v1[$595];
+            var $598 = {};
+            for (var $599 in v1) {
+              if ({}.hasOwnProperty.call(v1, $599)) {
+                $598[$599] = v1[$599];
               }
               ;
             }
             ;
-            $594.health = (function() {
-              var $591 = {};
-              for (var $592 in state3.health) {
-                if ({}.hasOwnProperty.call(state3.health, $592)) {
-                  $591[$592] = state3["health"][$592];
+            $598.health = (function() {
+              var $595 = {};
+              for (var $596 in state3.health) {
+                if ({}.hasOwnProperty.call(state3.health, $596)) {
+                  $595[$596] = state3["health"][$596];
                 }
                 ;
               }
               ;
-              $591.isFetching = true;
-              return $591;
+              $595.isFetching = true;
+              return $595;
             })();
-            return $594;
+            return $598;
           }))(function() {
             return bind11(liftAff2(query3(state3.queryClient)((function() {
               var v1 = defaultQueryOptions(health)(healthCheck(state3.config));
@@ -14274,16 +14310,16 @@
               };
             })())))(function(qs) {
               return modify_6(function(v1) {
-                var $597 = {};
-                for (var $598 in v1) {
-                  if ({}.hasOwnProperty.call(v1, $598)) {
-                    $597[$598] = v1[$598];
+                var $601 = {};
+                for (var $602 in v1) {
+                  if ({}.hasOwnProperty.call(v1, $602)) {
+                    $601[$602] = v1[$602];
                   }
                   ;
                 }
                 ;
-                $597.health = qs;
-                return $597;
+                $601.health = qs;
+                return $601;
               });
             });
           });
@@ -14293,27 +14329,27 @@
       if (v instanceof FetchModels) {
         return bind11(get7)(function(state3) {
           return discard9(modify_6(function(v1) {
-            var $603 = {};
-            for (var $604 in v1) {
-              if ({}.hasOwnProperty.call(v1, $604)) {
-                $603[$604] = v1[$604];
+            var $607 = {};
+            for (var $608 in v1) {
+              if ({}.hasOwnProperty.call(v1, $608)) {
+                $607[$608] = v1[$608];
               }
               ;
             }
             ;
-            $603.models = (function() {
-              var $600 = {};
-              for (var $601 in state3.models) {
-                if ({}.hasOwnProperty.call(state3.models, $601)) {
-                  $600[$601] = state3["models"][$601];
+            $607.models = (function() {
+              var $604 = {};
+              for (var $605 in state3.models) {
+                if ({}.hasOwnProperty.call(state3.models, $605)) {
+                  $604[$605] = state3["models"][$605];
                 }
                 ;
               }
               ;
-              $600.isFetching = true;
-              return $600;
+              $604.isFetching = true;
+              return $604;
             })();
-            return $603;
+            return $607;
           }))(function() {
             return bind11(liftAff2(query1(state3.queryClient)((function() {
               var v1 = defaultQueryOptions(models)(getModels(state3.config));
@@ -14326,16 +14362,16 @@
               };
             })())))(function(qs) {
               return modify_6(function(v1) {
-                var $606 = {};
-                for (var $607 in v1) {
-                  if ({}.hasOwnProperty.call(v1, $607)) {
-                    $606[$607] = v1[$607];
+                var $610 = {};
+                for (var $611 in v1) {
+                  if ({}.hasOwnProperty.call(v1, $611)) {
+                    $610[$611] = v1[$611];
                   }
                   ;
                 }
                 ;
-                $606.models = qs;
-                return $606;
+                $610.models = qs;
+                return $610;
               });
             });
           });
@@ -14345,27 +14381,27 @@
       if (v instanceof FetchRequests) {
         return bind11(get7)(function(state3) {
           return discard9(modify_6(function(v1) {
-            var $612 = {};
-            for (var $613 in v1) {
-              if ({}.hasOwnProperty.call(v1, $613)) {
-                $612[$613] = v1[$613];
+            var $616 = {};
+            for (var $617 in v1) {
+              if ({}.hasOwnProperty.call(v1, $617)) {
+                $616[$617] = v1[$617];
               }
               ;
             }
             ;
-            $612.requests = (function() {
-              var $609 = {};
-              for (var $610 in state3.requests) {
-                if ({}.hasOwnProperty.call(state3.requests, $610)) {
-                  $609[$610] = state3["requests"][$610];
+            $616.requests = (function() {
+              var $613 = {};
+              for (var $614 in state3.requests) {
+                if ({}.hasOwnProperty.call(state3.requests, $614)) {
+                  $613[$614] = state3["requests"][$614];
                 }
                 ;
               }
               ;
-              $609.isFetching = true;
-              return $609;
+              $613.isFetching = true;
+              return $613;
             })();
-            return $612;
+            return $616;
           }))(function() {
             var filterKey = requestsWithFilter({
               provider: fromMaybe("")(state3.requestFilter.provider),
@@ -14384,16 +14420,16 @@
               };
             })())))(function(qs) {
               return modify_6(function(v1) {
-                var $615 = {};
-                for (var $616 in v1) {
-                  if ({}.hasOwnProperty.call(v1, $616)) {
-                    $615[$616] = v1[$616];
+                var $619 = {};
+                for (var $620 in v1) {
+                  if ({}.hasOwnProperty.call(v1, $620)) {
+                    $619[$620] = v1[$620];
                   }
                   ;
                 }
                 ;
-                $615.requests = qs;
-                return $615;
+                $619.requests = qs;
+                return $619;
               });
             });
           });
@@ -14405,21 +14441,6 @@
           return bind11(liftAff2(getRequestDetail(state3.config)(v.value0)))(function(result) {
             if (result instanceof Left) {
               return modify_6(function(v1) {
-                var $619 = {};
-                for (var $620 in v1) {
-                  if ({}.hasOwnProperty.call(v1, $620)) {
-                    $619[$620] = v1[$620];
-                  }
-                  ;
-                }
-                ;
-                $619.toastError = new Just(result.value0);
-                return $619;
-              });
-            }
-            ;
-            if (result instanceof Right) {
-              return modify_6(function(v1) {
                 var $623 = {};
                 for (var $624 in v1) {
                   if ({}.hasOwnProperty.call(v1, $624)) {
@@ -14428,12 +14449,27 @@
                   ;
                 }
                 ;
-                $623.selectedRequest = new Just(result.value0);
+                $623.toastError = new Just(result.value0);
                 return $623;
               });
             }
             ;
-            throw new Error("Failed pattern match at Straylight.App (line 462, column 5 - line 464, column 68): " + [result.constructor.name]);
+            if (result instanceof Right) {
+              return modify_6(function(v1) {
+                var $627 = {};
+                for (var $628 in v1) {
+                  if ({}.hasOwnProperty.call(v1, $628)) {
+                    $627[$628] = v1[$628];
+                  }
+                  ;
+                }
+                ;
+                $627.selectedRequest = new Just(result.value0);
+                return $627;
+              });
+            }
+            ;
+            throw new Error("Failed pattern match at Straylight.App (line 466, column 5 - line 468, column 68): " + [result.constructor.name]);
           });
         });
       }
@@ -14441,27 +14477,27 @@
       if (v instanceof FetchProof) {
         return bind11(get7)(function(state3) {
           return when5(state3.proofId !== "")(discard9(modify_6(function(v1) {
-            var $631 = {};
-            for (var $632 in v1) {
-              if ({}.hasOwnProperty.call(v1, $632)) {
-                $631[$632] = v1[$632];
+            var $635 = {};
+            for (var $636 in v1) {
+              if ({}.hasOwnProperty.call(v1, $636)) {
+                $635[$636] = v1[$636];
               }
               ;
             }
             ;
-            $631.proof = (function() {
-              var $628 = {};
-              for (var $629 in state3.proof) {
-                if ({}.hasOwnProperty.call(state3.proof, $629)) {
-                  $628[$629] = state3["proof"][$629];
+            $635.proof = (function() {
+              var $632 = {};
+              for (var $633 in state3.proof) {
+                if ({}.hasOwnProperty.call(state3.proof, $633)) {
+                  $632[$633] = state3["proof"][$633];
                 }
                 ;
               }
               ;
-              $628.isFetching = true;
-              return $628;
+              $632.isFetching = true;
+              return $632;
             })();
-            return $631;
+            return $635;
           }))(function() {
             return bind11(liftAff2(query32(state3.queryClient)((function() {
               var v1 = defaultQueryOptions(proof(state3.proofId))(getProof(state3.config)(state3.proofId));
@@ -14474,16 +14510,16 @@
               };
             })())))(function(qs) {
               return modify_6(function(v1) {
-                var $634 = {};
-                for (var $635 in v1) {
-                  if ({}.hasOwnProperty.call(v1, $635)) {
-                    $634[$635] = v1[$635];
+                var $638 = {};
+                for (var $639 in v1) {
+                  if ({}.hasOwnProperty.call(v1, $639)) {
+                    $638[$639] = v1[$639];
                   }
                   ;
                 }
                 ;
-                $634.proof = qs;
-                return $634;
+                $638.proof = qs;
+                return $638;
               });
             });
           }));
@@ -14493,46 +14529,46 @@
       if (v instanceof HandleSSE) {
         if (v.value0 instanceof ConnectionOpened) {
           return modify_6(function(v1) {
-            var $638 = {};
-            for (var $639 in v1) {
-              if ({}.hasOwnProperty.call(v1, $639)) {
-                $638[$639] = v1[$639];
+            var $642 = {};
+            for (var $643 in v1) {
+              if ({}.hasOwnProperty.call(v1, $643)) {
+                $642[$643] = v1[$643];
               }
               ;
             }
             ;
-            $638.sseState = Connected.value;
-            return $638;
+            $642.sseState = Connected.value;
+            return $642;
           });
         }
         ;
         if (v.value0 instanceof ConnectionClosed) {
           return modify_6(function(v1) {
-            var $641 = {};
-            for (var $642 in v1) {
-              if ({}.hasOwnProperty.call(v1, $642)) {
-                $641[$642] = v1[$642];
+            var $645 = {};
+            for (var $646 in v1) {
+              if ({}.hasOwnProperty.call(v1, $646)) {
+                $645[$646] = v1[$646];
               }
               ;
             }
             ;
-            $641.sseState = Disconnected.value;
-            return $641;
+            $645.sseState = Disconnected.value;
+            return $645;
           });
         }
         ;
         if (v.value0 instanceof ConnectionError) {
           return modify_6(function(v1) {
-            var $644 = {};
-            for (var $645 in v1) {
-              if ({}.hasOwnProperty.call(v1, $645)) {
-                $644[$645] = v1[$645];
+            var $648 = {};
+            for (var $649 in v1) {
+              if ({}.hasOwnProperty.call(v1, $649)) {
+                $648[$649] = v1[$649];
               }
               ;
             }
             ;
-            $644.sseState = new Failed(v.value0.value0);
-            return $644;
+            $648.sseState = new Failed(v.value0.value0);
+            return $648;
           });
         }
         ;
@@ -14550,16 +14586,16 @@
               return p2.name !== v.value0.value0.provider;
             })(state3.providers);
             return modify_6(function(v1) {
-              var $648 = {};
-              for (var $649 in v1) {
-                if ({}.hasOwnProperty.call(v1, $649)) {
-                  $648[$649] = v1[$649];
+              var $652 = {};
+              for (var $653 in v1) {
+                if ({}.hasOwnProperty.call(v1, $653)) {
+                  $652[$653] = v1[$653];
                 }
                 ;
               }
               ;
-              $648.providers = append14(existing)([newProvider]);
-              return $648;
+              $652.providers = append14(existing)([newProvider]);
+              return $652;
             });
           });
         }
@@ -14582,18 +14618,18 @@
         ;
         if (v.value0 instanceof MetricsUpdated) {
           return modify_6(function(v1) {
-            var $655 = {};
-            for (var $656 in v1) {
-              if ({}.hasOwnProperty.call(v1, $656)) {
-                $655[$656] = v1[$656];
+            var $659 = {};
+            for (var $660 in v1) {
+              if ({}.hasOwnProperty.call(v1, $660)) {
+                $659[$660] = v1[$660];
               }
               ;
             }
             ;
-            $655.requestsLastMinute = v.value0.value0.requestsLastMinute;
-            $655.errorRate = v.value0.value0.errorRate;
-            $655.avgLatencyMs = v.value0.value0.avgLatencyMs;
-            return $655;
+            $659.requestsLastMinute = v.value0.value0.requestsLastMinute;
+            $659.errorRate = v.value0.value0.errorRate;
+            $659.avgLatencyMs = v.value0.value0.avgLatencyMs;
+            return $659;
           });
         }
         ;
@@ -14602,32 +14638,32 @@
       ;
       if (v instanceof SetProofId) {
         return modify_6(function(v1) {
-          var $660 = {};
-          for (var $661 in v1) {
-            if ({}.hasOwnProperty.call(v1, $661)) {
-              $660[$661] = v1[$661];
+          var $664 = {};
+          for (var $665 in v1) {
+            if ({}.hasOwnProperty.call(v1, $665)) {
+              $664[$665] = v1[$665];
             }
             ;
           }
           ;
-          $660.proofId = v.value0;
-          return $660;
+          $664.proofId = v.value0;
+          return $664;
         });
       }
       ;
       if (v instanceof HandleProofOutput) {
         if (v.value0 instanceof ProofIdChanged) {
           return modify_6(function(v1) {
-            var $665 = {};
-            for (var $666 in v1) {
-              if ({}.hasOwnProperty.call(v1, $666)) {
-                $665[$666] = v1[$666];
+            var $669 = {};
+            for (var $670 in v1) {
+              if ({}.hasOwnProperty.call(v1, $670)) {
+                $669[$670] = v1[$670];
               }
               ;
             }
             ;
-            $665.proofId = v.value0.value0;
-            return $665;
+            $669.proofId = v.value0.value0;
+            return $669;
           });
         }
         ;
@@ -14635,16 +14671,16 @@
           return bind11(get7)(function(state3) {
             return when5(state3.proofId !== "")(discard9(liftEffect9(pushState2("/proofs/" + state3.proofId)))(function() {
               return discard9(modify_6(function(v1) {
-                var $669 = {};
-                for (var $670 in v1) {
-                  if ({}.hasOwnProperty.call(v1, $670)) {
-                    $669[$670] = v1[$670];
+                var $673 = {};
+                for (var $674 in v1) {
+                  if ({}.hasOwnProperty.call(v1, $674)) {
+                    $673[$674] = v1[$674];
                   }
                   ;
                 }
                 ;
-                $669.route = new ProofLookup(state3.proofId);
-                return $669;
+                $673.route = new ProofLookup(state3.proofId);
+                return $673;
               }))(function() {
                 return handleAction4(dictMonadAff)(FetchProof.value);
               });
@@ -14652,22 +14688,22 @@
           });
         }
         ;
-        throw new Error("Failed pattern match at Straylight.App (line 533, column 31 - line 542, column 32): " + [v.value0.constructor.name]);
+        throw new Error("Failed pattern match at Straylight.App (line 537, column 31 - line 546, column 32): " + [v.value0.constructor.name]);
       }
       ;
       if (v instanceof HandleTimelineOutput) {
         if (v.value0 instanceof FilterChanged) {
           return discard9(modify_6(function(v1) {
-            var $674 = {};
-            for (var $675 in v1) {
-              if ({}.hasOwnProperty.call(v1, $675)) {
-                $674[$675] = v1[$675];
+            var $678 = {};
+            for (var $679 in v1) {
+              if ({}.hasOwnProperty.call(v1, $679)) {
+                $678[$679] = v1[$679];
               }
               ;
             }
             ;
-            $674.requestFilter = v.value0.value0;
-            return $674;
+            $678.requestFilter = v.value0.value0;
+            return $678;
           }))(function() {
             return handleAction4(dictMonadAff)(FetchRequests.value);
           });
@@ -14688,28 +14724,28 @@
         if (v.value0 instanceof LoadMore) {
           return bind11(get7)(function(state3) {
             var newFilter = (function() {
-              var $679 = {};
-              for (var $680 in state3.requestFilter) {
-                if ({}.hasOwnProperty.call(state3.requestFilter, $680)) {
-                  $679[$680] = state3["requestFilter"][$680];
+              var $683 = {};
+              for (var $684 in state3.requestFilter) {
+                if ({}.hasOwnProperty.call(state3.requestFilter, $684)) {
+                  $683[$684] = state3["requestFilter"][$684];
                 }
                 ;
               }
               ;
-              $679.offset = state3.requestFilter.offset + state3.requestFilter.limit | 0;
-              return $679;
+              $683.offset = state3.requestFilter.offset + state3.requestFilter.limit | 0;
+              return $683;
             })();
             return discard9(modify_6(function(v1) {
-              var $682 = {};
-              for (var $683 in v1) {
-                if ({}.hasOwnProperty.call(v1, $683)) {
-                  $682[$683] = v1[$683];
+              var $686 = {};
+              for (var $687 in v1) {
+                if ({}.hasOwnProperty.call(v1, $687)) {
+                  $686[$687] = v1[$687];
                 }
                 ;
               }
               ;
-              $682.requestFilter = newFilter;
-              return $682;
+              $686.requestFilter = newFilter;
+              return $686;
             }))(function() {
               return handleAction4(dictMonadAff)(FetchRequests.value);
             });
@@ -14720,25 +14756,25 @@
           return pure17(unit);
         }
         ;
-        throw new Error("Failed pattern match at Straylight.App (line 546, column 34 - line 569, column 16): " + [v.value0.constructor.name]);
+        throw new Error("Failed pattern match at Straylight.App (line 550, column 34 - line 573, column 16): " + [v.value0.constructor.name]);
       }
       ;
       if (v instanceof DismissToast) {
         return modify_6(function(v1) {
-          var $687 = {};
-          for (var $688 in v1) {
-            if ({}.hasOwnProperty.call(v1, $688)) {
-              $687[$688] = v1[$688];
+          var $691 = {};
+          for (var $692 in v1) {
+            if ({}.hasOwnProperty.call(v1, $692)) {
+              $691[$692] = v1[$692];
             }
             ;
           }
           ;
-          $687.toastError = Nothing.value;
-          return $687;
+          $691.toastError = Nothing.value;
+          return $691;
         });
       }
       ;
-      throw new Error("Failed pattern match at Straylight.App (line 347, column 16 - line 574, column 41): " + [v.constructor.name]);
+      throw new Error("Failed pattern match at Straylight.App (line 348, column 16 - line 578, column 41): " + [v.constructor.name]);
     };
   };
   var ensureDataForRoute = function(dictMonadAff) {
@@ -14751,16 +14787,16 @@
       ;
       if (v instanceof ProofLookup) {
         return discard9(modify_6(function(v1) {
-          var $691 = {};
-          for (var $692 in v1) {
-            if ({}.hasOwnProperty.call(v1, $692)) {
-              $691[$692] = v1[$692];
+          var $695 = {};
+          for (var $696 in v1) {
+            if ({}.hasOwnProperty.call(v1, $696)) {
+              $695[$696] = v1[$696];
             }
             ;
           }
           ;
-          $691.proofId = v.value0;
-          return $691;
+          $695.proofId = v.value0;
+          return $695;
         }))(function() {
           return handleAction4(dictMonadAff)(FetchProof.value);
         });
@@ -14862,7 +14898,7 @@
         })(absurd);
       }
       ;
-      throw new Error("Failed pattern match at Straylight.App (line 269, column 21 - line 305, column 38): " + [state3.route.constructor.name]);
+      throw new Error("Failed pattern match at Straylight.App (line 270, column 21 - line 306, column 38): " + [state3.route.constructor.name]);
     };
   };
   var renderMain = function(dictMonadAff) {
