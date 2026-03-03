@@ -30,3 +30,4 @@ nix/build/
 .DS_Store
 Thumbs.db
 .spago/
+frontend/dist/
