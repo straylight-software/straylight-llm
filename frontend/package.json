@@ -13,7 +13,7 @@
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2",
-    "esbuild": "^0.20.0",
+    "esbuild": "^0.27.3",
     "spago": "^0.93.45"
   }
 }
