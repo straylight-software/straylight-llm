@@ -26,8 +26,8 @@ straylight-llm is a production-grade OpenAI-compatible LLM gateway with:
 
 ## v0.2 - Performance & Observability
 
-- [ ] Prometheus metrics endpoint
-- [ ] OpenTelemetry tracing
+- [x] Prometheus metrics endpoint (`/metrics`)
+- [x] OpenTelemetry tracing (via `OTEL_ENABLED=true`)
 - [ ] Request/response logging with configurable redaction
 - [ ] Rate limiting per API key
 - [ ] Request caching (semantic deduplication)
