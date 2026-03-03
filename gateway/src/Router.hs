@@ -55,6 +55,19 @@ where
 import Coeffect.Discharge (fromGatewayTracking)
 import Coeffect.Types (DischargeProof, coeffectToText, dpCoeffects, dpSignature)
 import Config
+  ( Config
+      ( cfgAnthropic,
+        cfgBaseten,
+        cfgCacheConfig,
+        cfgOpenRouter,
+        cfgRequestTimeout,
+        cfgTriton,
+        cfgVenice,
+        cfgVertex
+      ),
+    ProviderConfig,
+    ResponseCacheConfig (rccEnabled, rccMaxSize, rccTtlSeconds),
+  )
 import Data.Aeson (FromJSON (parseJSON), ToJSON (toJSON), encode, object, withObject, (.:), (.=))
 import Data.ByteString.Lazy qualified as LBS
 import Data.IORef (IORef, atomicModifyIORef', newIORef, readIORef)
@@ -296,12 +309,13 @@ makeRouter config = do
   adminSemaphore <- newRequestSemaphore 10
 
   -- Response cache for identical queries (billion-agent optimization)
-  -- Cache up to 10000 unique request hashes with 5-minute TTL
+  -- Configurable via CACHE_ENABLED, CACHE_MAX_SIZE, CACHE_TTL_SECONDS
+  let cacheConf = cfgCacheConfig config
   responseCache <-
     newBoundedCache
       defaultCacheConfig
-        { ccMaxSize = 10000,
-          ccTTL = Just 300 -- 5 minutes
+        { ccMaxSize = rccMaxSize cacheConf,
+          ccTTL = Just (fromIntegral (rccTtlSeconds cacheConf))
         }
 
   -- Event broadcaster for SSE real-time updates
@@ -347,8 +361,11 @@ routeChat router requestId req = do
 
   -- Check response cache first (billion-agent optimization)
   -- Only cache deterministic requests (temperature=0 or seed set)
-  let cacheKey = encode req -- JSON encoding as cache key
-      isCacheable = crTemperature req == Just (Temperature 0) || crSeed req /= Nothing
+  let cacheConf = cfgCacheConfig (routerConfig router)
+      cacheKey = encode req -- JSON encoding as cache key
+      isCacheable =
+        rccEnabled cacheConf
+          && (crTemperature req == Just (Temperature 0) || crSeed req /= Nothing)
 
   cachedResponse <-
     if isCacheable

@@ -18,7 +18,21 @@
 module Main where
 
 import Api (api)
-import Config (Config (..), ProviderConfig (..), loadConfig)
+import Config
+  ( Config
+      ( cfgAnthropic,
+        cfgBaseten,
+        cfgCacheConfig,
+        cfgOpenRouter,
+        cfgPort,
+        cfgTriton,
+        cfgVenice,
+        cfgVertex
+      ),
+    ProviderConfig (pcApiKey, pcEnabled),
+    ResponseCacheConfig (rccEnabled, rccMaxSize, rccTtlSeconds),
+    loadConfig,
+  )
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 import Evring.Wai qualified as Evring
@@ -128,6 +142,16 @@ main = do
   if rlcEnabled rateLimitConfig
     then TIO.putStrLn "  Rate Limiting: [enabled] (set RATE_LIMIT_RPM/RATE_LIMIT_BURST to configure)"
     else TIO.putStrLn "  Rate Limiting: [disabled] (set RATE_LIMIT_ENABLED=true to enable)"
+  let cacheConf = cfgCacheConfig config
+  if rccEnabled cacheConf
+    then
+      TIO.putStrLn $
+        "  Response Cache: [enabled] max="
+          <> T.pack (show (rccMaxSize cacheConf))
+          <> " ttl="
+          <> T.pack (show (rccTtlSeconds cacheConf))
+          <> "s"
+    else TIO.putStrLn "  Response Cache: [disabled] (set CACHE_ENABLED=true to enable)"
   TIO.putStrLn ""
 
   -- Check backend selection environment variables

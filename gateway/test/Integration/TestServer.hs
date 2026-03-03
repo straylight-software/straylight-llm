@@ -29,6 +29,32 @@ where
 
 import Api (api)
 import Config
+  ( Config
+      ( Config,
+        cfgAdminApiKey,
+        cfgAnthropic,
+        cfgBaseten,
+        cfgCacheConfig,
+        cfgHost,
+        cfgLogLevel,
+        cfgMaxRetries,
+        cfgOpenRouter,
+        cfgPort,
+        cfgRequestTimeout,
+        cfgTriton,
+        cfgVenice,
+        cfgVertex
+      ),
+    ProviderConfig
+      ( ProviderConfig,
+        pcApiKey,
+        pcApiKeyPath,
+        pcBaseUrl,
+        pcEnabled,
+        pcVertexConfig
+      ),
+    defaultResponseCacheConfig,
+  )
 import Handlers (server)
 import Network.HTTP.Client qualified as HC
 import Network.HTTP.Client.TLS qualified as HCT
@@ -68,7 +94,8 @@ disabledConfig =
       cfgLogLevel = "warn",
       cfgRequestTimeout = 5,
       cfgMaxRetries = 1,
-      cfgAdminApiKey = Nothing
+      cfgAdminApiKey = Nothing,
+      cfgCacheConfig = defaultResponseCacheConfig
     }
 
 -- | Test configuration with OpenRouter pointing to non-existent server
