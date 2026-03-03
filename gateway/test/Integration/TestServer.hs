@@ -39,6 +39,7 @@ import Config
         cfgLogLevel,
         cfgMaxRetries,
         cfgOpenRouter,
+        cfgPoolConfig,
         cfgPort,
         cfgRequestTimeout,
         cfgTriton,
@@ -53,6 +54,7 @@ import Config
         pcEnabled,
         pcVertexConfig
       ),
+    defaultConnectionPoolConfig,
     defaultResponseCacheConfig,
   )
 import Handlers (server)
@@ -95,7 +97,8 @@ disabledConfig =
       cfgRequestTimeout = 5,
       cfgMaxRetries = 1,
       cfgAdminApiKey = Nothing,
-      cfgCacheConfig = defaultResponseCacheConfig
+      cfgCacheConfig = defaultResponseCacheConfig,
+      cfgPoolConfig = defaultConnectionPoolConfig
     }
 
 -- | Test configuration with OpenRouter pointing to non-existent server

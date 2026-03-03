@@ -24,11 +24,13 @@ import Config
         cfgBaseten,
         cfgCacheConfig,
         cfgOpenRouter,
+        cfgPoolConfig,
         cfgPort,
         cfgTriton,
         cfgVenice,
         cfgVertex
       ),
+    ConnectionPoolConfig (cpcConnectionsPerHost, cpcIdleConnections),
     ProviderConfig (pcApiKey, pcEnabled),
     ResponseCacheConfig (rccEnabled, rccMaxSize, rccTtlSeconds),
     loadConfig,
@@ -152,6 +154,12 @@ main = do
           <> T.pack (show (rccTtlSeconds cacheConf))
           <> "s"
     else TIO.putStrLn "  Response Cache: [disabled] (set CACHE_ENABLED=true to enable)"
+  let poolConf = cfgPoolConfig config
+  TIO.putStrLn $
+    "  Connection Pool: conns/host="
+      <> T.pack (show (cpcConnectionsPerHost poolConf))
+      <> " idle="
+      <> T.pack (show (cpcIdleConnections poolConf))
   TIO.putStrLn ""
 
   -- Check backend selection environment variables

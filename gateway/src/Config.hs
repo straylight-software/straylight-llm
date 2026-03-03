@@ -31,7 +31,8 @@ module Config
         cfgRequestTimeout,
         cfgMaxRetries,
         cfgAdminApiKey,
-        cfgCacheConfig
+        cfgCacheConfig,
+        cfgPoolConfig
       ),
     ProviderConfig
       ( ProviderConfig,
@@ -49,6 +50,13 @@ module Config
         rccTtlSeconds
       ),
     defaultResponseCacheConfig,
+    ConnectionPoolConfig
+      ( ConnectionPoolConfig,
+        cpcConnectionsPerHost,
+        cpcIdleConnections,
+        cpcIdleTimeoutSeconds
+      ),
+    defaultConnectionPoolConfig,
 
     -- * Loading
     loadConfig,
@@ -102,6 +110,26 @@ defaultResponseCacheConfig =
       rccTtlSeconds = 300 -- 5 minutes
     }
 
+-- | HTTP connection pool configuration
+data ConnectionPoolConfig = ConnectionPoolConfig
+  { -- | Maximum connections per host (default 100)
+    cpcConnectionsPerHost :: !Int,
+    -- | Maximum idle connections total (default 200)
+    cpcIdleConnections :: !Int,
+    -- | Idle connection timeout in seconds (default 60)
+    cpcIdleTimeoutSeconds :: !Int
+  }
+  deriving (Eq, Show)
+
+-- | Default connection pool configuration (optimized for high throughput)
+defaultConnectionPoolConfig :: ConnectionPoolConfig
+defaultConnectionPoolConfig =
+  ConnectionPoolConfig
+    { cpcConnectionsPerHost = 100,
+      cpcIdleConnections = 200,
+      cpcIdleTimeoutSeconds = 60
+    }
+
 -- | Configuration for a single provider
 data ProviderConfig = ProviderConfig
   { pcEnabled :: Bool,
@@ -126,7 +154,8 @@ data Config = Config
     cfgRequestTimeout :: Int, -- Seconds
     cfgMaxRetries :: Int,
     cfgAdminApiKey :: Maybe Text, -- Admin API key for observability endpoints
-    cfgCacheConfig :: ResponseCacheConfig -- Response cache for semantic deduplication
+    cfgCacheConfig :: ResponseCacheConfig, -- Response cache for semantic deduplication
+    cfgPoolConfig :: ConnectionPoolConfig -- HTTP connection pool settings
   }
   deriving (Eq, Show)
 
@@ -198,7 +227,8 @@ defaultConfig =
       cfgRequestTimeout = 120,
       cfgMaxRetries = 3,
       cfgAdminApiKey = Nothing, -- Must be set via ADMIN_API_KEY env var
-      cfgCacheConfig = defaultResponseCacheConfig
+      cfgCacheConfig = defaultResponseCacheConfig,
+      cfgPoolConfig = defaultConnectionPoolConfig
     }
 
 -- ════════════════════════════════════════════════════════════════════════════
@@ -315,6 +345,17 @@ loadConfigFromEnv = do
             rccTtlSeconds = cacheTtl
           }
 
+  -- Connection pool configuration
+  poolConnsPerHost <- fromMaybe 100 . (>>= readMaybe) <$> lookupEnv "POOL_CONNECTIONS_PER_HOST"
+  poolIdleConns <- fromMaybe 200 . (>>= readMaybe) <$> lookupEnv "POOL_IDLE_CONNECTIONS"
+  poolIdleTimeout <- fromMaybe 60 . (>>= readMaybe) <$> lookupEnv "POOL_IDLE_TIMEOUT_SECONDS"
+  let poolConfig =
+        ConnectionPoolConfig
+          { cpcConnectionsPerHost = poolConnsPerHost,
+            cpcIdleConnections = poolIdleConns,
+            cpcIdleTimeoutSeconds = poolIdleTimeout
+          }
+
   let vertexBaseUrl =
         if T.null gcpProject
           then ""
@@ -389,7 +430,8 @@ loadConfigFromEnv = do
         cfgRequestTimeout = 120,
         cfgMaxRetries = 3,
         cfgAdminApiKey = adminApiKey,
-        cfgCacheConfig = cacheConfig
+        cfgCacheConfig = cacheConfig,
+        cfgPoolConfig = poolConfig
       }
 
 -- | Load configuration (currently just from env, could add file support)

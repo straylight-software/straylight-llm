@@ -60,11 +60,13 @@ import Config
         cfgBaseten,
         cfgCacheConfig,
         cfgOpenRouter,
+        cfgPoolConfig,
         cfgRequestTimeout,
         cfgTriton,
         cfgVenice,
         cfgVertex
       ),
+    ConnectionPoolConfig (cpcConnectionsPerHost, cpcIdleConnections),
     ProviderConfig,
     ResponseCacheConfig (rccEnabled, rccMaxSize, rccTtlSeconds),
   )
@@ -238,18 +240,18 @@ defaultChain = [Triton, Venice, Vertex, Baseten, OpenRouter, Anthropic]
 makeRouter :: Config -> IO Router
 makeRouter config = do
   -- Create HTTP manager optimized for high-throughput billion-agent scale
-  -- Key optimizations:
-  --   1. Increased connection pool (10 -> 100 per host)
-  --   2. Longer idle timeout (30s -> 60s) to reuse connections
-  --   3. Response timeout from config
-  let settings =
+  -- Configurable via POOL_CONNECTIONS_PER_HOST, POOL_IDLE_CONNECTIONS, POOL_IDLE_TIMEOUT_SECONDS
+  let poolConf = cfgPoolConfig config
+      settings =
         HCT.tlsManagerSettings
           { HC.managerResponseTimeout =
               HC.responseTimeoutMicro (cfgRequestTimeout config * 1000000),
-            -- Connection pool size per host (default is 10, we use 100 for swarm scale)
-            HC.managerConnCount = 100,
-            -- Idle connection timeout in microseconds (60 seconds)
-            HC.managerIdleConnectionCount = 200
+            -- Connection pool size per host (configurable, default 100)
+            HC.managerConnCount = cpcConnectionsPerHost poolConf,
+            -- Idle connection pool limit (configurable, default 200)
+            HC.managerIdleConnectionCount = cpcIdleConnections poolConf
+            -- Note: managerIdleConnectionCount is total idle connections, not timeout
+            -- http-client doesn't expose idle timeout directly in ManagerSettings
           }
   manager <- HC.newManager settings
 

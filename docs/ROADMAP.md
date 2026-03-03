@@ -31,7 +31,7 @@ straylight-llm is a production-grade OpenAI-compatible LLM gateway with:
 - [x] Request/response logging with configurable redaction (via `LOG_LEVEL`)
 - [x] Rate limiting per API key (via `RATE_LIMIT_ENABLED=true`, `RATE_LIMIT_RPM`, `RATE_LIMIT_BURST`)
 - [x] Request caching (via `CACHE_ENABLED=true`, `CACHE_MAX_SIZE`, `CACHE_TTL_SECONDS`)
-- [ ] Connection pooling improvements
+- [x] Connection pooling configurable (via `POOL_CONNECTIONS_PER_HOST`, `POOL_IDLE_CONNECTIONS`, `POOL_IDLE_TIMEOUT_SECONDS`)
 
 ## v0.3 - Provider Expansion
 
