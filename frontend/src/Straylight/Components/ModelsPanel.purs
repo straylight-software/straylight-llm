@@ -7,6 +7,7 @@ module Straylight.Components.ModelsPanel
 import Prelude
 
 import Data.Array as Array
+import Data.Maybe (Maybe(..))
 import Effect.Aff.Class (class MonadAff)
 import Halogen as H
 import Halogen.HTML as HH

@@ -27,6 +27,7 @@ module Straylight.Components.UI
 import Prelude
 
 import Data.Array (range)
+import Data.Maybe (Maybe(..))
 import Halogen.HTML as HH
 import Halogen.HTML.Properties as HP
 import Hydrogen.Data.RemoteData (RemoteData(..))

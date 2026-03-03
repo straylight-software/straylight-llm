@@ -4,6 +4,7 @@
 -- | Convention: ["resource"] for lists, ["resource", id] for singles.
 module Straylight.QueryKeys where
 
+import Prelude (show)
 import Hydrogen.Query (QueryKey)
 
 

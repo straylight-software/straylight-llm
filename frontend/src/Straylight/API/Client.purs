@@ -34,7 +34,7 @@ import Prelude
 
 import Affjax.Web as AX
 import Affjax.ResponseFormat as ResponseFormat
-import Data.Argonaut (class DecodeJson, decodeJson, JsonDecodeError(TypeMismatch, MissingValue, UnexpectedValue), printJsonDecodeError)
+import Data.Argonaut (class DecodeJson, class EncodeJson, decodeJson, encodeJson, JsonDecodeError(TypeMismatch, MissingValue, UnexpectedValue), printJsonDecodeError)
 import Data.Argonaut.Decode.Decoders as Decoders
 import Data.Argonaut.Core (toObject)
 import Data.Array as Array
@@ -117,6 +117,15 @@ instance decodeJsonCoeffect :: DecodeJson Coeffect where
             Nothing -> Left MissingValue
           _ -> Left (UnexpectedValue json)
 
+instance encodeJsonCoeffect :: EncodeJson Coeffect where
+  encodeJson = case _ of
+    Pure -> encodeJson { type: "pure" }
+    Network -> encodeJson { type: "network" }
+    Auth provider -> encodeJson { type: "auth", provider }
+    Sandbox path -> encodeJson { type: "sandbox", path }
+    Filesystem path -> encodeJson { type: "filesystem", path }
+    Combined coeffects -> encodeJson { type: "combined", coeffects: map encodeJson coeffects }
+
 type NetworkAccess =
   { url :: String
   , method :: String
@@ -183,6 +192,9 @@ instance decodeJsonRequestStatus :: DecodeJson RequestStatus where
       "error" -> Right Error
       "retrying" -> Right Retrying
       _ -> Left (UnexpectedValue json)
+
+instance encodeJsonRequestStatus :: EncodeJson RequestStatus where
+  encodeJson = encodeJson <<< statusToString
 
 -- | Response from GET /v1/admin/requests
 type RequestsResponse =

@@ -11,21 +11,22 @@ import Prelude
 import Data.Maybe (Maybe(..))
 import Data.Time.Duration (Milliseconds(..))
 import Effect (Effect)
-import Effect.Aff (launchAff_)
 import Halogen as H
 import Halogen.Aff as HA
 import Halogen.VDom.Driver (runUI)
 import Hydrogen.Query as Q
 import Hydrogen.Router as Router
+import Hydrogen.Router (parseRoute)
+import Web.DOM.ParentNode (QuerySelector(..))
 
 import Straylight.App as App
-import Straylight.Route (Route, parseRoute)
+import Straylight.Route (Route)
 
 
 main :: Effect Unit
 main = HA.runHalogenAff do
   body <- HA.awaitBody
-  el <- HA.selectElement (HA.QuerySelector "#app")
+  el <- HA.selectElement (QuerySelector "#app")
   
   case el of
     Nothing -> pure unit

@@ -6,6 +6,7 @@ module Straylight.Components.HealthPanel
 
 import Prelude
 
+import Data.Maybe (Maybe(..))
 import Effect.Aff.Class (class MonadAff)
 import Halogen as H
 import Halogen.HTML as HH
