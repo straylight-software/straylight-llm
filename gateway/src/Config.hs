@@ -22,6 +22,16 @@ module Config
         cfgPort,
         cfgHost,
         cfgTriton,
+        -- High-throughput providers (no rate limits, MoE optimized)
+        cfgTogether,
+        cfgSambaNova,
+        cfgFireworks,
+        cfgNovita,
+        cfgDeepInfra,
+        cfgModal,
+        cfgGroq,
+        cfgCerebras,
+        -- Standard providers
         cfgVenice,
         cfgVertex,
         cfgBaseten,
@@ -144,7 +154,18 @@ data ProviderConfig = ProviderConfig
 data Config = Config
   { cfgPort :: Int,
     cfgHost :: Text,
+    -- Tier 1: Local inference
     cfgTriton :: ProviderConfig, -- Local Triton/TensorRT-LLM (FIRST in chain)
+    -- Tier 2: High-throughput providers (no rate limits, MoE optimized)
+    cfgTogether :: ProviderConfig, -- Together AI - OpenAI-compatible, fast open models
+    cfgSambaNova :: ProviderConfig, -- SambaNova - RDU hardware, massive throughput
+    cfgFireworks :: ProviderConfig, -- Fireworks - Optimized inference
+    cfgNovita :: ProviderConfig, -- Novita AI - NO rate limits
+    cfgDeepInfra :: ProviderConfig, -- DeepInfra - Good open model coverage
+    cfgModal :: ProviderConfig, -- Modal - Serverless GPU, burst capacity
+    cfgGroq :: ProviderConfig, -- Groq - LPU hardware, insane speed
+    cfgCerebras :: ProviderConfig, -- Cerebras - Wafer-scale, enterprise throughput
+    -- Tier 3: Standard providers
     cfgVenice :: ProviderConfig,
     cfgVertex :: ProviderConfig,
     cfgBaseten :: ProviderConfig,
@@ -169,6 +190,7 @@ defaultConfig =
   Config
     { cfgPort = 8080,
       cfgHost = "0.0.0.0",
+      -- Tier 1: Local inference
       cfgTriton =
         ProviderConfig
           { pcEnabled = False, -- Disabled by default (requires local Triton server)
@@ -177,6 +199,72 @@ defaultConfig =
             pcApiKey = Nothing, -- Local inference, no auth needed
             pcVertexConfig = Nothing
           },
+      -- Tier 2: High-throughput providers (disabled by default, need API keys)
+      cfgTogether =
+        ProviderConfig
+          { pcEnabled = False,
+            pcBaseUrl = "https://api.together.xyz/v1",
+            pcApiKeyPath = Nothing,
+            pcApiKey = Nothing,
+            pcVertexConfig = Nothing
+          },
+      cfgSambaNova =
+        ProviderConfig
+          { pcEnabled = False,
+            pcBaseUrl = "https://api.sambanova.ai/v1",
+            pcApiKeyPath = Nothing,
+            pcApiKey = Nothing,
+            pcVertexConfig = Nothing
+          },
+      cfgFireworks =
+        ProviderConfig
+          { pcEnabled = False,
+            pcBaseUrl = "https://api.fireworks.ai/inference/v1",
+            pcApiKeyPath = Nothing,
+            pcApiKey = Nothing,
+            pcVertexConfig = Nothing
+          },
+      cfgNovita =
+        ProviderConfig
+          { pcEnabled = False,
+            pcBaseUrl = "https://api.novita.ai/v3/openai",
+            pcApiKeyPath = Nothing,
+            pcApiKey = Nothing,
+            pcVertexConfig = Nothing
+          },
+      cfgDeepInfra =
+        ProviderConfig
+          { pcEnabled = False,
+            pcBaseUrl = "https://api.deepinfra.com/v1/openai",
+            pcApiKeyPath = Nothing,
+            pcApiKey = Nothing,
+            pcVertexConfig = Nothing
+          },
+      cfgModal =
+        ProviderConfig
+          { pcEnabled = False,
+            pcBaseUrl = "", -- Modal requires custom endpoint per deployment
+            pcApiKeyPath = Nothing,
+            pcApiKey = Nothing,
+            pcVertexConfig = Nothing
+          },
+      cfgGroq =
+        ProviderConfig
+          { pcEnabled = False,
+            pcBaseUrl = "https://api.groq.com/openai/v1",
+            pcApiKeyPath = Nothing,
+            pcApiKey = Nothing,
+            pcVertexConfig = Nothing
+          },
+      cfgCerebras =
+        ProviderConfig
+          { pcEnabled = False,
+            pcBaseUrl = "https://api.cerebras.ai/v1",
+            pcApiKeyPath = Nothing,
+            pcApiKey = Nothing,
+            pcVertexConfig = Nothing
+          },
+      -- Tier 3: Standard providers
       cfgVenice =
         ProviderConfig
           { pcEnabled = True,
@@ -281,6 +369,37 @@ parseEnabled s = case map toLower s of
 --
 --   ADMIN_API_KEY             - Admin API key for observability endpoints
 --
+--   TRITON_URL                - Triton openai-proxy URL (default: http://localhost:9000/v1)
+--   TRITON_ENABLED            - Enable local Triton inference (default: false)
+--
+--   -- High-throughput providers (Tier 2: no rate limits, MoE optimized)
+--   TOGETHER_API_KEY          - Together AI API key
+--   TOGETHER_API_KEY_FILE     - Path to Together API key file
+--
+--   SAMBANOVA_API_KEY         - SambaNova API key (RDU hardware, massive throughput)
+--   SAMBANOVA_API_KEY_FILE    - Path to SambaNova API key file
+--
+--   FIREWORKS_API_KEY         - Fireworks AI API key
+--   FIREWORKS_API_KEY_FILE    - Path to Fireworks API key file
+--
+--   NOVITA_API_KEY            - Novita AI API key (NO rate limits!)
+--   NOVITA_API_KEY_FILE       - Path to Novita API key file
+--
+--   DEEPINFRA_API_KEY         - DeepInfra API key
+--   DEEPINFRA_API_KEY_FILE    - Path to DeepInfra API key file
+--
+--   MODAL_TOKEN_ID            - Modal token ID
+--   MODAL_TOKEN_SECRET        - Modal token secret
+--   MODAL_ENDPOINT            - Modal custom endpoint URL (required)
+--   MODAL_API_KEY_FILE        - Path to Modal token ID file
+--
+--   GROQ_API_KEY              - Groq API key (LPU hardware, insane speed)
+--   GROQ_API_KEY_FILE         - Path to Groq API key file
+--
+--   CEREBRAS_API_KEY          - Cerebras API key (wafer-scale inference)
+--   CEREBRAS_API_KEY_FILE     - Path to Cerebras API key file
+--
+--   -- Standard providers (Tier 3)
 --   VENICE_API_KEY            - Venice AI API key
 --   VENICE_API_KEY_FILE       - Path to Venice API key file
 --
@@ -296,9 +415,6 @@ parseEnabled s = case map toLower s of
 --
 --   ANTHROPIC_API_KEY         - Anthropic API key
 --   ANTHROPIC_API_KEY_FILE    - Path to Anthropic API key file
---
---   TRITON_URL                - Triton openai-proxy URL (default: http://localhost:9000/v1)
---   TRITON_ENABLED            - Enable local Triton inference (default: false)
 loadConfigFromEnv :: IO Config
 loadConfigFromEnv = do
   -- Server settings (use readMaybe, never partial read)
@@ -309,6 +425,41 @@ loadConfigFromEnv = do
   -- Triton (local TensorRT-LLM inference - FIRST in chain when enabled)
   tritonUrl <- maybe "http://localhost:9000/v1" T.pack <$> lookupEnv "TRITON_URL"
   tritonEnabled <- maybe False parseEnabled <$> lookupEnv "TRITON_ENABLED"
+
+  -- Tier 2: High-throughput providers (no rate limits, MoE optimized)
+  -- Together AI
+  togetherKeyFile <- lookupEnv "TOGETHER_API_KEY_FILE"
+  togetherKey <- loadApiKey togetherKeyFile Nothing "TOGETHER_API_KEY"
+
+  -- SambaNova (Chris Ré's RDU hardware)
+  sambanovaKeyFile <- lookupEnv "SAMBANOVA_API_KEY_FILE"
+  sambanovaKey <- loadApiKey sambanovaKeyFile Nothing "SAMBANOVA_API_KEY"
+
+  -- Fireworks
+  fireworksKeyFile <- lookupEnv "FIREWORKS_API_KEY_FILE"
+  fireworksKey <- loadApiKey fireworksKeyFile Nothing "FIREWORKS_API_KEY"
+
+  -- Novita AI (NO rate limits)
+  novitaKeyFile <- lookupEnv "NOVITA_API_KEY_FILE"
+  novitaKey <- loadApiKey novitaKeyFile Nothing "NOVITA_API_KEY"
+
+  -- DeepInfra
+  deepinfraKeyFile <- lookupEnv "DEEPINFRA_API_KEY_FILE"
+  deepinfraKey <- loadApiKey deepinfraKeyFile Nothing "DEEPINFRA_API_KEY"
+
+  -- Modal (requires custom endpoint URL)
+  modalKeyFile <- lookupEnv "MODAL_API_KEY_FILE"
+  modalKey <- loadApiKey modalKeyFile Nothing "MODAL_TOKEN_ID"
+  _modalSecret <- loadApiKey Nothing Nothing "MODAL_TOKEN_SECRET" -- TODO: use for auth
+  modalEndpoint <- maybe "" T.pack <$> lookupEnv "MODAL_ENDPOINT"
+
+  -- Groq (LPU hardware, insane speed)
+  groqKeyFile <- lookupEnv "GROQ_API_KEY_FILE"
+  groqKey <- loadApiKey groqKeyFile Nothing "GROQ_API_KEY"
+
+  -- Cerebras (wafer-scale inference)
+  cerebrasKeyFile <- lookupEnv "CEREBRAS_API_KEY_FILE"
+  cerebrasKey <- loadApiKey cerebrasKeyFile Nothing "CEREBRAS_API_KEY"
 
   -- Venice
   veniceKeyFile <- lookupEnv "VENICE_API_KEY_FILE"
@@ -372,6 +523,7 @@ loadConfigFromEnv = do
     Config
       { cfgPort = port,
         cfgHost = host,
+        -- Tier 1: Local inference
         cfgTriton =
           ProviderConfig
             { pcEnabled = tritonEnabled,
@@ -380,6 +532,72 @@ loadConfigFromEnv = do
               pcApiKey = Nothing, -- Local inference, no auth
               pcVertexConfig = Nothing
             },
+        -- Tier 2: High-throughput providers (no rate limits, MoE optimized)
+        cfgTogether =
+          ProviderConfig
+            { pcEnabled = togetherKey /= Nothing,
+              pcBaseUrl = "https://api.together.xyz/v1",
+              pcApiKeyPath = togetherKeyFile,
+              pcApiKey = togetherKey,
+              pcVertexConfig = Nothing
+            },
+        cfgSambaNova =
+          ProviderConfig
+            { pcEnabled = sambanovaKey /= Nothing,
+              pcBaseUrl = "https://api.sambanova.ai/v1",
+              pcApiKeyPath = sambanovaKeyFile,
+              pcApiKey = sambanovaKey,
+              pcVertexConfig = Nothing
+            },
+        cfgFireworks =
+          ProviderConfig
+            { pcEnabled = fireworksKey /= Nothing,
+              pcBaseUrl = "https://api.fireworks.ai/inference/v1",
+              pcApiKeyPath = fireworksKeyFile,
+              pcApiKey = fireworksKey,
+              pcVertexConfig = Nothing
+            },
+        cfgNovita =
+          ProviderConfig
+            { pcEnabled = novitaKey /= Nothing,
+              pcBaseUrl = "https://api.novita.ai/v3/openai",
+              pcApiKeyPath = novitaKeyFile,
+              pcApiKey = novitaKey,
+              pcVertexConfig = Nothing
+            },
+        cfgDeepInfra =
+          ProviderConfig
+            { pcEnabled = deepinfraKey /= Nothing,
+              pcBaseUrl = "https://api.deepinfra.com/v1/openai",
+              pcApiKeyPath = deepinfraKeyFile,
+              pcApiKey = deepinfraKey,
+              pcVertexConfig = Nothing
+            },
+        cfgModal =
+          ProviderConfig
+            { pcEnabled = modalKey /= Nothing && not (T.null modalEndpoint),
+              pcBaseUrl = modalEndpoint, -- Modal requires custom endpoint URL
+              pcApiKeyPath = modalKeyFile,
+              pcApiKey = modalKey, -- TOKEN_ID, TOKEN_SECRET handled by provider
+              pcVertexConfig = Nothing
+            },
+        cfgGroq =
+          ProviderConfig
+            { pcEnabled = groqKey /= Nothing,
+              pcBaseUrl = "https://api.groq.com/openai/v1",
+              pcApiKeyPath = groqKeyFile,
+              pcApiKey = groqKey,
+              pcVertexConfig = Nothing
+            },
+        cfgCerebras =
+          ProviderConfig
+            { pcEnabled = cerebrasKey /= Nothing,
+              pcBaseUrl = "https://api.cerebras.ai/v1",
+              pcApiKeyPath = cerebrasKeyFile,
+              pcApiKey = cerebrasKey,
+              pcVertexConfig = Nothing
+            },
+        -- Tier 3: Standard providers
         cfgVenice =
           ProviderConfig
             { pcEnabled = veniceKey /= Nothing,

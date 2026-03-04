@@ -22,8 +22,9 @@
 
 module Router
   ( -- * Router
-    Router (Router, routerManager, routerProviders, routerConfig, routerTritonConfig, routerVeniceConfig, routerVertexConfig, routerBasetenConfig, routerOpenRouterConfig, routerAnthropicConfig, routerProofCache, routerModelRegistry, routerMetrics, routerBackpressure, routerCircuitBreakers, routerRequestHistory, routerAdminSemaphore, routerResponseCache, routerEventBroadcaster, routerMetricsCollector),
+    Router (Router, routerManager, routerProviders, routerConfig, routerTritonConfig, routerTogetherConfig, routerSambanovaConfig, routerFireworksConfig, routerNovitaConfig, routerDeepInfraConfig, routerModalConfig, routerGroqConfig, routerCerebrasConfig, routerVeniceConfig, routerVertexConfig, routerBasetenConfig, routerOpenRouterConfig, routerAnthropicConfig, routerProofCache, routerModelRegistry, routerMetrics, routerBackpressure, routerCircuitBreakers, routerRequestHistory, routerAdminSemaphore, routerResponseCache, routerEventBroadcaster, routerMetricsCollector, routerModelIntelligence),
     makeRouter,
+    closeRouter,
 
     -- * Routing
     routeChat,
@@ -49,6 +50,20 @@ module Router
     EventBroadcaster,
     subscribe,
     encodeSSEEvent,
+
+    -- * Model Intelligence (re-export for API handlers)
+    ModelIntelligence,
+    getModelSpec,
+    getAllSpecs,
+    getProviderSpecs,
+    getNewModels,
+    searchModels,
+    ModelSpec (..),
+    ModelCapabilities (..),
+    ModelPricing (..),
+    ModelModality (..),
+    APIFormat (..),
+    NewModelEvent (..),
   )
 where
 
@@ -59,9 +74,17 @@ import Config
       ( cfgAnthropic,
         cfgBaseten,
         cfgCacheConfig,
+        cfgCerebras,
+        cfgDeepInfra,
+        cfgFireworks,
+        cfgGroq,
+        cfgModal,
+        cfgNovita,
         cfgOpenRouter,
         cfgPoolConfig,
         cfgRequestTimeout,
+        cfgSambaNova,
+        cfgTogether,
         cfgTriton,
         cfgVenice,
         cfgVertex
@@ -84,8 +107,40 @@ import Network.HTTP.Client qualified as HC
 import Network.HTTP.Client.TLS qualified as HCT
 import Provider.Anthropic (makeAnthropicProvider)
 import Provider.Baseten (makeBasetenProvider)
+-- Query functions (exposed for API handlers)
+
+-- Types (needed for API responses)
+
+-- Lifecycle
+
+-- High-throughput providers (no rate limits, MoE optimized)
+
+import Provider.Cerebras (makeCerebrasProvider)
+import Provider.DeepInfra (makeDeepInfraProvider)
+import Provider.Fireworks (makeFireworksProvider)
+import Provider.Groq (makeGroqProvider)
+import Provider.Modal (makeModalProvider)
+import Provider.ModelIntelligence
+  ( APIFormat (..),
+    ModelCapabilities (..),
+    ModelIntelligence,
+    ModelModality (..),
+    ModelPricing (..),
+    ModelSpec (..),
+    NewModelEvent (..),
+    closeModelIntelligence,
+    getAllSpecs,
+    getModelSpec,
+    getNewModels,
+    getProviderSpecs,
+    makeModelIntelligence,
+    searchModels,
+  )
 import Provider.ModelRegistry (ModelRegistry, makeModelRegistry, registrySupportsModel)
+import Provider.Novita (makeNovitaProvider)
 import Provider.OpenRouter (makeOpenRouterProvider)
+import Provider.SambaNova (makeSambanovaProvider)
+import Provider.Together (makeTogetherProvider)
 import Provider.Triton (makeTritonProvider)
 import Provider.Types
   ( Provider
@@ -111,9 +166,17 @@ import Provider.Types
     ProviderName
       ( Anthropic,
         Baseten,
+        Cerebras,
+        DeepInfra,
+        Fireworks,
+        Groq,
         LambdaLabs,
+        Modal,
+        Novita,
         OpenRouter,
         RunPod,
+        SambaNova,
+        Together,
         Triton,
         VastAI,
         Venice,
@@ -210,7 +273,18 @@ data Router = Router
   { routerManager :: HC.Manager,
     routerProviders :: ProviderChain,
     routerConfig :: Config,
+    -- Tier 1: Local inference
     routerTritonConfig :: IORef ProviderConfig, -- Local Triton/TensorRT-LLM (FIRST in chain)
+    -- Tier 2: High-throughput providers (no rate limits, MoE optimized)
+    routerTogetherConfig :: IORef ProviderConfig,
+    routerSambanovaConfig :: IORef ProviderConfig,
+    routerFireworksConfig :: IORef ProviderConfig,
+    routerNovitaConfig :: IORef ProviderConfig,
+    routerDeepInfraConfig :: IORef ProviderConfig,
+    routerModalConfig :: IORef ProviderConfig,
+    routerGroqConfig :: IORef ProviderConfig,
+    routerCerebrasConfig :: IORef ProviderConfig,
+    -- Tier 3: Standard providers
     routerVeniceConfig :: IORef ProviderConfig,
     routerVertexConfig :: IORef ProviderConfig,
     routerBasetenConfig :: IORef ProviderConfig,
@@ -231,7 +305,10 @@ data Router = Router
 
     -- Real-time event broadcasting (SSE)
     routerEventBroadcaster :: EventBroadcaster, -- SSE event broadcaster
-    routerMetricsCollector :: MetricsCollector  -- Rolling window metrics for SSE emission
+    routerMetricsCollector :: MetricsCollector, -- Rolling window metrics for SSE emission
+
+    -- Model intelligence (specs, new model detection, capabilities)
+    routerModelIntelligence :: ModelIntelligence
   }
 
 -- | Default provider chain order
@@ -264,7 +341,18 @@ makeRouter config = do
   manager <- HC.newManager settings
 
   -- Create config refs (allows runtime updates)
+  -- Tier 1: Local inference
   tritonRef <- newIORef (cfgTriton config)
+  -- Tier 2: High-throughput providers (no rate limits, MoE optimized)
+  togetherRef <- newIORef (cfgTogether config)
+  sambanovaRef <- newIORef (cfgSambaNova config)
+  fireworksRef <- newIORef (cfgFireworks config)
+  novitaRef <- newIORef (cfgNovita config)
+  deepinfraRef <- newIORef (cfgDeepInfra config)
+  modalRef <- newIORef (cfgModal config)
+  groqRef <- newIORef (cfgGroq config)
+  cerebrasRef <- newIORef (cfgCerebras config)
+  -- Tier 3: Standard providers
   veniceRef <- newIORef (cfgVenice config)
   vertexRef <- newIORef (cfgVertex config)
   basetenRef <- newIORef (cfgBaseten config)
@@ -272,19 +360,53 @@ makeRouter config = do
   anthropicRef <- newIORef (cfgAnthropic config)
 
   -- Create providers
-  let tritonProvider = makeTritonProvider tritonRef -- LOCAL inference FIRST
+  -- Tier 1: Local inference (zero cost)
+  let tritonProvider = makeTritonProvider tritonRef
+
+  -- Tier 2: High-throughput providers (MoE optimized, no/flexible rate limits)
+  -- These are preferred for billion-agent scale due to throughput
+  let togetherProvider = makeTogetherProvider togetherRef
+  let sambanovaProvider = makeSambanovaProvider sambanovaRef
+  let fireworksProvider = makeFireworksProvider fireworksRef
+  let novitaProvider = makeNovitaProvider novitaRef
+  let deepinfraProvider = makeDeepInfraProvider deepinfraRef
+  let modalProvider = makeModalProvider modalRef
+  let groqProvider = makeGroqProvider groqRef
+  let cerebrasProvider = makeCerebrasProvider cerebrasRef
+
+  -- Tier 3: Standard providers
   let veniceProvider = makeVeniceProvider veniceRef
   vertexProvider <- makeVertexProvider vertexRef
   let basetenProvider = makeBasetenProvider basetenRef
   let openrouterProvider = makeOpenRouterProvider openrouterRef
   let anthropicProvider = makeAnthropicProvider anthropicRef
 
-  -- Build chain in priority order:
+  -- Build chain in priority order for billion-agent scale:
   -- 1. Triton first for local inference (fastest, no cost)
-  -- 2. Venice, Vertex, Baseten for their specific models
-  -- 3. Anthropic for Claude models (direct API access, preferred over aggregators)
-  -- 4. OpenRouter LAST as universal fallback (aggregator, use only when no direct provider)
-  let providers = [tritonProvider, veniceProvider, vertexProvider, basetenProvider, anthropicProvider, openrouterProvider]
+  -- 2. High-throughput MoE providers (SambaNova, Novita, Groq, Cerebras - insane speed)
+  -- 3. Other high-throughput (Together, Fireworks, DeepInfra)
+  -- 4. Modal for burst capacity
+  -- 5. Standard providers (Venice, Vertex, Baseten)
+  -- 6. Anthropic for Claude models (direct API access)
+  -- 7. OpenRouter LAST as universal fallback (aggregator)
+  let providers =
+        [ tritonProvider,
+          -- Tier 2: High-throughput (prioritize by speed/throughput)
+          sambanovaProvider, -- RDU hardware, massive throughput
+          novitaProvider, -- NO rate limits
+          groqProvider, -- LPU hardware, insane speed
+          cerebrasProvider, -- Wafer-scale inference
+          togetherProvider, -- Fast open models
+          fireworksProvider, -- Optimized inference
+          deepinfraProvider, -- Good coverage
+          modalProvider, -- Burst capacity
+          -- Tier 3: Standard providers
+          veniceProvider,
+          vertexProvider,
+          basetenProvider,
+          anthropicProvider, -- Direct Anthropic API
+          openrouterProvider -- Universal fallback (aggregator)
+        ]
 
   -- Create proof cache
   proofCacheRef <- newIORef Map.empty
@@ -299,7 +421,18 @@ makeRouter config = do
   backpressure <- newRequestSemaphore 10000
 
   -- Circuit breakers: one per provider
+  -- Tier 1
   tritonCB <- newCircuitBreaker "triton" defaultCircuitBreakerConfig
+  -- Tier 2: High-throughput
+  togetherCB <- newCircuitBreaker "together" defaultCircuitBreakerConfig
+  sambanovaCB <- newCircuitBreaker "sambanova" defaultCircuitBreakerConfig
+  fireworksCB <- newCircuitBreaker "fireworks" defaultCircuitBreakerConfig
+  novitaCB <- newCircuitBreaker "novita" defaultCircuitBreakerConfig
+  deepinfraCB <- newCircuitBreaker "deepinfra" defaultCircuitBreakerConfig
+  modalCB <- newCircuitBreaker "modal" defaultCircuitBreakerConfig
+  groqCB <- newCircuitBreaker "groq" defaultCircuitBreakerConfig
+  cerebrasCB <- newCircuitBreaker "cerebras" defaultCircuitBreakerConfig
+  -- Tier 3
   veniceCB <- newCircuitBreaker "venice" defaultCircuitBreakerConfig
   vertexCB <- newCircuitBreaker "vertex" defaultCircuitBreakerConfig
   basetenCB <- newCircuitBreaker "baseten" defaultCircuitBreakerConfig
@@ -308,7 +441,18 @@ makeRouter config = do
 
   let circuitBreakers =
         Map.fromList
-          [ (Triton, tritonCB),
+          [ -- Tier 1
+            (Triton, tritonCB),
+            -- Tier 2: High-throughput
+            (Together, togetherCB),
+            (SambaNova, sambanovaCB),
+            (Fireworks, fireworksCB),
+            (Novita, novitaCB),
+            (DeepInfra, deepinfraCB),
+            (Modal, modalCB),
+            (Groq, groqCB),
+            (Cerebras, cerebrasCB),
+            -- Tier 3
             (Venice, veniceCB),
             (Vertex, vertexCB),
             (Baseten, basetenCB),
@@ -341,12 +485,27 @@ makeRouter config = do
   -- Start the metrics emission loop (broadcasts every 10 seconds)
   _ <- startMetricsLoop eventBroadcaster metricsCollector
 
+  -- Model intelligence system (specs, new model detection, capabilities)
+  -- Syncs every 5 minutes to detect new models across providers
+  modelIntelligence <- makeModelIntelligence manager providers eventBroadcaster 300
+
   pure
     Router
       { routerManager = manager,
         routerProviders = providers,
         routerConfig = config,
+        -- Tier 1
         routerTritonConfig = tritonRef,
+        -- Tier 2: High-throughput
+        routerTogetherConfig = togetherRef,
+        routerSambanovaConfig = sambanovaRef,
+        routerFireworksConfig = fireworksRef,
+        routerNovitaConfig = novitaRef,
+        routerDeepInfraConfig = deepinfraRef,
+        routerModalConfig = modalRef,
+        routerGroqConfig = groqRef,
+        routerCerebrasConfig = cerebrasRef,
+        -- Tier 3
         routerVeniceConfig = veniceRef,
         routerVertexConfig = vertexRef,
         routerBasetenConfig = basetenRef,
@@ -361,8 +520,19 @@ makeRouter config = do
         routerAdminSemaphore = adminSemaphore,
         routerResponseCache = responseCache,
         routerEventBroadcaster = eventBroadcaster,
-        routerMetricsCollector = metricsCollector
+        routerMetricsCollector = metricsCollector,
+        routerModelIntelligence = modelIntelligence
       }
+
+-- | Gracefully shutdown router and release all resources
+-- This MUST be called when the server shuts down to avoid resource leaks
+closeRouter :: Router -> IO ()
+closeRouter router = do
+  -- Stop model intelligence sync thread
+  closeModelIntelligence (routerModelIntelligence router)
+
+-- Note: ModelRegistry also has a sync thread we should close
+-- TODO: Add closeModelRegistry when implementing full cleanup
 
 -- ════════════════════════════════════════════════════════════════════════════
 --                                                                 // routing
@@ -992,11 +1162,22 @@ cbStateToSSE CB.HalfOpen = CircuitHalfOpen
 -- | Convert ProviderName to Text
 providerNameToText :: ProviderName -> Text
 providerNameToText Triton = "triton"
+-- Tier 2: High-throughput
+providerNameToText Together = "together"
+providerNameToText SambaNova = "sambanova"
+providerNameToText Fireworks = "fireworks"
+providerNameToText Novita = "novita"
+providerNameToText DeepInfra = "deepinfra"
+providerNameToText Modal = "modal"
+providerNameToText Groq = "groq"
+providerNameToText Cerebras = "cerebras"
+-- Tier 3
 providerNameToText Venice = "venice"
 providerNameToText Vertex = "vertex"
 providerNameToText Baseten = "baseten"
 providerNameToText OpenRouter = "openrouter"
 providerNameToText Anthropic = "anthropic"
+-- Tier 4: GPU rate providers
 providerNameToText LambdaLabs = "lambdalabs"
 providerNameToText RunPod = "runpod"
 providerNameToText VastAI = "vastai"
@@ -1004,11 +1185,22 @@ providerNameToText VastAI = "vastai"
 -- | Convert Text to ProviderName (for history storage)
 textToProviderName :: Text -> Maybe ProviderName
 textToProviderName "triton" = Just Triton
+-- Tier 2: High-throughput
+textToProviderName "together" = Just Together
+textToProviderName "sambanova" = Just SambaNova
+textToProviderName "fireworks" = Just Fireworks
+textToProviderName "novita" = Just Novita
+textToProviderName "deepinfra" = Just DeepInfra
+textToProviderName "modal" = Just Modal
+textToProviderName "groq" = Just Groq
+textToProviderName "cerebras" = Just Cerebras
+-- Tier 3
 textToProviderName "venice" = Just Venice
 textToProviderName "vertex" = Just Vertex
 textToProviderName "baseten" = Just Baseten
 textToProviderName "openrouter" = Just OpenRouter
 textToProviderName "anthropic" = Just Anthropic
+-- Tier 4: GPU rate providers
 textToProviderName "lambdalabs" = Just LambdaLabs
 textToProviderName "runpod" = Just RunPod
 textToProviderName "vastai" = Just VastAI

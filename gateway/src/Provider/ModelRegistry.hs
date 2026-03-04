@@ -77,7 +77,7 @@ import Provider.Types
         TimeoutError,
         UnknownError
       ),
-    ProviderName (Anthropic, Baseten, LambdaLabs, OpenRouter, RunPod, Triton, VastAI, Venice, Vertex),
+    ProviderName (Anthropic, Baseten, Cerebras, DeepInfra, Fireworks, Groq, LambdaLabs, Modal, Novita, OpenRouter, RunPod, SambaNova, Together, Triton, VastAI, Venice, Vertex),
     ProviderResult (Failure, Retry, Success),
     RequestContext (RequestContext, rcClientIp, rcManager, rcRequestId),
     StreamCallback,
@@ -312,8 +312,86 @@ fallbackSupportsModel Baseten modelId =
     [ "llama-",
       "mistral-",
       "deepseek-",
-      "deepseek-ai/",  -- Full org/model format (e.g., deepseek-ai/DeepSeek-V3.1)
+      "deepseek-ai/", -- Full org/model format (e.g., deepseek-ai/DeepSeek-V3.1)
       "qwen-"
+    ]
+-- Tier 2: High-throughput providers (MoE optimized, no rate limits)
+fallbackSupportsModel Together modelId =
+  -- Together AI supports many open models
+  any
+    (`T.isPrefixOf` modelId)
+    [ "meta-llama/",
+      "mistralai/",
+      "togethercomputer/",
+      "deepseek-ai/",
+      "Qwen/",
+      "llama-",
+      "mixtral-",
+      "deepseek-"
+    ]
+fallbackSupportsModel SambaNova modelId =
+  -- SambaNova optimized for MoE models (DeepSeek, Qwen)
+  any
+    (`T.isPrefixOf` modelId)
+    [ "Meta-Llama-",
+      "DeepSeek-",
+      "deepseek-",
+      "Qwen",
+      "Mistral-"
+    ]
+fallbackSupportsModel Fireworks modelId =
+  -- Fireworks optimized inference
+  any
+    (`T.isPrefixOf` modelId)
+    [ "accounts/fireworks/models/",
+      "llama-",
+      "mixtral-",
+      "qwen-",
+      "deepseek-"
+    ]
+fallbackSupportsModel Novita modelId =
+  -- Novita AI - NO rate limits, broad model support
+  any
+    (`T.isPrefixOf` modelId)
+    [ "meta-llama/",
+      "deepseek/",
+      "qwen/",
+      "mistralai/",
+      "llama-",
+      "deepseek-",
+      "qwen-"
+    ]
+fallbackSupportsModel DeepInfra modelId =
+  -- DeepInfra good open model coverage
+  any
+    (`T.isPrefixOf` modelId)
+    [ "meta-llama/",
+      "mistralai/",
+      "deepseek-ai/",
+      "Qwen/",
+      "llama-",
+      "deepseek-"
+    ]
+fallbackSupportsModel Modal _ =
+  -- Modal requires custom deployment, no standard models
+  False
+fallbackSupportsModel Groq modelId =
+  -- Groq LPU hardware - fast inference for select models
+  any
+    (`T.isPrefixOf` modelId)
+    [ "llama-",
+      "llama3-",
+      "mixtral-",
+      "gemma-",
+      "deepseek-"
+    ]
+fallbackSupportsModel Cerebras modelId =
+  -- Cerebras wafer-scale - enterprise throughput
+  any
+    (`T.isPrefixOf` modelId)
+    [ "llama3.1-",
+      "llama-3.3-",
+      "deepseek-"
     ]
 -- GPU compute providers (rate aggregation only, no LLM inference)
 fallbackSupportsModel LambdaLabs _ = False

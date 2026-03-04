@@ -556,3 +556,355 @@ getDashboard cfg = do
     Right response -> case decodeJson response.body of
       Left e -> Left $ printJsonDecodeError e
       Right r -> Right r
+
+
+-- ════════════════════════════════════════════════════════════════════════════
+--                                                  // model intelligence types
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- | Model modality (what types of input/output the model supports)
+data ModelModality
+  = TextOnly
+  | TextAndCode
+  | Vision
+  | Audio
+  | Multimodal
+
+derive instance eqModelModality :: Eq ModelModality
+
+instance decodeJsonModelModality :: DecodeJson ModelModality where
+  decodeJson json = do
+    str <- Decoders.decodeString json
+    case str of
+      "TextOnly" -> Right TextOnly
+      "TextAndCode" -> Right TextAndCode
+      "Vision" -> Right Vision
+      "Audio" -> Right Audio
+      "Multimodal" -> Right Multimodal
+      _ -> Left (UnexpectedValue json)
+
+instance encodeJsonModelModality :: EncodeJson ModelModality where
+  encodeJson = fromString <<< case _ of
+    TextOnly -> "TextOnly"
+    TextAndCode -> "TextAndCode"
+    Vision -> "Vision"
+    Audio -> "Audio"
+    Multimodal -> "Multimodal"
+
+-- | API format the model uses
+data APIFormat
+  = OpenAICompat
+  | AnthropicMessages
+  | GoogleVertex
+  | CustomFormat String
+
+derive instance eqAPIFormat :: Eq APIFormat
+
+instance decodeJsonAPIFormat :: DecodeJson APIFormat where
+  decodeJson json = case toObject json of
+    Nothing -> do
+      str <- Decoders.decodeString json
+      case str of
+        "OpenAICompat" -> Right OpenAICompat
+        "AnthropicMessages" -> Right AnthropicMessages
+        "GoogleVertex" -> Right GoogleVertex
+        _ -> Left (UnexpectedValue json)
+    Just obj -> case Object.lookup "Custom" obj of
+      Just desc -> CustomFormat <$> Decoders.decodeString desc
+      Nothing -> Left (TypeMismatch "Unknown APIFormat variant")
+
+instance encodeJsonAPIFormat :: EncodeJson APIFormat where
+  encodeJson = case _ of
+    OpenAICompat -> fromString "OpenAICompat"
+    AnthropicMessages -> fromString "AnthropicMessages"
+    GoogleVertex -> fromString "GoogleVertex"
+    CustomFormat desc -> fromObject $ Object.singleton "Custom" (fromString desc)
+
+-- | Model capabilities
+type ModelCapabilitiesRec =
+  { capToolUse :: Boolean
+  , capStreaming :: Boolean
+  , capSystemPrompt :: Boolean
+  , capJsonMode :: Boolean
+  , capVision :: Boolean
+  , capCodeExecution :: Boolean
+  , capWebSearch :: Boolean
+  , capFileUpload :: Boolean
+  , capFineTuning :: Boolean
+  , capBatching :: Boolean
+  }
+
+newtype ModelCapabilities = ModelCapabilities ModelCapabilitiesRec
+
+unwrapModelCapabilities :: ModelCapabilities -> ModelCapabilitiesRec
+unwrapModelCapabilities (ModelCapabilities r) = r
+
+instance decodeJsonModelCapabilities :: DecodeJson ModelCapabilities where
+  decodeJson json = case toObject json of
+    Nothing -> Left (TypeMismatch "Expected object for ModelCapabilities")
+    Just obj -> do
+      capToolUse <- getFieldReq obj "capToolUse"
+      capStreaming <- getFieldReq obj "capStreaming"
+      capSystemPrompt <- getFieldReq obj "capSystemPrompt"
+      capJsonMode <- getFieldReq obj "capJsonMode"
+      capVision <- getFieldReq obj "capVision"
+      capCodeExecution <- getFieldReq obj "capCodeExecution"
+      capWebSearch <- getFieldReq obj "capWebSearch"
+      capFileUpload <- getFieldReq obj "capFileUpload"
+      capFineTuning <- getFieldReq obj "capFineTuning"
+      capBatching <- getFieldReq obj "capBatching"
+      pure $ ModelCapabilities { capToolUse, capStreaming, capSystemPrompt, capJsonMode, capVision, capCodeExecution, capWebSearch, capFileUpload, capFineTuning, capBatching }
+
+instance encodeJsonModelCapabilities :: EncodeJson ModelCapabilities where
+  encodeJson (ModelCapabilities mc) = fromObject $ Object.fromFoldable
+    [ Tuple "capToolUse" (fromBoolean mc.capToolUse)
+    , Tuple "capStreaming" (fromBoolean mc.capStreaming)
+    , Tuple "capSystemPrompt" (fromBoolean mc.capSystemPrompt)
+    , Tuple "capJsonMode" (fromBoolean mc.capJsonMode)
+    , Tuple "capVision" (fromBoolean mc.capVision)
+    , Tuple "capCodeExecution" (fromBoolean mc.capCodeExecution)
+    , Tuple "capWebSearch" (fromBoolean mc.capWebSearch)
+    , Tuple "capFileUpload" (fromBoolean mc.capFileUpload)
+    , Tuple "capFineTuning" (fromBoolean mc.capFineTuning)
+    , Tuple "capBatching" (fromBoolean mc.capBatching)
+    ]
+
+-- | Model pricing (per million tokens, USD)
+type ModelPricingRec =
+  { priceInput :: Maybe Number
+  , priceOutput :: Maybe Number
+  , priceCachedInput :: Maybe Number
+  , priceBatch :: Maybe Number
+  , priceFree :: Boolean
+  }
+
+newtype ModelPricing = ModelPricing ModelPricingRec
+
+unwrapModelPricing :: ModelPricing -> ModelPricingRec
+unwrapModelPricing (ModelPricing r) = r
+
+instance decodeJsonModelPricing :: DecodeJson ModelPricing where
+  decodeJson json = case toObject json of
+    Nothing -> Left (TypeMismatch "Expected object for ModelPricing")
+    Just obj -> do
+      priceInput <- getFieldOpt obj "priceInput"
+      priceOutput <- getFieldOpt obj "priceOutput"
+      priceCachedInput <- getFieldOpt obj "priceCachedInput"
+      priceBatch <- getFieldOpt obj "priceBatch"
+      priceFree <- getFieldReq obj "priceFree"
+      pure $ ModelPricing { priceInput, priceOutput, priceCachedInput, priceBatch, priceFree }
+
+instance encodeJsonModelPricing :: EncodeJson ModelPricing where
+  encodeJson (ModelPricing mp) = fromObject $ Object.fromFoldable
+    [ Tuple "priceInput" (encodeJson mp.priceInput)
+    , Tuple "priceOutput" (encodeJson mp.priceOutput)
+    , Tuple "priceCachedInput" (encodeJson mp.priceCachedInput)
+    , Tuple "priceBatch" (encodeJson mp.priceBatch)
+    , Tuple "priceFree" (fromBoolean mp.priceFree)
+    ]
+
+-- | Complete model specification
+type ModelSpecRec =
+  { specId :: String
+  , specProvider :: String
+  , specDisplayName :: Maybe String
+  , specDescription :: Maybe String
+  , specContextWindow :: Maybe Int
+  , specMaxOutput :: Maybe Int
+  , specModality :: ModelModality
+  , specCapabilities :: ModelCapabilities
+  , specPricing :: ModelPricing
+  , specAPIFormat :: APIFormat
+  , specFamily :: Maybe String
+  , specVersion :: Maybe String
+  , specReleaseDate :: Maybe String
+  , specDeprecated :: Boolean
+  , specFirstSeen :: String
+  , specLastSeen :: String
+  , specOwnedBy :: Maybe String
+  }
+
+newtype ModelSpec = ModelSpec ModelSpecRec
+
+unwrapModelSpec :: ModelSpec -> ModelSpecRec
+unwrapModelSpec (ModelSpec r) = r
+
+instance decodeJsonModelSpec :: DecodeJson ModelSpec where
+  decodeJson json = case toObject json of
+    Nothing -> Left (TypeMismatch "Expected object for ModelSpec")
+    Just obj -> do
+      specId <- getFieldReq obj "specId"
+      specProvider <- getFieldReq obj "specProvider"
+      specDisplayName <- getFieldOpt obj "specDisplayName"
+      specDescription <- getFieldOpt obj "specDescription"
+      specContextWindow <- getFieldOpt obj "specContextWindow"
+      specMaxOutput <- getFieldOpt obj "specMaxOutput"
+      specModality <- getFieldReq obj "specModality"
+      specCapabilities <- getFieldReq obj "specCapabilities"
+      specPricing <- getFieldReq obj "specPricing"
+      specAPIFormat <- getFieldReq obj "specAPIFormat"
+      specFamily <- getFieldOpt obj "specFamily"
+      specVersion <- getFieldOpt obj "specVersion"
+      specReleaseDate <- getFieldOpt obj "specReleaseDate"
+      specDeprecated <- getFieldReq obj "specDeprecated"
+      specFirstSeen <- getFieldReq obj "specFirstSeen"
+      specLastSeen <- getFieldReq obj "specLastSeen"
+      specOwnedBy <- getFieldOpt obj "specOwnedBy"
+      pure $ ModelSpec { specId, specProvider, specDisplayName, specDescription, specContextWindow, specMaxOutput, specModality, specCapabilities, specPricing, specAPIFormat, specFamily, specVersion, specReleaseDate, specDeprecated, specFirstSeen, specLastSeen, specOwnedBy }
+
+instance encodeJsonModelSpec :: EncodeJson ModelSpec where
+  encodeJson (ModelSpec ms) = fromObject $ Object.fromFoldable
+    [ Tuple "specId" (fromString ms.specId)
+    , Tuple "specProvider" (fromString ms.specProvider)
+    , Tuple "specDisplayName" (encodeJson ms.specDisplayName)
+    , Tuple "specDescription" (encodeJson ms.specDescription)
+    , Tuple "specContextWindow" (encodeJson ms.specContextWindow)
+    , Tuple "specMaxOutput" (encodeJson ms.specMaxOutput)
+    , Tuple "specModality" (encodeJson ms.specModality)
+    , Tuple "specCapabilities" (encodeJson ms.specCapabilities)
+    , Tuple "specPricing" (encodeJson ms.specPricing)
+    , Tuple "specAPIFormat" (encodeJson ms.specAPIFormat)
+    , Tuple "specFamily" (encodeJson ms.specFamily)
+    , Tuple "specVersion" (encodeJson ms.specVersion)
+    , Tuple "specReleaseDate" (encodeJson ms.specReleaseDate)
+    , Tuple "specDeprecated" (fromBoolean ms.specDeprecated)
+    , Tuple "specFirstSeen" (fromString ms.specFirstSeen)
+    , Tuple "specLastSeen" (fromString ms.specLastSeen)
+    , Tuple "specOwnedBy" (encodeJson ms.specOwnedBy)
+    ]
+
+-- | New model event (for newly detected models)
+type NewModelEventRec =
+  { nmeModelId :: String
+  , nmeProvider :: String
+  , nmeDetectedAt :: String
+  }
+
+newtype NewModelEvent = NewModelEvent NewModelEventRec
+
+unwrapNewModelEvent :: NewModelEvent -> NewModelEventRec
+unwrapNewModelEvent (NewModelEvent r) = r
+
+instance decodeJsonNewModelEvent :: DecodeJson NewModelEvent where
+  decodeJson json = case toObject json of
+    Nothing -> Left (TypeMismatch "Expected object for NewModelEvent")
+    Just obj -> do
+      nmeModelId <- getFieldReq obj "nmeModelId"
+      nmeProvider <- getFieldReq obj "nmeProvider"
+      nmeDetectedAt <- getFieldReq obj "nmeDetectedAt"
+      pure $ NewModelEvent { nmeModelId, nmeProvider, nmeDetectedAt }
+
+instance encodeJsonNewModelEvent :: EncodeJson NewModelEvent where
+  encodeJson (NewModelEvent nme) = fromObject $ Object.fromFoldable
+    [ Tuple "nmeModelId" (fromString nme.nmeModelId)
+    , Tuple "nmeProvider" (fromString nme.nmeProvider)
+    , Tuple "nmeDetectedAt" (fromString nme.nmeDetectedAt)
+    ]
+
+-- | Response from GET /v1/admin/models
+type ModelsListResponseRec =
+  { models :: Array ModelSpec
+  , total :: Int
+  , timestamp :: String
+  }
+
+newtype ModelsListResponse = ModelsListResponse ModelsListResponseRec
+
+unwrapModelsListResponse :: ModelsListResponse -> ModelsListResponseRec
+unwrapModelsListResponse (ModelsListResponse r) = r
+
+instance decodeJsonModelsListResponse :: DecodeJson ModelsListResponse where
+  decodeJson json = case toObject json of
+    Nothing -> Left (TypeMismatch "Expected object for ModelsListResponse")
+    Just obj -> do
+      models <- getFieldReq obj "models"
+      total <- getFieldReq obj "total"
+      timestamp <- getFieldReq obj "timestamp"
+      pure $ ModelsListResponse { models, total, timestamp }
+
+instance encodeJsonModelsListResponse :: EncodeJson ModelsListResponse where
+  encodeJson (ModelsListResponse mlr) = fromObject $ Object.fromFoldable
+    [ Tuple "models" (encodeJson mlr.models)
+    , Tuple "total" (encodeJson mlr.total)
+    , Tuple "timestamp" (fromString mlr.timestamp)
+    ]
+
+-- | Response from GET /v1/admin/models/new
+type ModelsNewResponseRec =
+  { models :: Array NewModelEvent
+  , total :: Int
+  }
+
+newtype ModelsNewResponse = ModelsNewResponse ModelsNewResponseRec
+
+unwrapModelsNewResponse :: ModelsNewResponse -> ModelsNewResponseRec
+unwrapModelsNewResponse (ModelsNewResponse r) = r
+
+instance decodeJsonModelsNewResponse :: DecodeJson ModelsNewResponse where
+  decodeJson json = case toObject json of
+    Nothing -> Left (TypeMismatch "Expected object for ModelsNewResponse")
+    Just obj -> do
+      models <- getFieldReq obj "models"
+      total <- getFieldReq obj "total"
+      pure $ ModelsNewResponse { models, total }
+
+instance encodeJsonModelsNewResponse :: EncodeJson ModelsNewResponse where
+  encodeJson (ModelsNewResponse mnr) = fromObject $ Object.fromFoldable
+    [ Tuple "models" (encodeJson mnr.models)
+    , Tuple "total" (encodeJson mnr.total)
+    ]
+
+
+-- ════════════════════════════════════════════════════════════════════════════
+--                                                // model intelligence api calls
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- | Model list filter options
+type ModelFilter =
+  { provider :: Maybe String
+  , search :: Maybe String
+  }
+
+defaultModelFilter :: ModelFilter
+defaultModelFilter =
+  { provider: Nothing
+  , search: Nothing
+  }
+
+-- | Get all model specs with optional filtering
+getModelSpecs :: Config -> ModelFilter -> Aff (Either String ModelsListResponse)
+getModelSpecs cfg filter = do
+  let params = buildModelFilterParams filter
+      url = mkUrl cfg "/v1/admin/models" <> params
+  result <- AX.get ResponseFormat.json url
+  pure $ case result of
+    Left err -> Left $ AX.printError err
+    Right response -> case decodeJson response.body of
+      Left e -> Left $ printJsonDecodeError e
+      Right r -> Right r
+
+-- | Get newly detected models
+getNewModels :: Config -> Maybe Int -> Aff (Either String ModelsNewResponse)
+getNewModels cfg mLimit = do
+  let limitParam = case mLimit of
+        Nothing -> ""
+        Just n -> "?limit=" <> show n
+      url = mkUrl cfg "/v1/admin/models/new" <> limitParam
+  result <- AX.get ResponseFormat.json url
+  pure $ case result of
+    Left err -> Left $ AX.printError err
+    Right response -> case decodeJson response.body of
+      Left e -> Left $ printJsonDecodeError e
+      Right r -> Right r
+
+-- | Build query params from model filter
+buildModelFilterParams :: ModelFilter -> String
+buildModelFilterParams f = 
+  let params = 
+        [ (\p -> "provider=" <> p) <$> f.provider
+        , (\s -> "search=" <> s) <$> f.search
+        ]
+      validParams = Array.catMaybes params
+  in if Array.null validParams
+       then ""
+       else "?" <> joinWith "&" validParams

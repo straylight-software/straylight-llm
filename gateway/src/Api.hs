@@ -42,6 +42,10 @@ module Api
     ConfigGetAPI,
     ConfigPutAPI,
     DashboardAPI,
+    -- Model Intelligence APIs
+    ModelsListAPI,
+    ModelSpecAPI,
+    ModelsNewAPI,
 
     -- * Types
     HealthResponse (HealthResponse, hrStatus, hrVersion),
@@ -55,6 +59,10 @@ module Api
     ProofVerifyResponse (ProofVerifyResponse, pvrValid, pvrMessage, pvrDetails),
     DashboardResponse (DashboardResponse, drTimestamp, drUptime, drProviders, drTotalRequests, drActiveRequests, drCacheHitRate),
     ProviderHealth (ProviderHealth, phName, phEnabled, phCircuitState, phHealthScore, phLatencyAvg, phLatencyP50, phLatencyP95, phLatencyP99, phTTFTAvg, phTTFTP50, phTTFTP95, phTTFTP99, phErrorRate, phRequestCount, phErrorCount, phLastError),
+    -- Model Intelligence Types
+    ModelsListResponse (ModelsListResponse, mlrModels, mlrTotal, mlrTimestamp),
+    ModelSpecResponse (ModelSpecResponse, msrSpec, msrFound),
+    ModelsNewResponse (ModelsNewResponse, mnrModels, mnrTotal),
   )
 where
 
@@ -509,6 +517,103 @@ type DashboardAPI =
     :> Get '[JSON] DashboardResponse
 
 -- ════════════════════════════════════════════════════════════════════════════
+--                                              // model intelligence endpoints
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- | Model Intelligence: Get all known model specs
+-- GET /v1/admin/models — list all known model specifications
+type ModelsListAPI =
+  "v1"
+    :> "admin"
+    :> "models"
+    :> Header "Authorization" Text
+    :> QueryParam "provider" ProviderName
+    :> QueryParam "search" Text
+    :> Get '[JSON] ModelsListResponse
+
+-- | Model Intelligence: Get specific model spec
+-- GET /v1/admin/models/:modelId — get spec for a specific model
+type ModelSpecAPI =
+  "v1"
+    :> "admin"
+    :> "models"
+    :> Capture "modelId" Text
+    :> Header "Authorization" Text
+    :> QueryParam "provider" ProviderName
+    :> Get '[JSON] ModelSpecResponse
+
+-- | Model Intelligence: Get newly detected models
+-- GET /v1/admin/models/new — get recently detected new models
+type ModelsNewAPI =
+  "v1"
+    :> "admin"
+    :> "models"
+    :> "new"
+    :> Header "Authorization" Text
+    :> QueryParam "limit" Int
+    :> Get '[JSON] ModelsNewResponse
+
+-- | List of model specs response
+data ModelsListResponse = ModelsListResponse
+  { mlrModels :: [Value], -- ModelSpec JSON values
+    mlrTotal :: Int,
+    mlrTimestamp :: Text
+  }
+
+instance ToJSON ModelsListResponse where
+  toJSON mlr =
+    object
+      [ "models" .= mlrModels mlr,
+        "total" .= mlrTotal mlr,
+        "timestamp" .= mlrTimestamp mlr
+      ]
+
+instance FromJSON ModelsListResponse where
+  parseJSON = withObject "ModelsListResponse" $ \v ->
+    ModelsListResponse
+      <$> v .: "models"
+      <*> v .: "total"
+      <*> v .: "timestamp"
+
+-- | Single model spec response
+data ModelSpecResponse = ModelSpecResponse
+  { msrSpec :: Maybe Value, -- ModelSpec JSON or null if not found
+    msrFound :: Bool
+  }
+
+instance ToJSON ModelSpecResponse where
+  toJSON msr =
+    object
+      [ "spec" .= msrSpec msr,
+        "found" .= msrFound msr
+      ]
+
+instance FromJSON ModelSpecResponse where
+  parseJSON = withObject "ModelSpecResponse" $ \v ->
+    ModelSpecResponse
+      <$> v .:? "spec"
+      <*> v .: "found"
+
+-- | Newly detected models response
+data ModelsNewResponse = ModelsNewResponse
+  { mnrModels :: [Value], -- NewModelEvent JSON values
+    mnrTotal :: Int
+  }
+
+instance ToJSON ModelsNewResponse where
+  toJSON mnr =
+    object
+      [ "models" .= mnrModels mnr,
+        "total" .= mnrTotal mnr
+      ]
+
+instance FromJSON ModelsNewResponse where
+  parseJSON = withObject "ModelsNewResponse" $ \v ->
+    ModelsNewResponse
+      <$> v .: "models"
+      <*> v .: "total"
+
+-- ════════════════════════════════════════════════════════════════════════════
 --                                                           // combined api
 -- ════════════════════════════════════════════════════════════════════════════
 
@@ -532,6 +637,10 @@ type GatewayAPI =
     :<|> ConfigGetAPI
     :<|> ConfigPutAPI
     :<|> DashboardAPI
+    -- Model Intelligence
+    :<|> ModelsNewAPI -- Must come before ModelsListAPI (more specific route)
+    :<|> ModelsListAPI
+    :<|> ModelSpecAPI
 
 -- | API proxy
 api :: Proxy GatewayAPI

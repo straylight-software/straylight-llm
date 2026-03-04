@@ -23,7 +23,7 @@
 module Provider.Types
   ( -- * Provider Interface
     Provider (Provider, providerName, providerEnabled, providerChat, providerChatStream, providerEmbeddings, providerModels, providerSupportsModel),
-    ProviderName (Triton, Venice, Vertex, Baseten, OpenRouter, Anthropic, LambdaLabs, RunPod, VastAI),
+    ProviderName (Triton, Together, SambaNova, Fireworks, Novita, DeepInfra, Modal, Groq, Cerebras, Venice, Vertex, Baseten, OpenRouter, Anthropic, LambdaLabs, RunPod, VastAI),
     ProviderResult (Success, Failure, Retry),
     ProviderError (AuthError, RateLimitError, QuotaExceededError, ModelNotFoundError, ProviderUnavailable, InvalidRequestError, InternalError, TimeoutError, UnknownError),
 
@@ -41,24 +41,52 @@ import Data.Text (Text)
 import Effects.Graded (Full, GatewayM)
 import Network.HTTP.Client (Manager)
 import Types (ChatRequest, ChatResponse, EmbeddingRequest, EmbeddingResponse, ModelList)
+import Web.HttpApiData (FromHttpApiData (parseUrlPiece), ToHttpApiData (toUrlPiece))
 
 -- ════════════════════════════════════════════════════════════════════════════
 --                                                                   // types
 -- ════════════════════════════════════════════════════════════════════════════
 
 -- | Provider names for the fallback chain
--- Priority: Triton (local) -> Venice -> Vertex -> Baseten -> OpenRouter -> Anthropic
--- Triton is first: local TensorRT-LLM inference (~50-200ms latency)
--- Anthropic is last: direct API access, used when explicitly requested
--- GPU Rate providers: LambdaLabs, RunPod, VastAI (for pricing aggregation only)
+-- Priority: Triton (local) -> High-throughput -> Aggregators -> Direct APIs
+--
+-- Tier 1: Owned infrastructure (zero marginal cost)
+--   Triton - local TensorRT-LLM inference (~50-200ms latency)
+--
+-- Tier 2: High-throughput providers (no/flexible rate limits)
+--   Together   - Chris Ré adjacent, OpenAI-compatible, fast open models
+--   SambaNova  - Chris Ré's RDU hardware, massive throughput
+--   Fireworks  - Optimized inference, high throughput
+--   Novita     - No rate limits, pay-per-use
+--   DeepInfra  - Good open model coverage, scales with spend
+--   Modal      - Serverless GPU, pay-per-second, burst capacity
+--   Groq       - LPU hardware, insane speed (limited availability)
+--   Cerebras   - Wafer-scale, enterprise throughput
+--
+-- Tier 3: Aggregators and direct APIs
+--   Venice, Vertex, Baseten, OpenRouter, Anthropic
+--
+-- Tier 4: GPU rate providers (pricing aggregation only)
+--   LambdaLabs, RunPod, VastAI
 data ProviderName
-  = Triton
-  | Venice
+  = -- Tier 1: Local inference
+    Triton
+  | -- Tier 2: High-throughput (no rate limits)
+    Together
+  | SambaNova
+  | Fireworks
+  | Novita
+  | DeepInfra
+  | Modal
+  | Groq
+  | Cerebras
+  | -- Tier 3: Standard providers
+    Venice
   | Vertex
   | Baseten
   | OpenRouter
   | Anthropic
-  | -- GPU rate providers (pricing only, no inference)
+  | -- Tier 4: GPU rate providers (pricing only, no inference)
     LambdaLabs
   | RunPod
   | VastAI
@@ -66,6 +94,14 @@ data ProviderName
 
 instance ToJSON ProviderName where
   toJSON Triton = "triton"
+  toJSON Together = "together"
+  toJSON SambaNova = "sambanova"
+  toJSON Fireworks = "fireworks"
+  toJSON Novita = "novita"
+  toJSON DeepInfra = "deepinfra"
+  toJSON Modal = "modal"
+  toJSON Groq = "groq"
+  toJSON Cerebras = "cerebras"
   toJSON Venice = "venice"
   toJSON Vertex = "vertex"
   toJSON Baseten = "baseten"
@@ -77,6 +113,14 @@ instance ToJSON ProviderName where
 
 instance FromJSON ProviderName where
   parseJSON (String "triton") = pure Triton
+  parseJSON (String "together") = pure Together
+  parseJSON (String "sambanova") = pure SambaNova
+  parseJSON (String "fireworks") = pure Fireworks
+  parseJSON (String "novita") = pure Novita
+  parseJSON (String "deepinfra") = pure DeepInfra
+  parseJSON (String "modal") = pure Modal
+  parseJSON (String "groq") = pure Groq
+  parseJSON (String "cerebras") = pure Cerebras
   parseJSON (String "venice") = pure Venice
   parseJSON (String "vertex") = pure Vertex
   parseJSON (String "baseten") = pure Baseten
@@ -86,6 +130,46 @@ instance FromJSON ProviderName where
   parseJSON (String "runpod") = pure RunPod
   parseJSON (String "vastai") = pure VastAI
   parseJSON _ = fail "Invalid provider name"
+
+-- | HTTP API Data instances for URL/query parsing
+instance ToHttpApiData ProviderName where
+  toUrlPiece Triton = "triton"
+  toUrlPiece Together = "together"
+  toUrlPiece SambaNova = "sambanova"
+  toUrlPiece Fireworks = "fireworks"
+  toUrlPiece Novita = "novita"
+  toUrlPiece DeepInfra = "deepinfra"
+  toUrlPiece Modal = "modal"
+  toUrlPiece Groq = "groq"
+  toUrlPiece Cerebras = "cerebras"
+  toUrlPiece Venice = "venice"
+  toUrlPiece Vertex = "vertex"
+  toUrlPiece Baseten = "baseten"
+  toUrlPiece OpenRouter = "openrouter"
+  toUrlPiece Anthropic = "anthropic"
+  toUrlPiece LambdaLabs = "lambdalabs"
+  toUrlPiece RunPod = "runpod"
+  toUrlPiece VastAI = "vastai"
+
+instance FromHttpApiData ProviderName where
+  parseUrlPiece "triton" = Right Triton
+  parseUrlPiece "together" = Right Together
+  parseUrlPiece "sambanova" = Right SambaNova
+  parseUrlPiece "fireworks" = Right Fireworks
+  parseUrlPiece "novita" = Right Novita
+  parseUrlPiece "deepinfra" = Right DeepInfra
+  parseUrlPiece "modal" = Right Modal
+  parseUrlPiece "groq" = Right Groq
+  parseUrlPiece "cerebras" = Right Cerebras
+  parseUrlPiece "venice" = Right Venice
+  parseUrlPiece "vertex" = Right Vertex
+  parseUrlPiece "baseten" = Right Baseten
+  parseUrlPiece "openrouter" = Right OpenRouter
+  parseUrlPiece "anthropic" = Right Anthropic
+  parseUrlPiece "lambdalabs" = Right LambdaLabs
+  parseUrlPiece "runpod" = Right RunPod
+  parseUrlPiece "vastai" = Right VastAI
+  parseUrlPiece other = Left $ "Unknown provider: " <> other
 
 -- | Errors that can occur when calling a provider
 data ProviderError

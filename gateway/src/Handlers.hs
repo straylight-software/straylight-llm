@@ -41,6 +41,10 @@ module Handlers
     configGetHandler,
     configPutHandler,
     dashboardHandler,
+    -- Model Intelligence
+    modelsNewHandler,
+    modelsListHandler,
+    modelSpecHandler,
   )
 where
 
@@ -123,6 +127,10 @@ server router =
     :<|> configGetHandler router
     :<|> configPutHandler router
     :<|> dashboardHandler router
+    -- Model Intelligence (order matches API: ModelsNewAPI, ModelsListAPI, ModelSpecAPI)
+    :<|> modelsNewHandler router
+    :<|> modelsListHandler router
+    :<|> modelSpecHandler router
 
 -- ════════════════════════════════════════════════════════════════════════════
 --                                                                // handlers
@@ -1086,3 +1094,117 @@ estimatePercentile lb percentile =
       case dropWhile (\(_, c) -> fromIntegral c < target) buckets of
         [] -> 15.0 -- Fallback: > 10s, estimate at 15s
         ((latency, _) : _) -> latency
+
+-- ════════════════════════════════════════════════════════════════════════════
+--                                                    // model intelligence
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- | Get newly detected models
+-- GET /v1/admin/models/new?limit=N
+modelsNewHandler :: Router -> Maybe Text -> Maybe Int -> Handler ModelsNewResponse
+modelsNewHandler router mAuth mLimit = do
+  requireAdminAuth router mAuth "models/new"
+
+  let limit = maybe 50 (min 500) mLimit -- Default 50, max 500
+  mResult <- liftIO $ tryWithRequestSlot (routerAdminSemaphore router) $ do
+    newModels <- getNewModels (routerModelIntelligence router) limit
+    pure newModels
+
+  case mResult of
+    Nothing ->
+      throwError
+        err503
+          { errBody =
+              encode $
+                ApiError $
+                  ErrorDetail
+                    "Admin endpoint overloaded (too many concurrent requests)"
+                    "rate_limited"
+                    Nothing
+                    Nothing
+          }
+    Just newModels ->
+      pure $
+        ModelsNewResponse
+          { mnrModels = map toJSON newModels,
+            mnrTotal = length newModels
+          }
+
+-- | List all model specs (with optional provider filter and search)
+-- GET /v1/admin/models?provider=venice&search=claude
+modelsListHandler :: Router -> Maybe Text -> Maybe ProviderName -> Maybe Text -> Handler ModelsListResponse
+modelsListHandler router mAuth mProvider mSearch = do
+  requireAdminAuth router mAuth "models"
+
+  mResult <- liftIO $ tryWithRequestSlot (routerAdminSemaphore router) $ do
+    now <- getCurrentTime
+
+    -- Get specs based on filters
+    specs <- case (mProvider, mSearch) of
+      (Just provider, _) -> getProviderSpecs (routerModelIntelligence router) provider
+      (Nothing, Just query) -> searchModels (routerModelIntelligence router) query
+      (Nothing, Nothing) -> getAllSpecs (routerModelIntelligence router)
+
+    pure (now, specs)
+
+  case mResult of
+    Nothing ->
+      throwError
+        err503
+          { errBody =
+              encode $
+                ApiError $
+                  ErrorDetail
+                    "Admin endpoint overloaded (too many concurrent requests)"
+                    "rate_limited"
+                    Nothing
+                    Nothing
+          }
+    Just (now, specs) ->
+      pure $
+        ModelsListResponse
+          { mlrModels = map toJSON specs,
+            mlrTotal = length specs,
+            mlrTimestamp = T.pack $ iso8601Show now
+          }
+
+-- | Get specific model spec
+-- GET /v1/admin/models/:modelId?provider=venice
+modelSpecHandler :: Router -> Text -> Maybe Text -> Maybe ProviderName -> Handler ModelSpecResponse
+modelSpecHandler router modelId mAuth mProvider = do
+  requireAdminAuth router mAuth "models/:id"
+
+  mResult <- liftIO $ tryWithRequestSlot (routerAdminSemaphore router) $ do
+    -- If provider specified, get exact spec. Otherwise, search all providers.
+    case mProvider of
+      Just provider -> getModelSpec (routerModelIntelligence router) provider modelId
+      Nothing -> do
+        -- Search across all providers for this model
+        allSpecs <- getAllSpecs (routerModelIntelligence router)
+        pure $ find (\s -> specId s == modelId) allSpecs
+
+  case mResult of
+    Nothing ->
+      throwError
+        err503
+          { errBody =
+              encode $
+                ApiError $
+                  ErrorDetail
+                    "Admin endpoint overloaded (too many concurrent requests)"
+                    "rate_limited"
+                    Nothing
+                    Nothing
+          }
+    Just mSpec ->
+      pure $
+        ModelSpecResponse
+          { msrSpec = fmap toJSON mSpec,
+            msrFound = isJust mSpec
+          }
+  where
+    isJust Nothing = False
+    isJust (Just _) = True
+
+    find _ [] = Nothing
+    find p (x : xs) = if p x then Just x else find p xs

@@ -57,12 +57,22 @@ library
     -- // providers
     Provider.Types
     Provider.ModelRegistry
+    Provider.ModelIntelligence
     Provider.Venice
     Provider.Vertex
     Provider.Baseten
     Provider.OpenRouter
     Provider.Anthropic
     Provider.Triton
+    -- // high-throughput providers (no rate limits, MoE optimized)
+    Provider.Together
+    Provider.SambaNova
+    Provider.Fireworks
+    Provider.Novita
+    Provider.DeepInfra
+    Provider.Modal
+    Provider.Groq
+    Provider.Cerebras
     -- // gpu rate providers
     Provider.LambdaLabs
     Provider.RunPod
@@ -145,6 +155,7 @@ library
     , crypton             >=0.30
     , deepseq             >=1.4
     , directory           >=1.3
+    , http-api-data
     , http-client
     , http-client-tls
     , http-types          >=0.12

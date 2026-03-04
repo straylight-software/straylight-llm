@@ -61,7 +61,7 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time.Clock (UTCTime, diffUTCTime, getCurrentTime)
 import Data.Word (Word64)
-import Provider.Types (ProviderError (AuthError, ProviderUnavailable, RateLimitError, TimeoutError), ProviderName (Anthropic, Baseten, LambdaLabs, OpenRouter, RunPod, Triton, VastAI, Venice, Vertex))
+import Provider.Types (ProviderError (AuthError, ProviderUnavailable, RateLimitError, TimeoutError), ProviderName (Anthropic, Baseten, Cerebras, DeepInfra, Fireworks, Groq, LambdaLabs, Modal, Novita, OpenRouter, RunPod, SambaNova, Together, Triton, VastAI, Venice, Vertex))
 
 -- ════════════════════════════════════════════════════════════════════════════
 --                                                                   // types
@@ -215,11 +215,22 @@ instance ToJSON Metrics where
 
       providerNameToText :: ProviderName -> Text
       providerNameToText Triton = "triton"
+      -- Tier 2: High-throughput
+      providerNameToText Together = "together"
+      providerNameToText SambaNova = "sambanova"
+      providerNameToText Fireworks = "fireworks"
+      providerNameToText Novita = "novita"
+      providerNameToText DeepInfra = "deepinfra"
+      providerNameToText Modal = "modal"
+      providerNameToText Groq = "groq"
+      providerNameToText Cerebras = "cerebras"
+      -- Tier 3
       providerNameToText Venice = "venice"
       providerNameToText Vertex = "vertex"
       providerNameToText Baseten = "baseten"
       providerNameToText OpenRouter = "openrouter"
       providerNameToText Anthropic = "anthropic"
+      -- Tier 4
       providerNameToText LambdaLabs = "lambdalabs"
       providerNameToText RunPod = "runpod"
       providerNameToText VastAI = "vastai"
@@ -244,11 +255,22 @@ instance FromJSON Metrics where
     where
       textToProviderName :: Text -> ProviderName
       textToProviderName "triton" = Triton
+      -- Tier 2: High-throughput
+      textToProviderName "together" = Together
+      textToProviderName "sambanova" = SambaNova
+      textToProviderName "fireworks" = Fireworks
+      textToProviderName "novita" = Novita
+      textToProviderName "deepinfra" = DeepInfra
+      textToProviderName "modal" = Modal
+      textToProviderName "groq" = Groq
+      textToProviderName "cerebras" = Cerebras
+      -- Tier 3
       textToProviderName "venice" = Venice
       textToProviderName "vertex" = Vertex
       textToProviderName "baseten" = Baseten
       textToProviderName "openrouter" = OpenRouter
       textToProviderName "anthropic" = Anthropic
+      -- Tier 4
       textToProviderName "lambdalabs" = LambdaLabs
       textToProviderName "runpod" = RunPod
       textToProviderName "vastai" = VastAI
