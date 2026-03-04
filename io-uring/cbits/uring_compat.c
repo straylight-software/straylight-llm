@@ -178,6 +178,23 @@ int hs_uring_wait_cqe(struct io_uring *ring, struct io_uring_cqe **cqe) {
     return io_uring_wait_cqe(ring, cqe);
 }
 
+/* Wait for completion with timeout in milliseconds.
+ * timeout_ms = 0 behaves like peek (non-blocking)
+ * timeout_ms > 0 waits up to that many milliseconds
+ * Returns 0 on success (cqe available), -ETIME on timeout, other negative on error
+ */
+int hs_uring_wait_cqe_timeout_ms(struct io_uring *ring, struct io_uring_cqe **cqe, int timeout_ms) {
+    if (timeout_ms <= 0) {
+        return io_uring_peek_cqe(ring, cqe);
+    }
+    
+    struct __kernel_timespec ts;
+    ts.tv_sec = timeout_ms / 1000;
+    ts.tv_nsec = (timeout_ms % 1000) * 1000000;
+    
+    return io_uring_wait_cqe_timeout(ring, cqe, &ts);
+}
+
 void hs_uring_cqe_seen(struct io_uring *ring, struct io_uring_cqe *cqe) {
     io_uring_cqe_seen(ring, cqe);
 }

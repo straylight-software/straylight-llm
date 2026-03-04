@@ -79,8 +79,20 @@ library
     Evring.Sigil
     Evring.Trace
     Evring.Wai
+    Evring.Wai.Conn
+    Evring.Wai.Loop
+    Evring.Wai.MultiCore
+    Evring.Wai.MultiCoreRR
+    Evring.Wai.Pool
+    Evring.Wai.Server
     -- // slide (wire protocol)
+    Slide.Chunk
+    Slide.HotTable
+    Slide.Model
     Slide.Parse
+    Slide.Wire.Decode
+    Slide.Wire.Encode
+    Slide.Wire.Frame
     Slide.Wire.Types
     Slide.Wire.Varint
     -- // resilience (additional)

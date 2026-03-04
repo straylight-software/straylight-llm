@@ -26,6 +26,7 @@ module Handlers
     healthHandler,
     chatHandler,
     chatStreamHandler,
+    anthropicMessagesHandler,
     completionsHandler,
     embeddingsHandler,
     modelsHandler,
@@ -53,7 +54,7 @@ import Config
 import Control.Concurrent.STM (atomically, readTChan)
 import Control.Exception (finally)
 import Control.Monad.IO.Class (liftIO)
-import Data.Aeson (eitherDecode, encode, object, toJSON, (.=))
+import Data.Aeson (Object, eitherDecode, encode, object, toJSON, (.=))
 import Data.ByteString qualified as BS
 import Data.ByteString.Builder (byteString, lazyByteString, string8)
 import Data.ByteString.Lazy qualified as LBS
@@ -92,6 +93,7 @@ import Servant
 import System.IO (hPutStrLn, stderr)
 import System.Random (randomIO)
 import Types
+import Types.Anthropic qualified as Anthropic
 
 -- ════════════════════════════════════════════════════════════════════════════
 --                                                                  // server
@@ -106,6 +108,7 @@ server router =
   healthHandler
     :<|> chatHandler router
     :<|> chatStreamHandler router
+    :<|> anthropicMessagesHandler router
     :<|> completionsHandler router
     :<|> embeddingsHandler router
     :<|> modelsHandler router
@@ -148,6 +151,133 @@ chatHandler router _mAuth req = do
   case result of
     Right response -> pure $ addHeader requestId response
     Left err -> throwError $ toServantError err
+
+-- ════════════════════════════════════════════════════════════════════════════
+--                                              // anthropic messages handler
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- | Anthropic Messages API handler
+-- Accepts Anthropic-native request format (POST /v1/messages)
+-- Converts to OpenAI format, routes through provider chain, converts response back
+-- This allows clients using the Anthropic SDK to route through straylight-llm
+anthropicMessagesHandler ::
+  Router ->
+  Maybe Text -> -- Authorization header
+  Maybe Text -> -- x-api-key header (Anthropic style)
+  Anthropic.ChatRequest ->
+  Handler (Headers '[Header "X-Request-Id" Text] Anthropic.ChatResponse)
+anthropicMessagesHandler router _mAuth _mApiKey anthropicReq = do
+  requestId <- liftIO generateRequestId
+
+  -- Convert Anthropic request to OpenAI format
+  let openAiReq = anthropicToOpenAI anthropicReq
+
+  -- Route through provider chain
+  result <- liftIO $ routeChat router requestId openAiReq
+
+  case result of
+    Right openAiResp -> do
+      -- Convert OpenAI response back to Anthropic format
+      let anthropicResp = openAIToAnthropic openAiResp (Anthropic.crModel anthropicReq)
+      pure $ addHeader requestId anthropicResp
+    Left err -> throwError $ toServantError err
+
+-- | Convert Anthropic ChatRequest to OpenAI ChatRequest
+anthropicToOpenAI :: Anthropic.ChatRequest -> ChatRequest
+anthropicToOpenAI Anthropic.ChatRequest {..} =
+  ChatRequest
+    { crModel = ModelId crModel,
+      crMessages = systemMessage ++ concatMap convertMessage crMessages,
+      crTemperature = fmap Temperature crTemperature,
+      crMaxTokens = Just (MaxTokens crMaxTokens),
+      crMaxCompletionTokens = Nothing,
+      crTopP = Nothing,
+      crN = Nothing,
+      crStream = Just crStream,
+      crStop = Nothing,
+      crPresencePenalty = Nothing,
+      crFrequencyPenalty = Nothing,
+      crLogitBias = Nothing,
+      crUser = Nothing,
+      crTools = fmap (map convertTool) crTools,
+      crToolChoice = Nothing,
+      crSeed = Nothing,
+      crResponseFormat = Nothing
+    }
+  where
+    -- System message goes as a separate message in OpenAI format
+    systemMessage = case crSystem of
+      Just sys -> [Message System (Just $ TextContent sys) Nothing Nothing Nothing]
+      Nothing -> []
+
+    -- Convert a single Anthropic message to OpenAI message(s)
+    convertMessage :: Anthropic.Message -> [Message]
+    convertMessage Anthropic.Message {..} =
+      [Message (convertRole msgRole) (Just $ convertContent msgContent) Nothing Nothing Nothing]
+
+    convertRole :: Anthropic.Role -> Role
+    convertRole Anthropic.User = User
+    convertRole Anthropic.Assistant = Assistant
+    convertRole Anthropic.System = System
+
+    convertContent :: Anthropic.Content -> MessageContent
+    convertContent (Anthropic.SimpleContent txt) = TextContent txt
+    convertContent (Anthropic.BlockContent blocks) =
+      -- For block content, concatenate text blocks
+      TextContent $ T.concat [t | Anthropic.TextBlock t <- blocks]
+
+    convertTool :: Anthropic.ToolDefinition -> ToolDef
+    convertTool Anthropic.ToolDefinition {..} =
+      ToolDef
+        { toolType = "function",
+          toolFunction =
+            ToolFunction
+              { tfName = tdName,
+                tfDescription = tdDescription,
+                tfParameters = fmap convertSchema tisProperties,
+                tfStrict = Nothing
+              }
+        }
+      where
+        Anthropic.ToolInputSchema {..} = tdInputSchema
+
+    convertSchema :: Object -> JsonSchema
+    convertSchema obj = JsonSchema obj
+
+-- | Convert OpenAI ChatResponse to Anthropic ChatResponse
+openAIToAnthropic :: ChatResponse -> Text -> Anthropic.ChatResponse
+openAIToAnthropic ChatResponse {..} model =
+  Anthropic.ChatResponse
+    { Anthropic.respId = unResponseId respId,
+      Anthropic.respModel = model,
+      Anthropic.respRole = Anthropic.Assistant,
+      Anthropic.respContent = extractContent,
+      Anthropic.respStopReason = convertStopReason,
+      Anthropic.respUsage =
+        Anthropic.Usage
+          { Anthropic.usageInputTokens = maybe 0 usagePromptTokens respUsage,
+            Anthropic.usageOutputTokens = maybe 0 usageCompletionTokens respUsage,
+            Anthropic.usageCacheRead = Nothing,
+            Anthropic.usageCacheWrite = Nothing
+          }
+    }
+  where
+    extractContent :: [Anthropic.ContentBlock]
+    extractContent = case respChoices of
+      (Choice {..} : _) -> case msgContent choiceMessage of
+        Just (TextContent txt) -> [Anthropic.TextBlock txt]
+        Just (PartsContent _) -> [] -- Could expand this
+        Nothing -> []
+      [] -> []
+
+    convertStopReason :: Maybe Anthropic.StopReason
+    convertStopReason = case respChoices of
+      (Choice {..} : _) -> case choiceFinishReason of
+        Just (FinishReason "stop") -> Just Anthropic.EndTurn
+        Just (FinishReason "length") -> Just Anthropic.MaxTokens
+        Just (FinishReason "tool_calls") -> Just Anthropic.ToolUseSR
+        _ -> Just Anthropic.EndTurn
+      [] -> Nothing
 
 -- ════════════════════════════════════════════════════════════════════════════
 --                                                        // streaming handler
@@ -643,13 +773,13 @@ proofVerifyHandler router requestId = do
 -- Subscribes to the event broadcaster and streams events to the client
 eventsHandler :: Router -> Tagged Handler Application
 eventsHandler router = Tagged $ \_req respond' -> do
+  -- n.b. CORS headers added by middleware in Main.hs, don't duplicate here
   respond'
     $ responseStream
       status200
       [ ("Content-Type", "text/event-stream"),
         ("Cache-Control", "no-cache"),
-        ("Connection", "keep-alive"),
-        ("Access-Control-Allow-Origin", "*")
+        ("Connection", "keep-alive")
       ]
     $ \send flush -> do
       -- Subscribe to the event broadcaster

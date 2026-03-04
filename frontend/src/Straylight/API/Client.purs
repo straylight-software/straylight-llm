@@ -63,6 +63,8 @@ type Config =
   , port :: Int
   }
 
+-- | Default config using localhost.
+-- For cross-machine access, use configFromLocation to auto-detect host.
 defaultConfig :: Config
 defaultConfig =
   { baseUrl: "http://localhost"

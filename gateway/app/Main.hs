@@ -163,10 +163,12 @@ main = do
   TIO.putStrLn ""
 
   -- Check backend selection environment variables
-  -- USE_URING=1 enables io_uring (5.1x throughput, 63x better tail latency)
+  -- USE_URING=1 enables io_uring single-core (CPS event loop)
+  -- USE_URING_MC=1 enables io_uring multi-core (SO_REUSEPORT, one ring per core)
   -- USE_WARP=1 forces Warp (for WSL2 or systems without io_uring)
   -- Default: Warp (safe default until io_uring is validated in your environment)
   useUring <- lookupEnv "USE_URING"
+  useUringMC <- lookupEnv "USE_URING_MC"
   useWarp <- lookupEnv "USE_WARP"
 
   -- Start server
@@ -185,22 +187,28 @@ main = do
   TIO.putStrLn "════════════════════════════════════════════════════════════════════════════════"
   TIO.putStrLn ""
 
-  case (useUring, useWarp) of
-    (Just _, _) -> do
-      -- io_uring backend (5.1x throughput, 63x better tail latency)
-      TIO.putStrLn "  backend: evring-wai (io_uring)"
+  case (useUringMC, useUring, useWarp) of
+    (Just _, _, _) -> do
+      -- io_uring multi-core backend (maximum throughput)
+      TIO.putStrLn "  backend: evring-wai (io_uring, multi-core)"
+      TIO.putStrLn $ "  listening on port " <> T.pack (show port)
+      TIO.putStrLn ""
+      Evring.runEvringMultiCore port app
+    (_, Just _, _) -> do
+      -- io_uring single-core backend
+      TIO.putStrLn "  backend: evring-wai (io_uring, single-core)"
       TIO.putStrLn $ "  listening on port " <> T.pack (show port)
       TIO.putStrLn ""
       Evring.runEvring port app
-    (_, Just _) -> do
+    (_, _, Just _) -> do
       -- Warp fallback (for WSL2 or systems without io_uring)
       TIO.putStrLn "  backend: Warp (USE_WARP=1)"
       TIO.putStrLn $ "  listening on port " <> T.pack (show port)
       TIO.putStrLn ""
       Warp.run port app
-    (Nothing, Nothing) -> do
+    (Nothing, Nothing, Nothing) -> do
       -- Default: Warp (safe default)
-      TIO.putStrLn "  backend: Warp (default, set USE_URING=1 for io_uring)"
+      TIO.putStrLn "  backend: Warp (default, set USE_URING=1 or USE_URING_MC=1 for io_uring)"
       TIO.putStrLn $ "  listening on port " <> T.pack (show port)
       TIO.putStrLn ""
       Warp.run port app

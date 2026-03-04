@@ -26,6 +26,7 @@ module Api
     -- * Sub-APIs
     ChatAPI,
     ChatStreamAPI,
+    AnthropicMessagesAPI,
     CompletionsAPI,
     EmbeddingsAPI,
     ModelsAPI,
@@ -65,6 +66,7 @@ import Resilience.CircuitBreaker (CircuitState, CircuitStats)
 import Resilience.Metrics (Metrics)
 import Servant
 import Types
+import Types.Anthropic qualified as Anthropic
 
 -- ════════════════════════════════════════════════════════════════════════════
 --                                                              // endpoints
@@ -363,6 +365,19 @@ type ChatAPI =
 type ChatStreamAPI =
   "v1" :> "chat" :> "completions" :> "stream" :> Raw
 
+-- | Anthropic Messages API compatibility endpoint
+-- POST /v1/messages
+-- Accepts Anthropic-native request format, routes through provider chain,
+-- and returns Anthropic-native response format.
+-- This allows clients using the Anthropic SDK to route through straylight-llm.
+type AnthropicMessagesAPI =
+  "v1"
+    :> "messages"
+    :> Header "Authorization" Text
+    :> Header "x-api-key" Text
+    :> ReqBody '[JSON] Anthropic.ChatRequest
+    :> Post '[JSON] (Headers '[Header "X-Request-Id" Text] Anthropic.ChatResponse)
+
 -- | Legacy completions endpoint
 -- POST /v1/completions
 type CompletionsAPI =
@@ -490,6 +505,7 @@ type GatewayAPI =
   HealthAPI
     :<|> ChatAPI
     :<|> ChatStreamAPI
+    :<|> AnthropicMessagesAPI
     :<|> CompletionsAPI
     :<|> EmbeddingsAPI
     :<|> ModelsAPI

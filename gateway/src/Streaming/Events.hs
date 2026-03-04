@@ -46,6 +46,15 @@ module Streaming.Events
     , emitProviderStatus
     , emitMetricsUpdate
 
+      -- * Metrics Loop
+    , MetricsSnapshot (MetricsSnapshot, msRequestsLastMinute, msErrorRate, msAvgLatencyMs, msTimestamp)
+    , MetricsCollector
+    , newMetricsCollector
+    , recordMetricsRequest
+    , recordMetricsError
+    , recordMetricsLatency
+    , startMetricsLoop
+
       -- * Serialization
     , encodeSSEEvent
     ) where
@@ -65,10 +74,13 @@ import Control.Concurrent.STM
 import Control.Monad (forever)
 import Data.Aeson (ToJSON (toJSON), object, (.=), encode)
 import Data.ByteString.Lazy qualified as LBS
+import Data.IORef (IORef, atomicModifyIORef', newIORef)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
 import Data.Text (Text)
 import Data.Text qualified as T
+import Data.Time.Clock (getCurrentTime)
+import Data.Time.Format.ISO8601 (iso8601Show)
 import Data.Word (Word64)
 import Numeric (showHex)
 import System.Random (randomIO)
@@ -345,6 +357,110 @@ emitProviderStatus bc provider state failures threshold lastFailure timestamp =
 emitMetricsUpdate :: EventBroadcaster -> LBS.ByteString -> IO ()
 emitMetricsUpdate bc metricsJson =
     broadcast bc $ SSEMetricsUpdate metricsJson
+
+
+-- ════════════════════════════════════════════════════════════════════════════
+--                                                           // metrics loop
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- | Metrics snapshot for SSE emission (matches frontend MetricsUpdateEvent)
+data MetricsSnapshot = MetricsSnapshot
+    { msRequestsLastMinute :: !Int
+    , msErrorRate :: !Double
+    , msAvgLatencyMs :: !Int
+    , msTimestamp :: !Text
+    }
+    deriving (Eq, Show)
+
+instance ToJSON MetricsSnapshot where
+    toJSON MetricsSnapshot{..} = object
+        [ "requestsLastMinute" .= msRequestsLastMinute
+        , "errorRate" .= msErrorRate
+        , "avgLatencyMs" .= msAvgLatencyMs
+        , "timestamp" .= msTimestamp
+        ]
+
+-- | Rolling window metrics collector for 60-second aggregation
+-- Uses a simple counter-based approach with periodic reset
+data MetricsCollector = MetricsCollector
+    { mcRequestsRef :: !(IORef Int)      -- Requests in current window
+    , mcErrorsRef :: !(IORef Int)        -- Errors in current window
+    , mcLatencySumRef :: !(IORef Double) -- Sum of latencies for avg calculation
+    , mcLatencyCountRef :: !(IORef Int)  -- Count for avg calculation
+    }
+
+-- | Create a new metrics collector
+newMetricsCollector :: IO MetricsCollector
+newMetricsCollector = do
+    requests <- newIORef 0
+    errors <- newIORef 0
+    latencySum <- newIORef 0.0
+    latencyCount <- newIORef 0
+    pure MetricsCollector
+        { mcRequestsRef = requests
+        , mcErrorsRef = errors
+        , mcLatencySumRef = latencySum
+        , mcLatencyCountRef = latencyCount
+        }
+
+-- | Record a request (success or failure)
+recordMetricsRequest :: MetricsCollector -> IO ()
+recordMetricsRequest mc =
+    atomicModifyIORef' (mcRequestsRef mc) (\n -> (n + 1, ()))
+
+-- | Record an error
+recordMetricsError :: MetricsCollector -> IO ()
+recordMetricsError mc =
+    atomicModifyIORef' (mcErrorsRef mc) (\n -> (n + 1, ()))
+
+-- | Record request latency (in milliseconds)
+recordMetricsLatency :: MetricsCollector -> Double -> IO ()
+recordMetricsLatency mc latencyMs = do
+    atomicModifyIORef' (mcLatencySumRef mc) (\s -> (s + latencyMs, ()))
+    atomicModifyIORef' (mcLatencyCountRef mc) (\n -> (n + 1, ()))
+
+-- | Collect and reset metrics (called every 10 seconds, extrapolates to 1 minute)
+collectAndReset :: MetricsCollector -> IO MetricsSnapshot
+collectAndReset mc = do
+    -- Atomically read and reset all counters
+    requests <- atomicModifyIORef' (mcRequestsRef mc) (\n -> (0, n))
+    errors <- atomicModifyIORef' (mcErrorsRef mc) (\n -> (0, n))
+    latencySum <- atomicModifyIORef' (mcLatencySumRef mc) (\s -> (0.0, s))
+    latencyCount <- atomicModifyIORef' (mcLatencyCountRef mc) (\n -> (0, n))
+    
+    -- Calculate metrics
+    -- Extrapolate 10-second window to 1 minute (multiply by 6)
+    let requestsLastMinute = requests * 6
+    let errorRate = if requests > 0
+                    then fromIntegral errors / fromIntegral requests
+                    else 0.0
+    let avgLatencyMs = if latencyCount > 0
+                       then round (latencySum / fromIntegral latencyCount)
+                       else 0
+    
+    -- Get current timestamp
+    now <- getCurrentTime
+    let timestamp = T.pack $ iso8601Show now
+    
+    pure MetricsSnapshot
+        { msRequestsLastMinute = requestsLastMinute
+        , msErrorRate = errorRate
+        , msAvgLatencyMs = avgLatencyMs
+        , msTimestamp = timestamp
+        }
+
+-- | Start the metrics emission loop (runs every 10 seconds)
+-- Returns the ThreadId of the background loop
+startMetricsLoop :: EventBroadcaster -> MetricsCollector -> IO ThreadId
+startMetricsLoop bc mc = forkIO $ forever $ do
+    -- Wait 10 seconds
+    threadDelay (10 * 1000000)
+    
+    -- Collect metrics snapshot
+    snapshot <- collectAndReset mc
+    
+    -- Emit to all SSE subscribers
+    emitMetricsUpdate bc (encode snapshot)
 
 
 -- ════════════════════════════════════════════════════════════════════════════

@@ -227,6 +227,197 @@
           };
 
           # ════════════════════════════════════════════════════════════════════
+          #                                              // apps (nix run)
+          # ════════════════════════════════════════════════════════════════════
+
+          apps =
+            let
+              # Gateway binary path (built via cabal in devShell)
+              # n.b. effect-monad and io-uring not in nixpkgs haskellPackages,
+              # so we use pre-built binary from cabal
+              gatewayBinary = "gateway/dist-newstyle/build/x86_64-linux/ghc-9.12.2/straylight-llm-0.1.0.0/x/straylight-llm/build/straylight-llm/straylight-llm";
+
+              # Gateway runner with configurable backend
+              mkGatewayApp =
+                {
+                  name,
+                  env ? { },
+                }:
+                {
+                  type = "app";
+                  program = toString (
+                    pkgs.writeShellScript "run-${name}" ''
+                      set -euo pipefail
+                      ${lib.concatStringsSep "\n" (lib.mapAttrsToList (k: v: "export ${k}=${v}") env)}
+
+                      # Find binary (check relative and absolute paths)
+                      BINARY=""
+                      if [[ -x "./${gatewayBinary}" ]]; then
+                        BINARY="./${gatewayBinary}"
+                      elif [[ -x "${gatewayBinary}" ]]; then
+                        BINARY="${gatewayBinary}"
+                      fi
+
+                      if [[ -z "$BINARY" ]]; then
+                        echo ""
+                        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                        echo "  Gateway binary not found. Building..."
+                        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                        echo ""
+                        cd gateway
+                        ${hpkgs.cabal-install}/bin/cabal build
+                        cd ..
+                        BINARY="./${gatewayBinary}"
+                      fi
+
+                      exec "$BINARY" "$@"
+                    ''
+                  );
+                };
+
+              # Frontend dev server
+              # n.b. Must be run from the straylight-llm repo root directory
+              # Uses npx spago@next for spago.yaml (new format) support
+              frontendApp = {
+                type = "app";
+                program = toString (
+                  pkgs.writeShellScript "run-frontend" ''
+                    set -euo pipefail
+                    export PATH="${pkgs.purescript}/bin:${pkgs.esbuild}/bin:${pkgs.nodejs}/bin:$PATH"
+
+                    # Verify we're in the repo root
+                    if [[ ! -d "frontend" ]]; then
+                      echo "Error: Must run from straylight-llm repo root directory"
+                      exit 1
+                    fi
+
+                    cd frontend
+                    echo ""
+                    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                    echo "                                                   // straylight-web //"
+                    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                    echo ""
+                    echo "  Building PureScript frontend..."
+                    npx spago@next build
+                    echo ""
+                    echo "  Bundling for production..."
+                    npx spago@next bundle --bundle-type app --outfile dist/app.js
+                    echo ""
+                    echo "  Starting dev server on http://localhost:1420"
+                    echo ""
+                    ${pkgs.python3}/bin/python3 -m http.server 1420 --directory .
+                  ''
+                );
+              };
+
+              # Full stack runner (gateway + frontend in parallel)
+              # n.b. Must be run from the straylight-llm repo root directory
+              stackApp = {
+                type = "app";
+                program = toString (
+                  pkgs.writeShellScript "run-stack" ''
+                    set -euo pipefail
+
+                    # Verify we're in the repo root
+                    if [[ ! -f "flake.nix" ]] || [[ ! -d "gateway" ]] || [[ ! -d "frontend" ]]; then
+                      echo "Error: Must run from straylight-llm repo root directory"
+                      exit 1
+                    fi
+
+                    # Find or build gateway binary
+                    BINARY=""
+                    if [[ -x "./${gatewayBinary}" ]]; then
+                      BINARY="./${gatewayBinary}"
+                    else
+                      echo ""
+                      echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                      echo "  Gateway binary not found. Building..."
+                      echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                      echo ""
+                      cd gateway
+                      ${hpkgs.cabal-install}/bin/cabal build
+                      cd ..
+                      BINARY="./${gatewayBinary}"
+                    fi
+
+                    GATEWAY_PID=""
+                    FRONTEND_PID=""
+                    cleanup() {
+                      echo ""
+                      echo "Shutting down..."
+                      [[ -n "$GATEWAY_PID" ]] && kill $GATEWAY_PID 2>/dev/null || true
+                      [[ -n "$FRONTEND_PID" ]] && kill $FRONTEND_PID 2>/dev/null || true
+                      wait 2>/dev/null || true
+                    }
+                    trap cleanup EXIT INT TERM
+
+                    echo ""
+                    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                    echo "                                                   // straylight stack //"
+                    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                    echo ""
+                    echo "  Gateway:  http://localhost:8080  (io_uring multi-core)"
+                    echo "  Frontend: http://localhost:1420"
+                    echo "  SSE:      http://localhost:8080/v1/events"
+                    echo ""
+                    echo "  Press Ctrl+C to stop"
+                    echo ""
+
+                    # Start gateway with io_uring single-core
+                    # Multi-core requires increased ulimit -l (locked memory)
+                    # Set USE_URING_MC=1 for multi-core if you have sufficient ulimit -l
+                    # Set USE_WARP=1 to force Warp backend (for VMs/containers without io_uring)
+                    USE_URING=1 "$BINARY" &
+                    GATEWAY_PID=$!
+
+                    # Build and serve frontend (from repo root)
+                    # Uses npx spago@next for spago.yaml (new format) support
+                    export PATH="${pkgs.purescript}/bin:${pkgs.esbuild}/bin:${pkgs.nodejs}/bin:$PATH"
+                    pushd frontend >/dev/null
+                    echo "  [frontend] Building PureScript..."
+                    npx spago@next build
+                    echo "  [frontend] Bundling..."
+                    npx spago@next bundle --bundle-type app --outfile dist/app.js
+                    echo "  [frontend] Starting server on http://localhost:1420"
+                    ${pkgs.python3}/bin/python3 -m http.server 1420 --directory . &
+                    FRONTEND_PID=$!
+                    popd >/dev/null
+
+                    wait $GATEWAY_PID $FRONTEND_PID
+                  ''
+                );
+              };
+
+            in
+            {
+              # Default: run gateway with Warp
+              default = mkGatewayApp { name = "gateway"; };
+              gateway = mkGatewayApp { name = "gateway"; };
+
+              # io_uring backends
+              gateway-uring = mkGatewayApp {
+                name = "gateway-uring";
+                env = {
+                  USE_URING = "1";
+                };
+              };
+              gateway-uring-mc = mkGatewayApp {
+                name = "gateway-uring-mc";
+                env = {
+                  USE_URING_MC = "1";
+                };
+              };
+
+              # Frontend
+              frontend = frontendApp;
+
+              # Full stack (gateway + frontend)
+              # Uses Warp by default (safe for VMs/containers)
+              # Set USE_URING_MC=1 env var to enable io_uring multi-core
+              stack = stackApp;
+            };
+
+          # ════════════════════════════════════════════════════════════════════
           #                                              // treefmt
           # ════════════════════════════════════════════════════════════════════
 

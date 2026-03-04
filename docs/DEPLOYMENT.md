@@ -1,181 +1,378 @@
 # Deployment Guide
 
-## Quick Start
+This guide covers production deployment of straylight-llm.
+
+## Deployment Options
+
+### 1. Container (Recommended)
 
 ```bash
-# Build the binary
+# Build container image
 nix build .#straylight-llm
 
-# Run directly
-./result/bin/straylight-llm
+# Load into Docker
+docker load < result
+
+# Run
+docker run -d \
+  --name straylight-llm \
+  -p 8080:8080 \
+  -e OPENROUTER_API_KEY=sk-or-... \
+  -e ANTHROPIC_API_KEY=sk-ant-... \
+  --restart unless-stopped \
+  straylight-llm:latest
 ```
 
-## Configuration
+### 2. Kubernetes
 
-All configuration via environment variables:
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: straylight-llm
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: straylight-llm
+  template:
+    metadata:
+      labels:
+        app: straylight-llm
+    spec:
+      containers:
+      - name: straylight-llm
+        image: ghcr.io/justinfleek/straylight-llm:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: OPENROUTER_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: straylight-secrets
+              key: openrouter-api-key
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "2000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: straylight-llm
+spec:
+  selector:
+    app: straylight-llm
+  ports:
+  - port: 80
+    targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: straylight-llm
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  rules:
+  - host: llm.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: straylight-llm
+            port:
+              number: 80
+  tls:
+  - hosts:
+    - llm.example.com
+    secretName: straylight-llm-tls
+```
 
-### Server Settings
+### 3. NixOS Module
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PORT` | `8080` | Server port |
-| `HOST` | `0.0.0.0` | Bind address |
-| `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
-| `REQUEST_TIMEOUT` | `120` | Timeout in seconds |
-| `MAX_RETRIES` | `3` | Retries per provider |
+```nix
+# flake.nix
+{
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    straylight-llm.url = "github:justinfleek/straylight-llm";
+    agenix.url = "github:ryantm/agenix";
+  };
+  
+  outputs = { self, nixpkgs, straylight-llm, agenix, ... }: {
+    nixosConfigurations.myserver = nixpkgs.lib.nixosSystem {
+      system = "x86_64-linux";
+      modules = [
+        agenix.nixosModules.default
+        straylight-llm.nixosModules.default
+        ./configuration.nix
+      ];
+    };
+  };
+}
 
-### Provider API Keys
+# configuration.nix
+{ config, ... }: {
+  age.secrets.openrouter-api-key.file = ./secrets/openrouter-api-key.age;
+  
+  services.straylight-llm = {
+    enable = true;
+    port = 8080;
+    environmentFile = config.age.secrets.openrouter-api-key.path;
+  };
+  
+  # Reverse proxy with TLS
+  services.caddy = {
+    enable = true;
+    virtualHosts."llm.example.com".extraConfig = ''
+      reverse_proxy localhost:8080
+    '';
+  };
+  
+  networking.firewall.allowedTCPPorts = [ 80 443 ];
+}
+```
 
-Keys are read from **files** for security (never env vars directly):
+### 4. Systemd Service (Binary)
 
-| Variable | Description |
-|----------|-------------|
-| `VENICE_API_KEY_PATH` | Path to Venice AI key file |
-| `OPENROUTER_API_KEY_PATH` | Path to OpenRouter key file |
-| `ANTHROPIC_API_KEY_PATH` | Path to Anthropic key file |
-| `BASETEN_API_KEY_PATH` | Path to Baseten key file |
+```bash
+# Build binary
+nix build .#straylight-llm
+sudo cp result/bin/straylight-llm /usr/local/bin/
 
-### Vertex AI (GCP)
-
-| Variable | Description |
-|----------|-------------|
-| `VERTEX_PROJECT_ID` | GCP project ID |
-| `VERTEX_LOCATION` | Region (e.g., `us-central1`) |
-| `VERTEX_SERVICE_ACCOUNT_KEY_PATH` | Path to service account JSON |
-
-## Systemd Service
-
-```ini
+# Create systemd service
+sudo tee /etc/systemd/system/straylight-llm.service << 'EOF'
 [Unit]
-Description=straylight-llm gateway
+Description=straylight-llm LLM Gateway
 After=network.target
 
 [Service]
 Type=simple
 User=straylight
-ExecStart=/opt/straylight-llm/bin/straylight-llm
+Group=straylight
+ExecStart=/usr/local/bin/straylight-llm
 Restart=always
 RestartSec=5
 
-# Security
-NoNewPrivileges=true
-ProtectSystem=strict
-ProtectHome=true
-ReadWritePaths=/var/log/straylight
+EnvironmentFile=/etc/straylight-llm/env
+Environment=STRAYLIGHT_PORT=8080
 
-# API keys
-Environment=OPENROUTER_API_KEY_PATH=/run/secrets/openrouter
-Environment=ANTHROPIC_API_KEY_PATH=/run/secrets/anthropic
+# Hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
 
 [Install]
 WantedBy=multi-user.target
+EOF
+
+# Create env file
+sudo mkdir -p /etc/straylight-llm
+sudo tee /etc/straylight-llm/env << 'EOF'
+OPENROUTER_API_KEY=sk-or-...
+ANTHROPIC_API_KEY=sk-ant-...
+EOF
+sudo chmod 600 /etc/straylight-llm/env
+
+# Enable and start
+sudo systemctl daemon-reload
+sudo systemctl enable straylight-llm
+sudo systemctl start straylight-llm
 ```
 
-## Docker / Podman
+## Production Checklist
 
-```bash
-# Build container (requires CUDA for GPU containers)
-nix build .#production
+### Security
 
-# Load and run
-docker load < result
-docker run -d \
-  -p 8080:8080 \
-  -v /path/to/secrets:/run/secrets:ro \
-  -e OPENROUTER_API_KEY_PATH=/run/secrets/openrouter \
-  ghcr.io/straylight-software/straylight-llm:latest
+- [ ] **TLS Termination** — Use a reverse proxy (Caddy, nginx, Traefik) for HTTPS
+- [ ] **API Keys in Secrets** — Use Kubernetes secrets, agenix, or Vault
+- [ ] **Network Isolation** — Run in private network, expose only via load balancer
+- [ ] **Request Authentication** — Add auth at the reverse proxy level
+- [ ] **Rate Limiting** — Configure rate limits for public endpoints
+
+### Reliability
+
+- [ ] **Multiple Replicas** — Run 2+ instances for high availability
+- [ ] **Health Checks** — Configure liveness and readiness probes
+- [ ] **Circuit Breakers** — Tune `STRAYLIGHT_CIRCUIT_*` settings
+- [ ] **Timeouts** — Set appropriate `STRAYLIGHT_REQUEST_TIMEOUT_S`
+
+### Observability
+
+- [ ] **Logging** — Aggregate logs to centralized system
+- [ ] **Metrics** — Scrape `/metrics` with Prometheus
+- [ ] **Tracing** — Request IDs are included in responses
+- [ ] **Alerting** — Alert on circuit breaker state, error rates
+
+### Performance
+
+- [ ] **Resource Limits** — Set memory and CPU limits
+- [ ] **Connection Pooling** — Built-in, no configuration needed
+- [ ] **CDN/Caching** — Not applicable (dynamic responses)
+
+## Reverse Proxy Configuration
+
+### Caddy
+
 ```
-
-## NixOS Module
-
-```nix
-{
-  imports = [ inputs.straylight-llm.nixosModules.default ];
-
-  services.straylight-llm = {
-    enable = true;
-    port = 8080;
-    
-    providers = {
-      openrouter.apiKeyFile = "/run/secrets/openrouter";
-      anthropic.apiKeyFile = "/run/secrets/anthropic";
-      
-      vertex = {
-        projectId = "my-gcp-project";
-        location = "us-central1";
-        serviceAccountKeyFile = "/run/secrets/gcp-sa.json";
-      };
-    };
-  };
+llm.example.com {
+    reverse_proxy localhost:8080
 }
 ```
 
-## Health Checks
+### Nginx
 
-```bash
-# Basic health
-curl http://localhost:8080/health
+```nginx
+upstream straylight {
+    server localhost:8080;
+    keepalive 32;
+}
 
-# Provider status
-curl http://localhost:8080/v1/providers/status
+server {
+    listen 443 ssl http2;
+    server_name llm.example.com;
+    
+    ssl_certificate /etc/letsencrypt/live/llm.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/llm.example.com/privkey.pem;
+    
+    location / {
+        proxy_pass http://straylight;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_read_timeout 300s;
+    }
+    
+    # SSE endpoints need special handling
+    location ~ ^/v1/(events|chat/completions/stream) {
+        proxy_pass http://straylight;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 86400s;
+    }
+}
+```
 
-# Metrics
-curl http://localhost:8080/v1/metrics
+### Traefik
+
+```yaml
+http:
+  routers:
+    straylight:
+      rule: "Host(`llm.example.com`)"
+      service: straylight
+      tls:
+        certResolver: letsencrypt
+  services:
+    straylight:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:8080"
 ```
 
 ## Monitoring
 
-### Prometheus Metrics
+### Prometheus
 
-The `/v1/metrics` endpoint exposes:
-- `straylight_requests_total` - Total requests by provider/status
-- `straylight_latency_seconds` - Request latency histogram
-- `straylight_circuit_breaker_state` - Provider circuit breaker states
-- `straylight_tokens_total` - Token usage by model
-
-### Real-time Events (SSE)
-
-```bash
-curl http://localhost:8080/v1/events
+```yaml
+scrape_configs:
+  - job_name: 'straylight-llm'
+    static_configs:
+      - targets: ['localhost:8080']
+    metrics_path: /metrics
 ```
 
-Events: `request.started`, `request.completed`, `proof.generated`, `provider.status`
+### Grafana Dashboard
 
-## Security Checklist
+Key metrics to monitor:
 
-- [ ] API keys in files, not environment variables
-- [ ] Files readable only by service user (`chmod 400`)
-- [ ] Run as non-root user
-- [ ] Use systemd hardening (`NoNewPrivileges`, `ProtectSystem`)
-- [ ] TLS termination via reverse proxy (nginx, caddy)
-- [ ] Rate limiting at load balancer level
+- `straylight_requests_total` — Request rate by provider
+- `straylight_request_latency_seconds` — Latency distribution
+- `straylight_circuit_breaker_state` — Circuit breaker health
+- `straylight_provider_errors_total` — Error rate by provider
 
-## Provider Fallback Order
+### Alerting Rules
 
-1. **Venice AI** (primary)
-2. **Vertex AI** (GCP)
-3. **Baseten**
-4. **OpenRouter**
-5. **Anthropic** (direct)
-
-Each provider has independent circuit breakers. Failed providers are temporarily removed from rotation.
-
-## Performance Tuning
-
-### io_uring Backend
-
-Set `USE_URING=1` for the high-performance io_uring backend:
-
-```bash
-USE_URING=1 ./result/bin/straylight-llm
+```yaml
+groups:
+- name: straylight
+  rules:
+  - alert: StraylightAllCircuitsOpen
+    expr: sum(straylight_circuit_breaker_state{state="open"}) == count(straylight_circuit_breaker_state)
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: All straylight-llm circuit breakers are open
+      
+  - alert: StraylightHighErrorRate
+    expr: rate(straylight_provider_errors_total[5m]) > 0.1
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: High error rate in straylight-llm
 ```
 
-Requires Linux 5.1+ with io_uring support.
+## Scaling
 
-### Recommended Settings
+### Horizontal Scaling
 
-| Deployment | Workers | Timeout | Max Retries |
-|------------|---------|---------|-------------|
-| Development | 1 | 120s | 1 |
-| Production | 4-8 | 60s | 3 |
-| High-volume | 16+ | 30s | 2 |
+straylight-llm is stateless and can be horizontally scaled. State (circuit breaker state, proof cache) is per-instance.
+
+For shared state across instances, consider:
+- Redis for proof cache
+- etcd for circuit breaker coordination
+
+### Vertical Scaling
+
+- **Memory**: ~256MB base, +1MB per 1000 concurrent connections
+- **CPU**: Linear scaling with request rate
+- **Recommended**: 2 CPU cores, 1GB RAM per instance for typical workloads
+
+## Upgrades
+
+### Rolling Updates
+
+```bash
+# Build new version
+nix build .#straylight-llm
+
+# Kubernetes
+kubectl set image deployment/straylight-llm \
+  straylight-llm=ghcr.io/justinfleek/straylight-llm:v0.2.0
+
+# Docker
+docker pull straylight-llm:latest
+docker-compose up -d
+```
+
+### Blue-Green Deployment
+
+1. Deploy new version alongside existing
+2. Test new version
+3. Switch traffic at load balancer
+4. Drain and remove old version

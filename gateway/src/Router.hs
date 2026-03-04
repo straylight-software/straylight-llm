@@ -22,7 +22,7 @@
 
 module Router
   ( -- * Router
-    Router (Router, routerManager, routerProviders, routerConfig, routerTritonConfig, routerVeniceConfig, routerVertexConfig, routerBasetenConfig, routerOpenRouterConfig, routerAnthropicConfig, routerProofCache, routerModelRegistry, routerMetrics, routerBackpressure, routerCircuitBreakers, routerRequestHistory, routerAdminSemaphore, routerResponseCache, routerEventBroadcaster),
+    Router (Router, routerManager, routerProviders, routerConfig, routerTritonConfig, routerVeniceConfig, routerVertexConfig, routerBasetenConfig, routerOpenRouterConfig, routerAnthropicConfig, routerProofCache, routerModelRegistry, routerMetrics, routerBackpressure, routerCircuitBreakers, routerRequestHistory, routerAdminSemaphore, routerResponseCache, routerEventBroadcaster, routerMetricsCollector),
     makeRouter,
 
     -- * Routing
@@ -94,7 +94,8 @@ import Provider.Types
         providerEmbeddings,
         providerEnabled,
         providerModels,
-        providerName
+        providerName,
+        providerSupportsModel
       ),
     ProviderError
       ( AuthError,
@@ -141,12 +142,18 @@ import Resilience.Metrics (Metrics, MetricsStore, getMetrics, getProviderLatenci
 import Streaming.Events
   ( CircuitState (CircuitClosed, CircuitHalfOpen, CircuitOpen),
     EventBroadcaster,
+    MetricsCollector,
     emitProofGenerated,
     emitProviderStatus,
     emitRequestCompleted,
     emitRequestStarted,
     encodeSSEEvent,
     newEventBroadcaster,
+    newMetricsCollector,
+    recordMetricsError,
+    recordMetricsLatency,
+    recordMetricsRequest,
+    startMetricsLoop,
     subscribe,
   )
 import Types
@@ -223,7 +230,8 @@ data Router = Router
     routerResponseCache :: BoundedCache LBS.ByteString ChatResponse, -- Hash of request -> response
 
     -- Real-time event broadcasting (SSE)
-    routerEventBroadcaster :: EventBroadcaster -- SSE event broadcaster
+    routerEventBroadcaster :: EventBroadcaster, -- SSE event broadcaster
+    routerMetricsCollector :: MetricsCollector  -- Rolling window metrics for SSE emission
   }
 
 -- | Default provider chain order
@@ -271,8 +279,12 @@ makeRouter config = do
   let openrouterProvider = makeOpenRouterProvider openrouterRef
   let anthropicProvider = makeAnthropicProvider anthropicRef
 
-  -- Build chain in priority order (Triton first for local inference, Anthropic last for direct API access)
-  let providers = [tritonProvider, veniceProvider, vertexProvider, basetenProvider, openrouterProvider, anthropicProvider]
+  -- Build chain in priority order:
+  -- 1. Triton first for local inference (fastest, no cost)
+  -- 2. Venice, Vertex, Baseten for their specific models
+  -- 3. Anthropic for Claude models (direct API access, preferred over aggregators)
+  -- 4. OpenRouter LAST as universal fallback (aggregator, use only when no direct provider)
+  let providers = [tritonProvider, veniceProvider, vertexProvider, basetenProvider, anthropicProvider, openrouterProvider]
 
   -- Create proof cache
   proofCacheRef <- newIORef Map.empty
@@ -323,6 +335,12 @@ makeRouter config = do
   -- Event broadcaster for SSE real-time updates
   eventBroadcaster <- newEventBroadcaster
 
+  -- Metrics collector for SSE emission (rolling 10-second window)
+  metricsCollector <- newMetricsCollector
+
+  -- Start the metrics emission loop (broadcasts every 10 seconds)
+  _ <- startMetricsLoop eventBroadcaster metricsCollector
+
   pure
     Router
       { routerManager = manager,
@@ -342,7 +360,8 @@ makeRouter config = do
         routerRequestHistory = requestHistory,
         routerAdminSemaphore = adminSemaphore,
         routerResponseCache = responseCache,
-        routerEventBroadcaster = eventBroadcaster
+        routerEventBroadcaster = eventBroadcaster,
+        routerMetricsCollector = metricsCollector
       }
 
 -- ════════════════════════════════════════════════════════════════════════════
@@ -381,6 +400,9 @@ routeChat router requestId req = do
       endTime <- getCurrentTime
       let latencyMs = realToFrac (diffUTCTime endTime startTime) * 1000 :: Double
           endTimestamp = T.pack $ show endTime
+      -- Record metrics for SSE (success case, cached)
+      recordMetricsRequest (routerMetricsCollector router)
+      recordMetricsLatency (routerMetricsCollector router) latencyMs
       emitRequestCompleted (routerEventBroadcaster router) requestId modelId (Just "cache") True latencyMs Nothing endTimestamp
       pure $ Right resp
     Nothing -> do
@@ -439,6 +461,10 @@ routeChat router requestId req = do
           endTime <- getCurrentTime
           let latencyMs = realToFrac (diffUTCTime endTime startTime) * 1000 :: Double
               endTimestamp = T.pack $ show endTime
+          -- Record metrics for SSE (error case)
+          recordMetricsRequest (routerMetricsCollector router)
+          recordMetricsError (routerMetricsCollector router)
+          recordMetricsLatency (routerMetricsCollector router) latencyMs
           emitRequestCompleted (routerEventBroadcaster router) requestId modelId Nothing False latencyMs (Just "Gateway overloaded (503)") endTimestamp
           pure $ Left $ ProviderUnavailable "Gateway overloaded (503)"
         Just (result, prov) -> do
@@ -449,6 +475,13 @@ routeChat router requestId req = do
               errMsg = either (Just . providerErrorToText) (const Nothing) result
               provider = safeHead (gpProvidersUsed prov)
               endTimestamp = T.pack $ show endTime
+
+          -- Record metrics for SSE emission (rolling window)
+          recordMetricsRequest (routerMetricsCollector router)
+          recordMetricsLatency (routerMetricsCollector router) latencyMs
+          case result of
+            Left _ -> recordMetricsError (routerMetricsCollector router)
+            Right _ -> pure ()
 
           -- Store in request history for audit (with provider)
           storeRequestHistory router requestId modelId provider result startTime
@@ -504,6 +537,10 @@ routeChatStream router requestId req callback = do
       endTime <- getCurrentTime
       let latencyMs = realToFrac (diffUTCTime endTime startTime) * 1000 :: Double
           endTimestamp = T.pack $ show endTime
+      -- Record metrics for SSE (error case)
+      recordMetricsRequest (routerMetricsCollector router)
+      recordMetricsError (routerMetricsCollector router)
+      recordMetricsLatency (routerMetricsCollector router) latencyMs
       emitRequestCompleted (routerEventBroadcaster router) requestId modelId Nothing False latencyMs (Just "Gateway overloaded (503)") endTimestamp
       pure $ Left $ ProviderUnavailable "Gateway overloaded (503)"
     Just (result, prov) -> do
@@ -514,6 +551,13 @@ routeChatStream router requestId req callback = do
           errMsg = either (Just . providerErrorToText) (const Nothing) result
           provider = safeHead (gpProvidersUsed prov)
           endTimestamp = T.pack $ show endTime
+
+      -- Record metrics for SSE emission (rolling window)
+      recordMetricsRequest (routerMetricsCollector router)
+      recordMetricsLatency (routerMetricsCollector router) latencyMs
+      case result of
+        Left _ -> recordMetricsError (routerMetricsCollector router)
+        Right _ -> pure ()
 
       -- Store in request history for audit (with provider)
       storeRequestHistory router requestId modelId provider result startTime
@@ -566,6 +610,10 @@ routeEmbeddings router requestId req = do
       endTime <- getCurrentTime
       let latencyMs = realToFrac (diffUTCTime endTime startTime) * 1000 :: Double
           endTimestamp = T.pack $ show endTime
+      -- Record metrics for SSE (error case)
+      recordMetricsRequest (routerMetricsCollector router)
+      recordMetricsError (routerMetricsCollector router)
+      recordMetricsLatency (routerMetricsCollector router) latencyMs
       emitRequestCompleted (routerEventBroadcaster router) requestId modelId Nothing False latencyMs (Just "Gateway overloaded (503)") endTimestamp
       pure $ Left $ ProviderUnavailable "Gateway overloaded (503)"
     Just (result, prov) -> do
@@ -576,6 +624,13 @@ routeEmbeddings router requestId req = do
           errMsg = either (Just . providerErrorToText) (const Nothing) result
           provider = safeHead (gpProvidersUsed prov)
           endTimestamp = T.pack $ show endTime
+
+      -- Record metrics for SSE emission (rolling window)
+      recordMetricsRequest (routerMetricsCollector router)
+      recordMetricsLatency (routerMetricsCollector router) latencyMs
+      case result of
+        Left _ -> recordMetricsError (routerMetricsCollector router)
+        Right _ -> pure ()
 
       -- Store in request history for audit (with provider)
       storeRequestHistory router requestId modelId provider result startTime
@@ -628,6 +683,10 @@ routeModels router requestId = do
       endTime <- getCurrentTime
       let latencyMs = realToFrac (diffUTCTime endTime startTime) * 1000 :: Double
           endTimestamp = T.pack $ show endTime
+      -- Record metrics for SSE (error case)
+      recordMetricsRequest (routerMetricsCollector router)
+      recordMetricsError (routerMetricsCollector router)
+      recordMetricsLatency (routerMetricsCollector router) latencyMs
       emitRequestCompleted (routerEventBroadcaster router) requestId modelType Nothing False latencyMs (Just "Gateway overloaded (503)") endTimestamp
       pure $ Left $ ProviderUnavailable "Gateway overloaded (503)"
     Just (result, prov) -> do
@@ -638,6 +697,13 @@ routeModels router requestId = do
           errMsg = either (Just . providerErrorToText) (const Nothing) result
           provider = safeHead (gpProvidersUsed prov)
           endTimestamp = T.pack $ show endTime
+
+      -- Record metrics for SSE emission (rolling window)
+      recordMetricsRequest (routerMetricsCollector router)
+      recordMetricsLatency (routerMetricsCollector router) latencyMs
+      case result of
+        Left _ -> recordMetricsError (routerMetricsCollector router)
+        Right _ -> pure ()
 
       -- Store in request history for audit (with provider)
       storeRequestHistory router requestId modelType provider result startTime
@@ -683,12 +749,17 @@ collectModelsAcc ctx (p : ps) acc = G.do
 -- Returns providers ordered: supporting first, then others
 partitionByModelSupport :: ModelRegistry -> Text -> [Provider] -> IO [Provider]
 partitionByModelSupport registry modelId providers = do
-  -- Check each provider against the registry
+  -- Check each provider against the registry first, then fall back to provider's own check
   supported <- mapM checkSupport providers
   let (supporting, others) = foldr classify ([], []) (zip providers supported)
-  pure $ supporting ++ others
+  -- ONLY return supporting providers - don't try providers that don't support the model
+  pure $ if null supporting then others else supporting
   where
-    checkSupport p = registrySupportsModel registry (providerName p) modelId
+    checkSupport p = do
+      registrySupport <- registrySupportsModel registry (providerName p) modelId
+      -- Also check provider's own supportsModel as fallback
+      let providerSupport = providerSupportsModel p modelId
+      pure $ registrySupport || providerSupport
     classify (p, True) (s, o) = (p : s, o)
     classify (p, False) (s, o) = (s, p : o)
 

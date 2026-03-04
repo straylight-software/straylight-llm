@@ -31,6 +31,7 @@ module System.IoUring.Internal.FFI
   , c_hs_uring_prep_cancel
   , c_hs_uring_peek_cqe
   , c_hs_uring_wait_cqe
+  , c_hs_uring_wait_cqe_timeout
   , c_hs_uring_cqe_seen
   , c_hs_uring_register_buffers
   , c_hs_uring_unregister_buffers
@@ -248,6 +249,11 @@ foreign import ccall unsafe "hs_uring_peek_cqe"
 
 foreign import ccall safe "hs_uring_wait_cqe"
   c_hs_uring_wait_cqe :: Ptr () -> Ptr (Ptr ()) -> IO CInt
+
+-- Wait with timeout in milliseconds (0 = non-blocking peek behavior)
+-- This is a wrapper that handles the timeout conversion
+foreign import ccall safe "hs_uring_wait_cqe_timeout_ms"
+  c_hs_uring_wait_cqe_timeout :: Ptr () -> Ptr (Ptr ()) -> CInt -> IO CInt
 
 foreign import ccall unsafe "hs_uring_cqe_seen"
   c_hs_uring_cqe_seen :: Ptr () -> Ptr () -> IO ()

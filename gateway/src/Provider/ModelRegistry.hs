@@ -310,7 +310,10 @@ fallbackSupportsModel Baseten modelId =
   any
     (`T.isPrefixOf` modelId)
     [ "llama-",
-      "mistral-"
+      "mistral-",
+      "deepseek-",
+      "deepseek-ai/",  -- Full org/model format (e.g., deepseek-ai/DeepSeek-V3.1)
+      "qwen-"
     ]
 -- GPU compute providers (rate aggregation only, no LLM inference)
 fallbackSupportsModel LambdaLabs _ = False
