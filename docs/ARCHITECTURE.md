@@ -19,7 +19,7 @@ This document tracks compliance with the aleph cube architecture as defined in `
 | Typed coeffects | **Complete** (Effects.Graded) | Required |
 | Discharge proofs | **Complete** (Coeffect.Discharge) | Required |
 | Effect system | **Complete** (GatewayM graded monad) | Required |
-| Property tests | **Complete** (171 tests) | Required |
+| Property tests | **Complete** (377 tests) | Required |
 | Lean4 proofs | **Complete** (904 lines, no sorry) | Required |
 | Deterministic builds | Partial (Dhall BUILD files) | Required |
 
@@ -249,10 +249,10 @@ verifyProof :: PublicKey -> DischargeProof -> Bool
 ### Phase 4: Property Tests (1 week) — **COMPLETE**
 
 **Completed:**
-- 171 tests total (hedgehog + integration + adversarial + formal)
-- Property tests: Types roundtrip (41), Coeffect (12), Graded Monad (11), Security, Streaming (21)
+- 377 tests total (hedgehog + integration + adversarial + formal + SIGIL + ZMQ)
+- Property tests: Types roundtrip (41), Coeffect (12), Graded Monad (11), Security, Streaming (21), SIGIL (58)
 - Integration tests: API (5), Proof (1), Lifecycle (11), OpenAPI spec
-- Adversarial tests: Race conditions (9), Injection edge cases (22), Provider errors (29)
+- Adversarial tests: Race conditions (9), Injection edge cases (22), Provider errors (29), ZMQ transport (49)
 - Formal tests: Proof correspondence (9) — Haskell ↔ Lean4 verification
 
 ### Phase 5: Lean4 Proofs (2 weeks) — **COMPLETE**
@@ -296,6 +296,77 @@ verifyProof :: PublicKey -> DischargeProof -> Bool
 - Memory/performance benchmarks
 - SearXNG + gVisor sandbox integration
 
+### Phase 8: SIGIL Transport Layer — **COMPLETE**
+
+**Goal:** Eliminate JSON parsing in client applications by providing a binary wire protocol.
+
+**Completed:**
+- `Transport/Zmq.hs` — ZMQ PUB socket, SIGIL frame emission
+- `Transport/ZmqInbound.hs` — ZMQ ROUTER socket, request parsing
+- `Transport/ZmqServer.hs` — Server loop, streaming pipeline
+- `Streaming/SigilBridge.hs` — SSE→SIGIL conversion (protocol translation layer)
+- Property tests: `Property/SigilProps.hs` (58 tests)
+- Adversarial tests: `Adversarial/ZmqTransport.hs` (49 tests)
+
+**Architecture:**
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Client Applications                       │
+│            (omegacode, strayforge, converge)                │
+│                                                             │
+│              ZMQ SUB ← SIGIL frames ← No JSON               │
+├─────────────────────────────────────────────────────────────┤
+│                    straylight-llm Gateway                    │
+│                                                             │
+│  ┌─────────────────────────────────────────────────────────┐│
+│  │  Transport/ZmqServer.hs                                 ││
+│  │    └── Binds ZMQ PUB (5555), ROUTER (5556)              ││
+│  │    └── Receives HTTP/SSE from providers                 ││
+│  │    └── Converts via SigilBridge                         ││
+│  │    └── Emits SIGIL frames via Transport/Zmq.hs          ││
+│  └─────────────────────────────────────────────────────────┘│
+├─────────────────────────────────────────────────────────────┤
+│                    Protocol Translation Layer               │
+│  ┌─────────────────────────────────────────────────────────┐│
+│  │  Streaming/SigilBridge.hs                               ││
+│  │    └── Parses SSE events (text/event-stream)            ││
+│  │    └── Parses JSON deltas (OpenAI format)               ││
+│  │    └── Emits clean SIGIL opcodes                        ││
+│  │    └── Reset-on-ambiguity semantics                     ││
+│  └─────────────────────────────────────────────────────────┘│
+├─────────────────────────────────────────────────────────────┤
+│                    LLM Providers                            │
+│            Venice │ Vertex │ Baseten │ OpenRouter           │
+│                   (HTTP/SSE/JSON)                           │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Wire Format (from libevring/docs/sigil.md):**
+```
+0xxxxxxx  = hot token (ID in lower 7 bits, 0x00-0x7E)
+10xxxxxx  = extended token (varint follows)
+1100xxxx  = stream control (0xC0-0xCF)
+
+Control opcodes:
+  0xC0 CHUNK_END      0xC3 THINK_START    0xC6 CODE_BLOCK_END
+  0xC1 TOOL_CALL_START 0xC4 THINK_END     0xC7 FLUSH
+  0xC2 TOOL_CALL_END   0xC5 CODE_BLOCK_START 0xCF STREAM_END
+```
+
+### Phase 9: Tokenizers FFI — **COMPLETE**
+
+**Goal:** Pre-tokenize content in the gateway using HuggingFace tokenizers (via tokenizers-cpp).
+
+**Completed:**
+- `Slide/Tokenizer.hs` — Haskell tokenizer wrapper
+- `Slide/Tokenizer/FFI.hs` — C FFI bindings to tokenizers-cpp
+- `cbits/tokenizers_c.h` — C header for FFI
+- `cbits/tokenizers_c.cpp` — C++ wrapper around tokenizers-cpp
+- `nix/tokenizers-cpp.nix` — Nix build (crane + CMake)
+- `nix/tokenizers-Cargo.lock` — Rust dependencies for tokenizers
+
+**Why "Slide"?** The module name comes from the concept of pre-computing token boundaries so clients can "slide" through the stream without parsing—tokens are already identified by the gateway.
+
 ---
 
 ## Forbidden Patterns
@@ -336,6 +407,9 @@ straylight-llm/
 │   └── Coeffect.lean              # Coeffect system proofs
 │
 ├── gateway/                       # Haskell server
+│   ├── cbits/                     # FFI C/C++ code
+│   │   ├── tokenizers_c.h
+│   │   └── tokenizers_c.cpp
 │   ├── src/
 │   │   ├── Effects/               # Effect definitions
 │   │   │   ├── Http.hs
@@ -344,12 +418,25 @@ straylight-llm/
 │   │   ├── Coeffect/              # Coeffect tracking
 │   │   │   ├── Types.hs
 │   │   │   └── Discharge.hs
+│   │   ├── Transport/             # SIGIL transport layer
+│   │   │   ├── Zmq.hs             # ZMQ PUB socket
+│   │   │   ├── ZmqInbound.hs      # ZMQ ROUTER socket
+│   │   │   └── ZmqServer.hs       # Server loop
+│   │   ├── Streaming/
+│   │   │   └── SigilBridge.hs     # SSE→SIGIL conversion
+│   │   ├── Slide/                 # Tokenization
+│   │   │   ├── Tokenizer.hs       # HuggingFace wrapper
+│   │   │   └── Tokenizer/
+│   │   │       └── FFI.hs         # C FFI bindings
 │   │   └── ...existing modules...
 │   └── test/
 │       ├── Property/              # Hedgehog property tests
 │       │   ├── Types.hs
 │       │   ├── Router.hs
-│       │   └── Provider.hs
+│       │   ├── Provider.hs
+│       │   └── SigilProps.hs      # SIGIL property tests
+│       ├── Adversarial/
+│       │   └── ZmqTransport.hs    # ZMQ adversarial tests
 │       └── Unit/                  # HUnit tests
 │
 ├── frontend/                      # PureScript dashboard

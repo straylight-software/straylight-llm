@@ -1,7 +1,7 @@
 # straylight-llm
 
 [![Build](https://github.com/straylight-software/straylight-llm/actions/workflows/build-container.yml/badge.svg)](https://github.com/straylight-software/straylight-llm/actions)
-[![Tests](https://img.shields.io/badge/tests-270%20passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-377%20passing-brightgreen)]()
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 **OpenAI-compatible LLM gateway with provider fallback, effect tracking, and formal verification.**
@@ -19,6 +19,7 @@ A production-grade Haskell gateway that routes LLM requests through multiple pro
 | **io_uring backend** | Yes (5x throughput) | No | N/A |
 | **Circuit breakers** | Per-provider | Limited | N/A |
 | **Language** | Haskell | Python | N/A |
+| **Binary protocol** | SIGIL over ZMQ | No | No |
 
 **straylight-llm** is for teams who need:
 - Cryptographic proof that requests were handled correctly
@@ -32,6 +33,7 @@ A production-grade Haskell gateway that routes LLM requests through multiple pro
 - **Multi-provider fallback** — Venice AI → Vertex AI → Baseten → OpenRouter → Anthropic
 - **Circuit breakers** — Automatic provider isolation on failures
 - **Streaming SSE** — Real-time token streaming with `text/event-stream`
+- **SIGIL transport** — Binary wire protocol over ZMQ (eliminates JSON parsing in clients)
 - **Discharge proofs** — Ed25519-signed cryptographic proofs for every request
 - **Effect tracking** — Graded monad system tracks all IO effects
 - **Formal verification** — 904 lines of Lean4 proofs (no `sorry`, no axioms)
@@ -39,7 +41,7 @@ A production-grade Haskell gateway that routes LLM requests through multiple pro
 - **OpenTelemetry tracing** — Distributed tracing with configurable OTLP export
 - **Rate limiting** — Per-API-key token bucket rate limiting
 - **Response caching** — Configurable LRU cache with TTL
-- **270 tests** — Property tests, integration tests, adversarial tests, formal correspondence tests
+- **377 tests** — Property tests, integration tests, adversarial tests, formal correspondence tests
 
 ## Quick Start
 
@@ -238,15 +240,28 @@ Each provider has an independent circuit breaker. Failed providers are temporari
 │              └── Discharge Proofs (ed25519 signed)          │
 ├─────────────────────────────────────────────────────────────┤
 │  Providers: Venice │ Vertex │ Baseten │ OpenRouter │ ...    │
+├─────────────────────────────────────────────────────────────┤
+│  SIGIL Transport: ZMQ PUB/SUB │ Binary frames │ No JSON     │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+### SIGIL Transport Layer
+
+For high-performance clients, straylight-llm exposes a SIGIL binary protocol over ZeroMQ:
+
+- **ZMQ PUB** on port 5555 — Clients SUB to receive SIGIL frames
+- **ZMQ ROUTER** on port 5556 — Request/response for non-streaming
+- **No JSON parsing** — Clients receive pre-tokenized binary frames
+- **Mode tracking** — Text/think/toolCall/codeBlock semantic modes
+
+See [libevring/docs/sigil.md](libevring/docs/sigil.md) for the full protocol specification.
 
 ## Testing
 
 ```bash
 cd gateway
 
-# Run all tests (270 tests)
+# Run all tests (377 tests)
 cabal test
 
 # Run benchmarks
@@ -321,7 +336,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## Contributing
 
-1. Ensure all 270 tests pass: `cd gateway && cabal test`
+1. Ensure all 377 tests pass: `cd gateway && cabal test`
 2. Run the formatter: `nix fmt`
 3. Verify Dhall manifests: `nix build .#dhall-verify`
 4. No partial functions (`head`, `tail`, `fromJust`, `read`, `!!`)

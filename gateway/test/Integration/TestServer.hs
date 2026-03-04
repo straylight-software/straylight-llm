@@ -35,13 +35,22 @@ import Config
         cfgAnthropic,
         cfgBaseten,
         cfgCacheConfig,
+        cfgCerebras,
+        cfgDeepInfra,
+        cfgFireworks,
+        cfgGroq,
         cfgHost,
         cfgLogLevel,
         cfgMaxRetries,
+        cfgModal,
+        cfgNovita,
         cfgOpenRouter,
         cfgPoolConfig,
         cfgPort,
         cfgRequestTimeout,
+        cfgSambaNova,
+        cfgSigil,
+        cfgTogether,
         cfgTriton,
         cfgVenice,
         cfgVertex
@@ -56,6 +65,8 @@ import Config
       ),
     defaultConnectionPoolConfig,
     defaultResponseCacheConfig,
+    defaultSigilConfig,
+    SigilConfig (scEnabled),
   )
 import Handlers (server)
 import Network.HTTP.Client qualified as HC
@@ -88,6 +99,16 @@ disabledConfig =
     { cfgPort = 0, -- Unused, Warp.testWithApplication picks port
       cfgHost = "127.0.0.1",
       cfgTriton = disabledProvider,
+      -- High-throughput providers
+      cfgTogether = disabledProvider,
+      cfgSambaNova = disabledProvider,
+      cfgFireworks = disabledProvider,
+      cfgNovita = disabledProvider,
+      cfgDeepInfra = disabledProvider,
+      cfgModal = disabledProvider,
+      cfgGroq = disabledProvider,
+      cfgCerebras = disabledProvider,
+      -- Standard providers
       cfgVenice = disabledProvider,
       cfgVertex = disabledProvider,
       cfgBaseten = disabledProvider,
@@ -98,7 +119,8 @@ disabledConfig =
       cfgMaxRetries = 1,
       cfgAdminApiKey = Nothing,
       cfgCacheConfig = defaultResponseCacheConfig,
-      cfgPoolConfig = defaultConnectionPoolConfig
+      cfgPoolConfig = defaultConnectionPoolConfig,
+      cfgSigil = defaultSigilConfig { scEnabled = False }  -- Disable for tests
     }
 
 -- | Test configuration with OpenRouter pointing to non-existent server

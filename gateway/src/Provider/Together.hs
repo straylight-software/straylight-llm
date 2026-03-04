@@ -69,6 +69,7 @@ import Types
     Model (Model),
     ModelId (ModelId),
     ModelList (ModelList),
+    Timestamp (Timestamp),
   )
 
 -- ════════════════════════════════════════════════════════════════════════════
@@ -149,14 +150,14 @@ chatCompletion ::
   ChatRequest ->
   GatewayM Full (ProviderResult ChatResponse)
 chatCompletion configRef ctx req = G.do
-  recordAuthUsage "together" Nothing
+  recordAuthUsage "together" "api-key"
   config <- liftIO' $ readIORef configRef
 
-  let baseUrl = maybe defaultBaseUrl id (pcBaseUrl config)
+  let baseUrl = if T.null (pcBaseUrl config) then defaultBaseUrl else pcBaseUrl config
       url = T.unpack baseUrl <> "/v1/chat/completions"
       apiKey = maybe "" id (pcApiKey config)
 
-  recordHttpAccess url "POST"
+  recordHttpAccess (T.pack url) "POST" Nothing
 
   result <- liftIO' $ do
     initReq <- HC.parseRequest url
@@ -191,14 +192,14 @@ chatCompletionStream ::
   StreamCallback ->
   GatewayM Full (ProviderResult ())
 chatCompletionStream configRef ctx req callback = G.do
-  recordAuthUsage "together" Nothing
+  recordAuthUsage "together" "api-key"
   config <- liftIO' $ readIORef configRef
 
-  let baseUrl = maybe defaultBaseUrl id (pcBaseUrl config)
+  let baseUrl = if T.null (pcBaseUrl config) then defaultBaseUrl else pcBaseUrl config
       url = T.unpack baseUrl <> "/v1/chat/completions"
       apiKey = maybe "" id (pcApiKey config)
 
-  recordHttpAccess url "POST"
+  recordHttpAccess (T.pack url) "POST" Nothing
 
   result <- liftIO' $ do
     initReq <- HC.parseRequest url
@@ -219,18 +220,17 @@ chatCompletionStream configRef ctx req callback = G.do
       if status >= 200 && status < 300
         then do
           streamBody (HC.responseBody resp) callback
-          pure $ Right ()
+          pure Nothing
         else do
           body <- HC.brConsume (HC.responseBody resp)
-          pure $ Left $ handleErrorStatus status (LBS.fromChunks body)
+          pure $ Just $ handleErrorStatus status (LBS.fromChunks body)
 
     pure $ case tryResult of
-      Left e -> Left $ ProviderUnavailable $ T.pack $ show e
-      Right r -> r
+      Left e -> Retry $ ProviderUnavailable $ T.pack $ show e
+      Right Nothing -> Success ()
+      Right (Just provResult) -> provResult
 
-  case result of
-    Left err -> liftIO' $ pure $ Retry err
-    Right () -> liftIO' $ pure $ Success ()
+  liftIO' $ pure result
 
 -- | Stream response body, calling callback for each SSE chunk
 streamBody :: HC.BodyReader -> StreamCallback -> IO ()
@@ -255,14 +255,14 @@ embeddings ::
   EmbeddingRequest ->
   GatewayM Full (ProviderResult EmbeddingResponse)
 embeddings configRef ctx req = G.do
-  recordAuthUsage "together" Nothing
+  recordAuthUsage "together" "api-key"
   config <- liftIO' $ readIORef configRef
 
-  let baseUrl = maybe defaultBaseUrl id (pcBaseUrl config)
+  let baseUrl = if T.null (pcBaseUrl config) then defaultBaseUrl else pcBaseUrl config
       url = T.unpack baseUrl <> "/v1/embeddings"
       apiKey = maybe "" id (pcApiKey config)
 
-  recordHttpAccess url "POST"
+  recordHttpAccess (T.pack url) "POST" Nothing
 
   result <- liftIO' $ do
     initReq <- HC.parseRequest url
@@ -303,14 +303,14 @@ listModels ::
   RequestContext ->
   GatewayM Full (ProviderResult ModelList)
 listModels configRef ctx = G.do
-  recordAuthUsage "together" Nothing
+  recordAuthUsage "together" "api-key"
   config <- liftIO' $ readIORef configRef
 
-  let baseUrl = maybe defaultBaseUrl id (pcBaseUrl config)
+  let baseUrl = if T.null (pcBaseUrl config) then defaultBaseUrl else pcBaseUrl config
       url = T.unpack baseUrl <> "/v1/models"
       apiKey = maybe "" id (pcApiKey config)
 
-  recordHttpAccess url "GET"
+  recordHttpAccess (T.pack url) "GET" Nothing
 
   result <- liftIO' $ do
     initReq <- HC.parseRequest url

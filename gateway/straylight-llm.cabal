@@ -126,8 +126,17 @@ library
     Observability.Tracing
     -- // streaming (SSE events)
     Streaming.Events
+    Streaming.SigilBridge
+    -- // transport (ZMQ SIGIL)
+    Transport.Zmq
+    Transport.ZmqInbound
+    Transport.ZmqServer
+    -- // tokenizers (FFI)
+    Slide.Tokenizer
+    Slide.Tokenizer.FFI
 
   hs-source-dirs:     src
+  include-dirs:       cbits
   default-language:   GHC2021
 
   ghc-options:
@@ -145,6 +154,7 @@ library
 
   build-depends:
     , aeson               >=2.0
+    , async               >=2.2
     , base                >=4.17 && <5
     , effect-monad        >=0.9
     , base16-bytestring   >=1.0
@@ -178,6 +188,7 @@ library
     , vector              >=0.12
     , wai                 >=3.2
     , warp                >=3.3
+    , zeromq4-haskell     >=0.8
 
   default-extensions:
     BangPatterns
@@ -210,6 +221,7 @@ executable straylight-llm
     "-with-rtsopts=-N -T"
 
   build-depends:
+    , async            >=2.2
     , base             >=4.17 && <5
     , http-types
     , servant-server
@@ -248,6 +260,7 @@ test-suite straylight-llm-test
     Property.SecurityProps
     Property.StreamingProps
     Property.OutputValidationProps
+    Property.SigilProps
     -- // integration tests
     Integration.TestServer
     Integration.ApiTests
@@ -262,6 +275,7 @@ test-suite straylight-llm-test
     Adversarial.InjectionEdgeCases
     Adversarial.ProviderErrors
     Adversarial.XSSVectors
+    Adversarial.ZmqTransport
     -- // formal tests
     Formal.ProofCorrespondence
 

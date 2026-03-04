@@ -5,9 +5,11 @@
 ## Current Status
 
 **Build:** Passing (GHC 9.12.2, cabal build)  
-**Tests:** 249/249 passing (property + integration + adversarial + formal + security)  
+**Tests:** 377/377 passing (property + integration + adversarial + formal + security)  
 **Nix:** `.#straylight-llm` builds successfully  
-**COMPASS Target:** 135+ tests - **EXCEEDED (249)**  
+**COMPASS Target:** 135+ tests - **EXCEEDED (377)**  
+**SIGIL Transport:** ZMQ inbound/outbound, SSE→SIGIL bridge  
+**Tokenizers:** HuggingFace FFI via tokenizers-cpp  
 **Streaming:** SSE endpoint implemented (`/v1/chat/completions/stream`)  
 **Real-time Events:** SSE broadcaster (`/v1/events`)  
 **Dhall BUILD:** Complete - typed targets, DICE actions, no globs  
@@ -119,6 +121,21 @@
 - [x] nix2gpu container builds
 - [x] CI/CD pipeline
 
+### Phase 8: SIGIL Transport Layer (Complete)
+- [x] `Transport/Zmq.hs` - ZMQ PUB socket, multipart frame emission
+- [x] `Transport/ZmqInbound.hs` - ZMQ ROUTER socket, request parsing
+- [x] `Transport/ZmqServer.hs` - Server loop, streaming pipeline, real metrics
+- [x] `Streaming/SigilBridge.hs` - SSE→SIGIL conversion, dual emission
+- [x] Topic routing by model and stream ID
+- [x] Latency percentile estimation from histogram buckets
+
+### Phase 9: Tokenizers FFI (Complete)
+- [x] `Slide/Tokenizer.hs` - HuggingFace tokenizer wrapper
+- [x] `Slide/Tokenizer/FFI.hs` - C FFI bindings
+- [x] `cbits/tokenizers_c.h` and `cbits/tokenizers_c.cpp` - C++ wrapper
+- [x] `nix/tokenizers-cpp.nix` - Two-stage Rust+CMake build via crane
+- [x] flake.nix integration with rust-overlay
+
 ---
 
 ## Remaining Work
@@ -142,14 +159,9 @@
 - [ ] Adapt scenario framework for fallback chain testing
 - [ ] Add cost tracking assertions from COMPASS patterns
 
-#### SIGIL Encoding (if needed for downstream clients)
-- [ ] Add `Slide/Wire/Decode.hs` (with safety fixes)
-- [ ] Add `Slide/Wire/Encode.hs` (with safety fixes)
-- [ ] Add `Slide/Wire/Frame.hs` (replace `error` with `Either`)
-
-#### Semantic Chunking
-- [ ] Add `Slide/Chunk.hs`
-- [ ] Add `Slide/HotTable.hs` (fix `unsafePerformIO`)
+#### omegacode SIGIL Client
+- [ ] ZMQ SUB client for SIGIL frame reception
+- [ ] Replace SSE/JSON parsing with SIGIL frame decoding
 
 #### HTTP/2 Support
 - [ ] Consider `Provider/HTTP2.hs` from libevring for proper HTTP/2 streaming
@@ -238,6 +250,18 @@
 | `Security/ResponseSanitization.hs` | ~100 | Complete |
 | `Security/ObservabilitySanitization.hs` | ~80 | Complete |
 | `Streaming/Events.hs` | ~150 | Complete |
+| `Streaming/SigilBridge.hs` | 314 | Complete |
+| `Transport/Zmq.hs` | 206 | Complete |
+| `Transport/ZmqInbound.hs` | 278 | Complete |
+| `Transport/ZmqServer.hs` | 367 | Complete |
+| `Slide/Wire/Decode.hs` | 399 | Complete |
+| `Slide/Wire/Encode.hs` | 64 | Complete |
+| `Slide/Wire/Frame.hs` | 209 | Complete |
+| `Slide/Chunk.hs` | 248 | Complete |
+| `Slide/HotTable.hs` | 189 | Complete |
+| `Slide/Model.hs` | 567 | Complete |
+| `Slide/Tokenizer.hs` | 220 | Complete |
+| `Slide/Tokenizer/FFI.hs` | 147 | Complete |
 
 ### Dhall BUILD Files
 | File | Lines | Status |
@@ -249,12 +273,12 @@
 | `dhall/straylight-llm.dhall` | 233 | Complete (gateway definition) |
 | `dhall/examples/*.dhall` | 70 | Complete (examples) |
 
-### Missing (may not be needed)
-| Module | Priority | Notes |
-|--------|----------|-------|
-| `Slide/Wire/Decode.hs` | Low | Only if decoding SIGIL from clients |
-| `Slide/Wire/Encode.hs` | Medium | Only if emitting SIGIL to clients |
-| `Slide/Wire/Frame.hs` | Medium | Required for SIGIL encoding |
+### Nix Build
+| Component | Status |
+|-----------|--------|
+| `tokenizers-cpp` | Complete (crane + CMake) |
+| `zeromq4-haskell` | Complete (Hackage 0.8.0) |
+| `rust-overlay` | Complete (for tokenizers Rust) |
 | `Slide/Chunk.hs` | Medium | Semantic chunking |
 | `Slide/HotTable.hs` | Medium | Hot token compression |
 | `Slide/Model.hs` | Low | Model abstraction |

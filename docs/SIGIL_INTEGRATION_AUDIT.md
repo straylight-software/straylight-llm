@@ -146,7 +146,7 @@ finalizeDecoder state
 |-----------|--------|
 | Slide/Wire code | Duplicated (exact copy from libevring) |
 | SIGIL encoding in streaming | ❌ **NOT WIRED** — raw SSE passthrough |
-| ZMQ sockets | ❌ **Missing** — ZMTP parser exists, no bindings |
+| ZMQ sockets | ✅ Complete — Transport/Zmq.hs, zeromq4-haskell |
 | SSE parsing | Uses Megaparsec, not fed into SIGIL encoder |
 
 ## Missing Components
@@ -371,8 +371,16 @@ src/WeaponUI/App.purs
 
 ## Must Build (missing infrastructure)
 
-- [ ] **INFRA-001**: ZMQ socket layer in gateway (zeromq4-haskell)
-- [ ] **INFRA-002**: SSE→SIGIL bridge (parse→tokenize→encode)
+- [x] **INFRA-001**: ZMQ socket layer in gateway (zeromq4-haskell) ✓ DONE
+      - Added zeromq4-haskell dep to cabal
+      - Created Transport/Zmq.hs with SigilPublisher, emitFrame
+      - Added SigilConfig to Config.hs (SIGIL_ENABLED, SIGIL_BIND_ADDRESS, etc.)
+      - Wired into Router (routerSigilPublisher, routerDefaultModel)
+- [x] **INFRA-002**: SSE→SIGIL bridge (parse→tokenize→encode) ✓ DONE
+      - Created Streaming/SigilBridge.hs
+      - Full token processing via Slide.Chunk state machine
+      - makeDualCallback wraps SSE handler with SIGIL emission
+      - Wired into chatStreamHandler
 - [ ] **INFRA-003**: Real tokenizer integration (not identity stub)
 - [ ] **INFRA-004**: Parquet sink for frame-level analytics
 - [ ] **INFRA-005**: omegacode ZMQ client (Electron main process)
@@ -397,8 +405,8 @@ src/WeaponUI/App.purs
 | P1 | SIGIL-002 (0x7F handling) | Silent corruption | 0.5 day | ✓ DONE |
 | P1 | SIGIL-003 (stream end) | Silent truncation | 0.5 day | ✓ DONE |
 | P1 | VENDOR-003 (accumulation) | Partial tool calls | 1 day | ✓ DONE |
-| P1 | INFRA-001 (ZMQ sockets) | Blocks all ZMQ | 1 day | |
-| P1 | INFRA-002 (SSE→SIGIL) | Blocks SIGIL emit | 1 day | |
+| P1 | INFRA-001 (ZMQ sockets) | Blocks all ZMQ | 1 day | ✓ DONE |
+| P1 | INFRA-002 (SSE→SIGIL) | Blocks SIGIL emit | 1 day | ✓ DONE |
 | P2 | INFRA-004 (Parquet) | No observability | 2 days | |
 | P2 | INFRA-005 (omegacode ZMQ) | Client migration | 2 days | |
 | P3 | ROBUST-001 (JSON buffering) | Edge case failures | 1 day | |

@@ -22,7 +22,7 @@
 
 module Router
   ( -- * Router
-    Router (Router, routerManager, routerProviders, routerConfig, routerTritonConfig, routerTogetherConfig, routerSambanovaConfig, routerFireworksConfig, routerNovitaConfig, routerDeepInfraConfig, routerModalConfig, routerGroqConfig, routerCerebrasConfig, routerVeniceConfig, routerVertexConfig, routerBasetenConfig, routerOpenRouterConfig, routerAnthropicConfig, routerProofCache, routerModelRegistry, routerMetrics, routerBackpressure, routerCircuitBreakers, routerRequestHistory, routerAdminSemaphore, routerResponseCache, routerEventBroadcaster, routerMetricsCollector, routerModelIntelligence),
+    Router (Router, routerManager, routerProviders, routerConfig, routerTritonConfig, routerTogetherConfig, routerSambanovaConfig, routerFireworksConfig, routerNovitaConfig, routerDeepInfraConfig, routerModalConfig, routerGroqConfig, routerCerebrasConfig, routerVeniceConfig, routerVertexConfig, routerBasetenConfig, routerOpenRouterConfig, routerAnthropicConfig, routerProofCache, routerModelRegistry, routerMetrics, routerBackpressure, routerCircuitBreakers, routerRequestHistory, routerAdminSemaphore, routerResponseCache, routerEventBroadcaster, routerMetricsCollector, routerModelIntelligence, routerSigilPublisher, routerDefaultModel),
     makeRouter,
     closeRouter,
 
@@ -84,6 +84,7 @@ import Config
         cfgPoolConfig,
         cfgRequestTimeout,
         cfgSambaNova,
+        cfgSigil,
         cfgTogether,
         cfgTriton,
         cfgVenice,
@@ -92,6 +93,7 @@ import Config
     ConnectionPoolConfig (cpcConnectionsPerHost, cpcIdleConnections),
     ProviderConfig,
     ResponseCacheConfig (rccEnabled, rccMaxSize, rccTtlSeconds),
+    SigilConfig (scBindAddress, scDefaultModel, scEnabled),
   )
 import Data.Aeson (FromJSON (parseJSON), ToJSON (toJSON), encode, object, withObject, (.:), (.=))
 import Data.ByteString.Lazy qualified as LBS
@@ -139,7 +141,7 @@ import Provider.ModelIntelligence
 import Provider.ModelRegistry (ModelRegistry, makeModelRegistry, registrySupportsModel)
 import Provider.Novita (makeNovitaProvider)
 import Provider.OpenRouter (makeOpenRouterProvider)
-import Provider.SambaNova (makeSambanovaProvider)
+import Provider.SambaNova (makeSambaNovaProvider)
 import Provider.Together (makeTogetherProvider)
 import Provider.Triton (makeTritonProvider)
 import Provider.Types
@@ -220,6 +222,11 @@ import Streaming.Events
     subscribe,
   )
 import Types
+
+-- // SIGIL transport and model
+import Slide.Model (loadModel)
+import Slide.Model qualified as Slide
+import Transport.Zmq (SigilPublisher, closeSigilPublisher, newSigilPublisher)
 
 -- ════════════════════════════════════════════════════════════════════════════
 --                                                                   // types
@@ -308,7 +315,11 @@ data Router = Router
     routerMetricsCollector :: MetricsCollector, -- Rolling window metrics for SSE emission
 
     -- Model intelligence (specs, new model detection, capabilities)
-    routerModelIntelligence :: ModelIntelligence
+    routerModelIntelligence :: ModelIntelligence,
+
+    -- SIGIL frame egress (ZMQ PUB socket)
+    routerSigilPublisher :: Maybe SigilPublisher, -- Nothing if SIGIL disabled
+    routerDefaultModel :: Slide.Model -- Default model for tokenization
   }
 
 -- | Default provider chain order
@@ -366,7 +377,7 @@ makeRouter config = do
   -- Tier 2: High-throughput providers (MoE optimized, no/flexible rate limits)
   -- These are preferred for billion-agent scale due to throughput
   let togetherProvider = makeTogetherProvider togetherRef
-  let sambanovaProvider = makeSambanovaProvider sambanovaRef
+  let sambanovaProvider = makeSambaNovaProvider sambanovaRef
   let fireworksProvider = makeFireworksProvider fireworksRef
   let novitaProvider = makeNovitaProvider novitaRef
   let deepinfraProvider = makeDeepInfraProvider deepinfraRef
@@ -489,6 +500,16 @@ makeRouter config = do
   -- Syncs every 5 minutes to detect new models across providers
   modelIntelligence <- makeModelIntelligence manager providers eventBroadcaster 300
 
+  -- SIGIL egress: ZMQ PUB socket for SIGIL frame emission
+  let sigilConf = cfgSigil config
+  sigilPublisher <-
+    if scEnabled sigilConf
+      then Just <$> newSigilPublisher (scBindAddress sigilConf)
+      else pure Nothing
+
+  -- Load default model for tokenization
+  defaultModel <- loadModel (scDefaultModel sigilConf)
+
   pure
     Router
       { routerManager = manager,
@@ -521,7 +542,9 @@ makeRouter config = do
         routerResponseCache = responseCache,
         routerEventBroadcaster = eventBroadcaster,
         routerMetricsCollector = metricsCollector,
-        routerModelIntelligence = modelIntelligence
+        routerModelIntelligence = modelIntelligence,
+        routerSigilPublisher = sigilPublisher,
+        routerDefaultModel = defaultModel
       }
 
 -- | Gracefully shutdown router and release all resources
@@ -530,6 +553,11 @@ closeRouter :: Router -> IO ()
 closeRouter router = do
   -- Stop model intelligence sync thread
   closeModelIntelligence (routerModelIntelligence router)
+
+  -- Close SIGIL publisher if enabled
+  case routerSigilPublisher router of
+    Just publisher -> closeSigilPublisher publisher
+    Nothing -> pure ()
 
 -- Note: ModelRegistry also has a sync thread we should close
 -- TODO: Add closeModelRegistry when implementing full cleanup

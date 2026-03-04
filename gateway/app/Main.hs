@@ -26,6 +26,7 @@ import Config
         cfgOpenRouter,
         cfgPoolConfig,
         cfgPort,
+        cfgSigil,
         cfgTriton,
         cfgVenice,
         cfgVertex
@@ -33,8 +34,10 @@ import Config
     ConnectionPoolConfig (cpcConnectionsPerHost, cpcIdleConnections),
     ProviderConfig (pcApiKey, pcEnabled),
     ResponseCacheConfig (rccEnabled, rccMaxSize, rccTtlSeconds),
+    SigilConfig (scEnabled, scBindAddress, scInboundAddress),
     loadConfig,
   )
+import Control.Concurrent.Async (async, link)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 import Evring.Wai qualified as Evring
@@ -65,6 +68,7 @@ import Router (makeRouter)
 import Servant (serve)
 import System.Environment (lookupEnv)
 import System.IO (BufferMode (..), hSetBuffering, stdout)
+import Transport.ZmqServer (runZmqServer)
 
 -- ════════════════════════════════════════════════════════════════════════════
 --                                                              // middleware
@@ -160,7 +164,20 @@ main = do
       <> T.pack (show (cpcConnectionsPerHost poolConf))
       <> " idle="
       <> T.pack (show (cpcIdleConnections poolConf))
+
+  -- SIGIL transport status
+  let sigilConf = cfgSigil config
+  if scEnabled sigilConf
+    then do
+      TIO.putStrLn $ "  SIGIL Transport: [enabled]"
+      TIO.putStrLn $ "    egress (PUB):   " <> scBindAddress sigilConf
+      TIO.putStrLn $ "    ingress (ROUTER): " <> scInboundAddress sigilConf
+    else TIO.putStrLn "  SIGIL Transport: [disabled] (set SIGIL_ENABLED=true to enable)"
   TIO.putStrLn ""
+
+  -- Start SIGIL ZMQ server (concurrent with HTTP)
+  zmqServerThread <- async $ runZmqServer sigilConf router
+  link zmqServerThread  -- propagate exceptions to main thread
 
   -- Check backend selection environment variables
   -- USE_URING=1 enables io_uring single-core (CPS event loop)

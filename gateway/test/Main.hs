@@ -16,6 +16,7 @@ import Adversarial.InjectionEdgeCases qualified as InjectionEdgeCases
 import Adversarial.ProviderErrors qualified as ProviderErrors
 import Adversarial.RaceConditions qualified as RaceConditions
 import Adversarial.XSSVectors qualified as XSSVectors
+import Adversarial.ZmqTransport qualified as ZmqTransport
 import Formal.ProofCorrespondence qualified as ProofCorrespondence
 import Integration.ApiTests qualified as ApiTests
 import Integration.LifecycleTests qualified as LifecycleTests
@@ -28,6 +29,7 @@ import Property.CoeffectProps qualified as CoeffectProps
 import Property.GradedMonadProps qualified as GradedMonadProps
 import Property.OutputValidationProps qualified as OutputValidationProps
 import Property.SecurityProps qualified as SecurityProps
+import Property.SigilProps qualified as SigilProps
 import Property.StreamingProps qualified as StreamingProps
 import Property.TypesProps qualified as TypesProps
 import Test.Tasty
@@ -47,21 +49,22 @@ main =
             OutputValidationProps.tests
           ],
         testGroup
-          "Integration Tests"
-          [ ApiTests.tests,
-            ProofTests.tests,
-            LifecycleTests.tests,
-            OpenApiSpec.tests,
-            TracingTests.tests,
-            LoggingTests.tests,
-            RateLimiterTests.tests
+          "Property Tests"
+          [ TypesProps.tests,
+            CoeffectProps.tests,
+            GradedMonadProps.tests,
+            SecurityProps.tests,
+            StreamingProps.tests,
+            OutputValidationProps.tests,
+            SigilProps.tests
           ],
         testGroup
           "Adversarial Tests"
           [ RaceConditions.tests,
             InjectionEdgeCases.tests,
             ProviderErrors.tests,
-            XSSVectors.tests
+            XSSVectors.tests,
+            ZmqTransport.tests
           ],
         testGroup
           "Formal Tests"
