@@ -364,10 +364,10 @@ src/WeaponUI/App.purs
 
 - [x] **SIGIL-001**: Varint overflow — emit AmbiguityReset, not buffer forever ✓ DONE
 - [x] **SIGIL-002**: 0x7F / unknown bytes — emit AmbiguityReset, not silent drop ✓ DONE
-- [ ] **SIGIL-003**: Leftover bytes on stream end — detect and error
+- [x] **SIGIL-003**: Leftover bytes on stream end — detect and error ✓ DONE
 - [x] **VENDOR-001**: Vertex/Anthropic tool calls — implement content_block_start + input_json_delta ✓ DONE
 - [x] **VENDOR-002**: Gateway Anthropic — wire up _toolCallsRef accumulation ✓ DONE
-- [ ] **VENDOR-003**: Tool call accumulation — track by index, concatenate args across chunks
+- [x] **VENDOR-003**: Tool call accumulation — track by index, concatenate args across chunks ✓ DONE
 
 ## Must Build (missing infrastructure)
 
@@ -395,7 +395,8 @@ src/WeaponUI/App.purs
 | P0 | VENDOR-002 (Gateway Anthropic) | HIGH failure rate | 0.5 day | ✓ DONE |
 | P0 | SIGIL-001 (varint overflow) | Stall on malformed | 0.5 day | ✓ DONE |
 | P1 | SIGIL-002 (0x7F handling) | Silent corruption | 0.5 day | ✓ DONE |
-| P1 | VENDOR-003 (accumulation) | Partial tool calls | 1 day | |
+| P1 | SIGIL-003 (stream end) | Silent truncation | 0.5 day | ✓ DONE |
+| P1 | VENDOR-003 (accumulation) | Partial tool calls | 1 day | ✓ DONE |
 | P1 | INFRA-001 (ZMQ sockets) | Blocks all ZMQ | 1 day | |
 | P1 | INFRA-002 (SSE→SIGIL) | Blocks SIGIL emit | 1 day | |
 | P2 | INFRA-004 (Parquet) | No observability | 2 days | |
