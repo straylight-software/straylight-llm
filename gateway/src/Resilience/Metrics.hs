@@ -34,20 +34,23 @@ module Resilience.Metrics
     recordProviderError,
     recordLatency,
     recordProviderSuccess,
+    recordTTFT,
 
     -- * Reading
     getMetrics,
     renderPrometheus,
     getProviderAvgLatency,
     getProviderLatencies,
+    getProviderAvgTTFT,
 
     -- * Types
     Metrics (Metrics, mRequestsTotal, mRequestsActive, mLatency, mProviders, mStartTime),
-    ProviderMetrics (ProviderMetrics, pmRequestsTotal, pmErrorsAuth, pmErrorsRateLimit, pmErrorsTimeout, pmErrorsUnavailable, pmErrorsOther, pmLatency),
+    ProviderMetrics (ProviderMetrics, pmRequestsTotal, pmErrorsAuth, pmErrorsRateLimit, pmErrorsTimeout, pmErrorsUnavailable, pmErrorsOther, pmLatency, pmTTFT),
     LatencyBuckets (LatencyBuckets, lbLe005, lbLe01, lbLe025, lbLe05, lbLe1, lbLe25, lbLe5, lbLe10, lbLe25s, lbLe50s, lbLe100s, lbInf, lbSum, lbCount),
   )
 where
 
+import Control.Applicative ((<|>))
 import Control.Concurrent.MVar (MVar, modifyMVar_, newMVar, readMVar)
 import Data.Aeson (FromJSON (parseJSON), ToJSON (toJSON), object, withObject, (.:), (.=))
 import Data.Aeson.Types qualified as AT
@@ -116,13 +119,14 @@ data ProviderMetrics = ProviderMetrics
     pmErrorsTimeout :: !Word64,
     pmErrorsUnavailable :: !Word64,
     pmErrorsOther :: !Word64,
-    pmLatency :: !LatencyBuckets
+    pmLatency :: !LatencyBuckets,
+    pmTTFT :: !LatencyBuckets -- Time to first token (streaming only)
   }
   deriving (Eq, Show)
 
 -- | Empty provider metrics
 emptyProviderMetrics :: ProviderMetrics
-emptyProviderMetrics = ProviderMetrics 0 0 0 0 0 0 emptyBuckets
+emptyProviderMetrics = ProviderMetrics 0 0 0 0 0 0 emptyBuckets emptyBuckets
 
 -- | Aggregated metrics snapshot
 data Metrics = Metrics
@@ -180,7 +184,8 @@ instance ToJSON ProviderMetrics where
         "errors_timeout" .= pmErrorsTimeout pm,
         "errors_unavailable" .= pmErrorsUnavailable pm,
         "errors_other" .= pmErrorsOther pm,
-        "latency" .= pmLatency pm
+        "latency" .= pmLatency pm,
+        "ttft" .= pmTTFT pm
       ]
 
 instance FromJSON ProviderMetrics where
@@ -193,6 +198,7 @@ instance FromJSON ProviderMetrics where
       <*> v .: "errors_unavailable"
       <*> v .: "errors_other"
       <*> v .: "latency"
+      <*> (v .: "ttft" <|> pure emptyBuckets)
 
 instance ToJSON Metrics where
   toJSON m =
@@ -332,6 +338,14 @@ recordProviderSuccess store provider latencySeconds = do
   recordProviderRequest store provider
   recordLatency store provider latencySeconds
 
+-- | Record time to first token (TTFT) for streaming requests
+recordTTFT :: MetricsStore -> ProviderName -> Double -> IO ()
+recordTTFT MetricsStore {..} provider ttftSeconds =
+  modifyMVar_ msProviders $ \m -> do
+    let pm = Map.findWithDefault emptyProviderMetrics provider m
+    let pm' = pm {pmTTFT = recordBucket ttftSeconds (pmTTFT pm)}
+    pure $ Map.insert provider pm' m
+
 -- ════════════════════════════════════════════════════════════════════════════
 --                                                                 // reading
 -- ════════════════════════════════════════════════════════════════════════════
@@ -361,6 +375,20 @@ getProviderAvgLatency MetricsStore {..} provider = do
     Nothing -> Nothing
     Just pm ->
       let lb = pmLatency pm
+          count = lbCount lb
+       in if count == 0
+            then Nothing
+            else Just (lbSum lb / fromIntegral count)
+
+-- | Get average TTFT for a specific provider (in seconds)
+-- Returns Nothing if no streaming requests recorded yet
+getProviderAvgTTFT :: MetricsStore -> ProviderName -> IO (Maybe Double)
+getProviderAvgTTFT MetricsStore {..} provider = do
+  providers <- readMVar msProviders
+  pure $ case Map.lookup provider providers of
+    Nothing -> Nothing
+    Just pm ->
+      let lb = pmTTFT pm
           count = lbCount lb
        in if count == 0
             then Nothing
@@ -444,3 +472,7 @@ renderPrometheus Metrics {..} =
             "# TYPE straylight_provider_request_duration_seconds histogram"
           ]
             <> renderLatencyBuckets "straylight_provider_request_duration_seconds" labels pmLatency
+            <> [ "# HELP straylight_provider_ttft_seconds Time to first token histogram",
+                 "# TYPE straylight_provider_ttft_seconds histogram"
+               ]
+            <> renderLatencyBuckets "straylight_provider_ttft_seconds" labels pmTTFT

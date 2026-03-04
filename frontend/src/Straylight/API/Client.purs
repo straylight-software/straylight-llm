@@ -421,7 +421,7 @@ joinWith sep arr = case Array.uncons arr of
 --                                                          // dashboard types
 -- ════════════════════════════════════════════════════════════════════════════
 
--- | Provider health with latency percentiles and health score
+-- | Provider health with latency percentiles, TTFT, and health score
 -- | Uses snake_case field names matching backend JSON for automatic deriving
 type ProviderHealthRec =
   { name :: String
@@ -432,6 +432,10 @@ type ProviderHealthRec =
   , latency_p50_ms :: Maybe Number
   , latency_p95_ms :: Maybe Number
   , latency_p99_ms :: Maybe Number
+  , ttft_avg_ms :: Maybe Number   -- Time to first token (streaming)
+  , ttft_p50_ms :: Maybe Number
+  , ttft_p95_ms :: Maybe Number
+  , ttft_p99_ms :: Maybe Number
   , error_rate :: Number          -- 0.0-1.0
   , request_count :: Int
   , error_count :: Int
@@ -457,11 +461,15 @@ instance decodeJsonProviderHealth :: DecodeJson ProviderHealth where
       latency_p50_ms <- getFieldOpt obj "latency_p50_ms"
       latency_p95_ms <- getFieldOpt obj "latency_p95_ms"
       latency_p99_ms <- getFieldOpt obj "latency_p99_ms"
+      ttft_avg_ms <- getFieldOpt obj "ttft_avg_ms"
+      ttft_p50_ms <- getFieldOpt obj "ttft_p50_ms"
+      ttft_p95_ms <- getFieldOpt obj "ttft_p95_ms"
+      ttft_p99_ms <- getFieldOpt obj "ttft_p99_ms"
       error_rate <- getFieldReq obj "error_rate"
       request_count <- getFieldReq obj "request_count"
       error_count <- getFieldReq obj "error_count"
       last_error <- getFieldOpt obj "last_error"
-      pure $ ProviderHealth { name, enabled, circuit_state, health_score, latency_avg_ms, latency_p50_ms, latency_p95_ms, latency_p99_ms, error_rate, request_count, error_count, last_error }
+      pure $ ProviderHealth { name, enabled, circuit_state, health_score, latency_avg_ms, latency_p50_ms, latency_p95_ms, latency_p99_ms, ttft_avg_ms, ttft_p50_ms, ttft_p95_ms, ttft_p99_ms, error_rate, request_count, error_count, last_error }
 
 instance encodeJsonProviderHealth :: EncodeJson ProviderHealth where
   encodeJson (ProviderHealth ph) = fromObject $ Object.fromFoldable
@@ -473,6 +481,10 @@ instance encodeJsonProviderHealth :: EncodeJson ProviderHealth where
     , Tuple "latency_p50_ms" (encodeJson ph.latency_p50_ms)
     , Tuple "latency_p95_ms" (encodeJson ph.latency_p95_ms)
     , Tuple "latency_p99_ms" (encodeJson ph.latency_p99_ms)
+    , Tuple "ttft_avg_ms" (encodeJson ph.ttft_avg_ms)
+    , Tuple "ttft_p50_ms" (encodeJson ph.ttft_p50_ms)
+    , Tuple "ttft_p95_ms" (encodeJson ph.ttft_p95_ms)
+    , Tuple "ttft_p99_ms" (encodeJson ph.ttft_p99_ms)
     , Tuple "error_rate" (fromNumber ph.error_rate)
     , Tuple "request_count" (encodeJson ph.request_count)
     , Tuple "error_count" (encodeJson ph.error_count)

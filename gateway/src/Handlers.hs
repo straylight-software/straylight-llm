@@ -86,7 +86,7 @@ import Provider.Types
 import Resilience.Backpressure (tryWithRequestSlot)
 import Resilience.Cache (cacheRecentValues)
 import Resilience.CircuitBreaker (CircuitState (Closed, HalfOpen, Open), CircuitStats, csLastFailure, csState)
-import Resilience.Metrics (LatencyBuckets (lbCount, lbLe05, lbLe1, lbLe25, lbLe5, lbSum), Metrics (mProviders, mRequestsActive, mRequestsTotal, mStartTime), ProviderMetrics (pmErrorsAuth, pmErrorsOther, pmErrorsRateLimit, pmErrorsTimeout, pmErrorsUnavailable, pmLatency, pmRequestsTotal), renderPrometheus)
+import Resilience.Metrics (LatencyBuckets (lbCount, lbLe005, lbLe01, lbLe025, lbLe05, lbLe1, lbLe10, lbLe100s, lbLe25, lbLe25s, lbLe5, lbLe50s, lbSum), Metrics (mProviders, mRequestsActive, mRequestsTotal, mStartTime), ProviderMetrics (pmErrorsAuth, pmErrorsOther, pmErrorsRateLimit, pmErrorsTimeout, pmErrorsUnavailable, pmLatency, pmRequestsTotal, pmTTFT), recordTTFT, renderPrometheus)
 import Router
 import Security.ConstantTime (constantTimeCompareText)
 import Servant
@@ -320,6 +320,8 @@ chatStreamHandler router = Tagged $ \req respond' -> do
           flush
     Right chatReq -> do
       requestId <- generateRequestId
+      startTime <- getCurrentTime
+      firstChunkTimeRef <- newIORef Nothing
 
       -- Start SSE response
       respond'
@@ -331,8 +333,16 @@ chatStreamHandler router = Tagged $ \req respond' -> do
             ("X-Request-Id", TE.encodeUtf8 requestId)
           ]
         $ \send flush -> do
-          -- Callback that sends each chunk as SSE
+          -- Callback that sends each chunk as SSE and tracks TTFT
           let streamCallback chunk = do
+                -- Record time of first chunk for TTFT
+                mFirstTime <- readIORef firstChunkTimeRef
+                case mFirstTime of
+                  Nothing -> do
+                    now <- getCurrentTime
+                    atomicModifyIORef' firstChunkTimeRef $ \_ -> (Just now, ())
+                  Just _ -> pure ()
+                -- Send the chunk
                 send $ string8 "data: "
                 send $ byteString chunk
                 send $ string8 "\n\n"
@@ -340,6 +350,17 @@ chatStreamHandler router = Tagged $ \req respond' -> do
 
           -- Route through provider chain with streaming
           result <- routeChatStream router requestId chatReq streamCallback
+
+          -- Record TTFT metric if we got a first chunk
+          mFirstChunkTime <- readIORef firstChunkTimeRef
+          case mFirstChunkTime of
+            Just firstChunkTime -> do
+              let ttftSeconds = realToFrac (diffUTCTime firstChunkTime startTime) :: Double
+              hPutStrLn stderr $ "[TTFT] Recording " ++ show (round (ttftSeconds * 1000) :: Int) ++ "ms for Venice"
+              -- Record TTFT for the provider (we use Venice as default since we don't track provider here)
+              -- TODO: Pass provider info through routeChatStream for accurate per-provider TTFT
+              recordTTFT (routerMetrics router) Venice ttftSeconds
+            Nothing -> hPutStrLn stderr "[TTFT] No first chunk received"
 
           -- Send final event based on result
           case result of
@@ -976,6 +997,21 @@ buildProviderHealth metrics circuitStats (name, providerCfg) =
                       p99Ms = estimatePercentile lb 0.99 * 1000.0
                    in (Just avgMs, Just p50Ms, Just p95Ms, Just p99Ms)
 
+      -- Calculate TTFT (time to first token) - streaming only
+      (ttftAvg, ttftP50, ttftP95, ttftP99) = case mProviderMetrics of
+        Nothing -> (Nothing, Nothing, Nothing, Nothing)
+        Just pm ->
+          let lb = pmTTFT pm
+              count = lbCount lb
+           in if count == 0
+                then (Nothing, Nothing, Nothing, Nothing)
+                else
+                  let avgMs = (lbSum lb / fromIntegral count) * 1000.0
+                      p50Ms = estimatePercentile lb 0.50 * 1000.0
+                      p95Ms = estimatePercentile lb 0.95 * 1000.0
+                      p99Ms = estimatePercentile lb 0.99 * 1000.0
+                   in (Just avgMs, Just p50Ms, Just p95Ms, Just p99Ms)
+
       -- Calculate health score (0-100)
       healthScore = calculateHealthScore circuitState errorRate
 
@@ -994,6 +1030,10 @@ buildProviderHealth metrics circuitStats (name, providerCfg) =
           phLatencyP50 = p50,
           phLatencyP95 = p95,
           phLatencyP99 = p99,
+          phTTFTAvg = ttftAvg,
+          phTTFTP50 = ttftP50,
+          phTTFTP95 = ttftP95,
+          phTTFTP99 = ttftP99,
           phErrorRate = errorRate,
           phRequestCount = requestCount,
           phErrorCount = errorCount,
@@ -1030,13 +1070,19 @@ estimatePercentile lb percentile =
       -- Check buckets in order to find where target falls
       -- Buckets: 5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2.5s, 5s, 10s
       buckets =
-        [ (0.005, lbLe05 lb), -- Note: lbLe005 would be 5ms but we'll use available buckets
-          (0.050, lbLe05 lb),
-          (0.100, lbLe1 lb),
-          (0.250, lbLe25 lb),
-          (0.500, lbLe5 lb)
+        [ (0.005, lbLe005 lb), -- <= 5ms
+          (0.010, lbLe01 lb), -- <= 10ms
+          (0.025, lbLe025 lb), -- <= 25ms
+          (0.050, lbLe05 lb), -- <= 50ms
+          (0.100, lbLe1 lb), -- <= 100ms
+          (0.250, lbLe25 lb), -- <= 250ms
+          (0.500, lbLe5 lb), -- <= 500ms
+          (1.000, lbLe10 lb), -- <= 1s
+          (2.500, lbLe25s lb), -- <= 2.5s
+          (5.000, lbLe50s lb), -- <= 5s
+          (10.00, lbLe100s lb) -- <= 10s
         ]
    in -- Simple estimation: find first bucket that exceeds target
       case dropWhile (\(_, c) -> fromIntegral c < target) buckets of
-        [] -> 10.0 -- Fallback: assume > 10s
+        [] -> 15.0 -- Fallback: > 10s, estimate at 15s
         ((latency, _) : _) -> latency

@@ -54,7 +54,7 @@ module Api
     ConfigUpdateRequest (ConfigUpdateRequest, curLogLevel, curProviderUpdates),
     ProofVerifyResponse (ProofVerifyResponse, pvrValid, pvrMessage, pvrDetails),
     DashboardResponse (DashboardResponse, drTimestamp, drUptime, drProviders, drTotalRequests, drActiveRequests, drCacheHitRate),
-    ProviderHealth (ProviderHealth, phName, phEnabled, phCircuitState, phHealthScore, phLatencyAvg, phLatencyP50, phLatencyP95, phLatencyP99, phErrorRate, phRequestCount, phErrorCount, phLastError),
+    ProviderHealth (ProviderHealth, phName, phEnabled, phCircuitState, phHealthScore, phLatencyAvg, phLatencyP50, phLatencyP95, phLatencyP99, phTTFTAvg, phTTFTP50, phTTFTP95, phTTFTP99, phErrorRate, phRequestCount, phErrorCount, phLastError),
   )
 where
 
@@ -277,6 +277,10 @@ data ProviderHealth = ProviderHealth
     phLatencyP50 :: Maybe Double, -- p50 latency in ms
     phLatencyP95 :: Maybe Double, -- p95 latency in ms
     phLatencyP99 :: Maybe Double, -- p99 latency in ms
+    phTTFTAvg :: Maybe Double, -- Average TTFT in ms (streaming only)
+    phTTFTP50 :: Maybe Double, -- p50 TTFT in ms
+    phTTFTP95 :: Maybe Double, -- p95 TTFT in ms
+    phTTFTP99 :: Maybe Double, -- p99 TTFT in ms
     phErrorRate :: Double, -- errors / total (0.0-1.0)
     phRequestCount :: Int, -- Total requests
     phErrorCount :: Int, -- Total errors
@@ -294,6 +298,10 @@ instance ToJSON ProviderHealth where
         "latency_p50_ms" .= phLatencyP50 ph,
         "latency_p95_ms" .= phLatencyP95 ph,
         "latency_p99_ms" .= phLatencyP99 ph,
+        "ttft_avg_ms" .= phTTFTAvg ph,
+        "ttft_p50_ms" .= phTTFTP50 ph,
+        "ttft_p95_ms" .= phTTFTP95 ph,
+        "ttft_p99_ms" .= phTTFTP99 ph,
         "error_rate" .= phErrorRate ph,
         "request_count" .= phRequestCount ph,
         "error_count" .= phErrorCount ph,
@@ -311,6 +319,10 @@ instance FromJSON ProviderHealth where
       <*> v .:? "latency_p50_ms"
       <*> v .:? "latency_p95_ms"
       <*> v .:? "latency_p99_ms"
+      <*> v .:? "ttft_avg_ms"
+      <*> v .:? "ttft_p50_ms"
+      <*> v .:? "ttft_p95_ms"
+      <*> v .:? "ttft_p99_ms"
       <*> v .: "error_rate"
       <*> v .: "request_count"
       <*> v .: "error_count"

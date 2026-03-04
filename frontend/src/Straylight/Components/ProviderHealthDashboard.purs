@@ -107,6 +107,15 @@ renderProviderHealth phWrapped =
             , latencyBar "p99" (fromMaybe 0.0 ph.latency_p99_ms)
             ]
         ]
+    , HH.div [ HP.class_ (H.ClassName "provider-ttft") ]
+        [ HH.div [ HP.class_ (H.ClassName "latency-header") ] [ HH.text "TTFT (ms)" ]
+        , HH.div [ HP.class_ (H.ClassName "latency-bars") ]
+            [ ttftBar "avg" (fromMaybe 0.0 ph.ttft_avg_ms)
+            , ttftBar "p50" (fromMaybe 0.0 ph.ttft_p50_ms)
+            , ttftBar "p95" (fromMaybe 0.0 ph.ttft_p95_ms)
+            , ttftBar "p99" (fromMaybe 0.0 ph.ttft_p99_ms)
+            ]
+        ]
     , case ph.last_error of
         Nothing -> HH.text ""
         Just err -> HH.div [ HP.class_ (H.ClassName "provider-last-error") ]
@@ -157,6 +166,29 @@ latencyBar label valueMs =
   latencyClass
     | valueMs <= 100.0 = "fast"
     | valueMs <= 500.0 = "medium"
+    | otherwise = "slow"
+
+-- | Render a TTFT bar with appropriate thresholds for time-to-first-token
+-- | TTFT is typically faster than total latency, so thresholds are tighter
+ttftBar :: forall w i. String -> Number -> HH.HTML w i
+ttftBar label valueMs =
+  HH.div [ HP.class_ (H.ClassName "latency-item ttft-item") ]
+    [ HH.span [ HP.class_ (H.ClassName "latency-label") ] [ HH.text label ]
+    , HH.div [ HP.class_ (H.ClassName "latency-bar-container") ]
+        [ HH.div 
+            [ HP.class_ (H.ClassName $ "latency-bar ttft-bar " <> ttftClass)
+            , HP.style $ "width: " <> show (min 100.0 (valueMs / 5.0)) <> "%"
+            ]
+            []
+        ]
+    , HH.span [ HP.class_ (H.ClassName "latency-value mono") ] 
+        [ HH.text $ show (round valueMs) ]
+    ]
+  where
+  -- TTFT thresholds: <50ms fast, <200ms medium, >200ms slow
+  ttftClass
+    | valueMs <= 50.0 = "fast"
+    | valueMs <= 200.0 = "medium"
     | otherwise = "slow"
 
 errorRateClass :: Number -> String

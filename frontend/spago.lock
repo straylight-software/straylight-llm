@@ -727,7 +727,8 @@
     },
     "extra_packages": {
       "hydrogen": {
-        "path": "../../hydrogen"
+        "git": "https://github.com/justinfleek/hydrogen.git",
+        "ref": "jpyxal-0x02"
       }
     }
   },
@@ -1343,8 +1344,9 @@
       ]
     },
     "hydrogen": {
-      "type": "local",
-      "path": "../../hydrogen",
+      "type": "git",
+      "url": "https://github.com/justinfleek/hydrogen.git",
+      "rev": "7a69926617eac9a9a914a55ffe29caa6b021bcad",
       "dependencies": [
         "aff",
         "aff-promise",
