@@ -39,6 +39,8 @@ import Data.ByteString (ByteString)
 import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as LBS
 import Data.IORef (IORef, modifyIORef', newIORef, readIORef)
+import Data.Map.Strict (Map)
+import Data.Map.Strict qualified as Map
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
@@ -450,6 +452,33 @@ fromAnthropicUsage A.Usage {..} =
     }
 
 -- ════════════════════════════════════════════════════════════════════════════
+--                                                         // tool accumulation
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- | Active tool call being accumulated from streaming events
+--
+-- Anthropic streams tool calls as:
+-- 1. content_block_start with tool_use block (provides id, name)
+-- 2. content_block_delta with input_json_delta (provides partial JSON)
+-- 3. content_block_stop (signals completion)
+--
+-- We accumulate the JSON fragments and emit a complete ToolUse when the
+-- block stops.
+data ActiveToolCall = ActiveToolCall
+    { atcId :: !Text
+    -- ^ Tool call ID (e.g., "toolu_01...")
+    , atcName :: !Text
+    -- ^ Tool name (e.g., "get_weather")
+    , atcInputJson :: !Text
+    -- ^ Accumulated JSON input (concatenated partial_json fragments)
+    }
+
+-- | Tool call accumulation state
+--
+-- Maps content block index to active tool call.
+type ToolCallAccumulator = Map Int ActiveToolCall
+
+-- ════════════════════════════════════════════════════════════════════════════
 --                                                                    // http
 -- ════════════════════════════════════════════════════════════════════════════
 
@@ -524,7 +553,10 @@ makeStreamingRequestWithParsing ::
   IORef (Maybe A.StopReason) ->
   IORef (Maybe A.Usage) ->
   IO (Either (Int, Text) ())
-makeStreamingRequestWithParsing manager url apiKey body onDelta _toolCallsRef stopReasonRef usageRef = do
+makeStreamingRequestWithParsing manager url apiKey body onDelta toolCallsRef stopReasonRef usageRef = do
+  -- Create tool call accumulator for tracking in-flight tool calls
+  toolCallAccumRef <- newIORef (Map.empty :: ToolCallAccumulator)
+  
   result <- try @HttpException $ do
     initReq <- HC.parseRequest url
     let req =
@@ -541,7 +573,7 @@ makeStreamingRequestWithParsing manager url apiKey body onDelta _toolCallsRef st
       let status = HT.statusCode $ HC.responseStatus resp
       if status >= 200 && status < 300
         then do
-          streamBodyWithParsing (HC.responseBody resp) onDelta stopReasonRef usageRef
+          streamBodyWithParsing (HC.responseBody resp) onDelta toolCallsRef toolCallAccumRef stopReasonRef usageRef
           pure $ Right ()
         else do
           body' <- HC.brConsume $ HC.responseBody resp
@@ -567,10 +599,12 @@ streamBody bodyReader callback = loop
 streamBodyWithParsing ::
   HC.BodyReader ->
   (Text -> IO ()) ->
+  IORef [A.ToolUse] ->
+  IORef ToolCallAccumulator ->
   IORef (Maybe A.StopReason) ->
   IORef (Maybe A.Usage) ->
   IO ()
-streamBodyWithParsing bodyReader onDelta stopReasonRef usageRef = loop ""
+streamBodyWithParsing bodyReader onDelta toolCallsRef toolCallAccumRef stopReasonRef usageRef = loop ""
   where
     loop :: Text -> IO ()
     loop buffer = do
@@ -599,7 +633,7 @@ streamBodyWithParsing bodyReader onDelta stopReasonRef usageRef = loop ""
     processLine line
       | "data: " `T.isPrefixOf` line = do
           let jsonPart = T.drop 6 line
-          parseAnthropicEvent jsonPart onDelta stopReasonRef usageRef
+          parseAnthropicEvent jsonPart onDelta toolCallsRef toolCallAccumRef stopReasonRef usageRef
       | otherwise = pure () -- Skip event: lines and empty lines
 
 -- | Parse Anthropic SSE event using typed StreamEvent and dispatch
@@ -610,42 +644,99 @@ streamBodyWithParsing bodyReader onDelta stopReasonRef usageRef = loop ""
 parseAnthropicEvent ::
   Text ->
   (Text -> IO ()) ->
+  IORef [A.ToolUse] ->
+  IORef ToolCallAccumulator ->
   IORef (Maybe A.StopReason) ->
   IORef (Maybe A.Usage) ->
   IO ()
-parseAnthropicEvent jsonText onDelta stopReasonRef usageRef = do
+parseAnthropicEvent jsonText onDelta toolCallsRef toolCallAccumRef stopReasonRef usageRef = do
   let mEvent = Aeson.decode (LBS.fromStrict $ encodeUtf8 jsonText) :: Maybe A.StreamEvent
   case mEvent of
     Nothing -> pure () -- Unparseable, skip
-    Just event -> handleStreamEvent event onDelta stopReasonRef usageRef
+    Just event -> handleStreamEvent event onDelta toolCallsRef toolCallAccumRef stopReasonRef usageRef
 
 -- | Handle a typed StreamEvent
 handleStreamEvent ::
   A.StreamEvent ->
   (Text -> IO ()) ->
+  IORef [A.ToolUse] ->
+  IORef ToolCallAccumulator ->
   IORef (Maybe A.StopReason) ->
   IORef (Maybe A.Usage) ->
   IO ()
-handleStreamEvent event onDelta stopReasonRef usageRef = case event of
+handleStreamEvent event onDelta toolCallsRef toolCallAccumRef stopReasonRef usageRef = case event of
   A.EventContentBlockDelta cbde ->
-    handleContentBlockDelta cbde onDelta
+    handleContentBlockDelta cbde toolCallAccumRef onDelta
   A.EventMessageDelta mde ->
     handleMessageDelta mde stopReasonRef usageRef
   A.EventMessageStart mse ->
     handleMessageStart mse usageRef
-  A.EventContentBlockStart _ _ -> pure () -- Could track block indices
-  A.EventContentBlockStop _ -> pure () -- Could finalize blocks
+  A.EventContentBlockStart idx block ->
+    handleContentBlockStart idx block toolCallAccumRef
+  A.EventContentBlockStop idx ->
+    handleContentBlockStop idx toolCallsRef toolCallAccumRef
   A.EventMessageStop -> pure () -- Stream complete
   A.EventPing -> pure () -- Keepalive
-  A.EventError _msg -> pure () -- Could log errors
+  A.EventError _msg -> pure () -- Errors logged at higher level
+
+-- | Handle content_block_start event
+--
+-- If this is a tool_use block, start accumulating the tool call.
+handleContentBlockStart :: Int -> A.ContentBlock -> IORef ToolCallAccumulator -> IO ()
+handleContentBlockStart idx block toolCallAccumRef = case block of
+  A.ToolUseBlock toolUse -> do
+    let activeCall = ActiveToolCall
+            { atcId = A.tuId toolUse
+            , atcName = A.tuName toolUse
+            , atcInputJson = ""  -- Will be filled by input_json_delta events
+            }
+    modifyIORef' toolCallAccumRef (Map.insert idx activeCall)
+  _ -> pure ()  -- Text blocks, image blocks, etc. don't need accumulation
 
 -- | Handle content_block_delta event (typed)
-handleContentBlockDelta :: A.ContentBlockDeltaEvent -> (Text -> IO ()) -> IO ()
-handleContentBlockDelta A.ContentBlockDeltaEvent {..} onDelta =
+handleContentBlockDelta :: A.ContentBlockDeltaEvent -> IORef ToolCallAccumulator -> (Text -> IO ()) -> IO ()
+handleContentBlockDelta A.ContentBlockDeltaEvent {..} toolCallAccumRef onDelta =
   case cbdeDelta of
     A.TextDelta t -> onDelta t
-    A.InputJsonDelta _partial ->
-      -- Tool input streaming - would accumulate JSON chunks
+    A.InputJsonDelta partial -> do
+      -- Accumulate partial JSON into the active tool call
+      modifyIORef' toolCallAccumRef $ \accum ->
+        case Map.lookup cbdeIndex accum of
+          Just activeCall ->
+            let updatedCall = activeCall { atcInputJson = atcInputJson activeCall <> partial }
+             in Map.insert cbdeIndex updatedCall accum
+          Nothing ->
+            -- No active tool call for this index - shouldn't happen
+            accum
+
+-- | Handle content_block_stop event
+--
+-- If there's an active tool call for this block, finalize it and add to results.
+handleContentBlockStop :: Int -> IORef [A.ToolUse] -> IORef ToolCallAccumulator -> IO ()
+handleContentBlockStop idx toolCallsRef toolCallAccumRef = do
+  accum <- readIORef toolCallAccumRef
+  case Map.lookup idx accum of
+    Just activeCall -> do
+      -- Parse accumulated JSON into ToolInput
+      let inputJson = atcInputJson activeCall
+          toolInput = case Aeson.decode (LBS.fromStrict $ encodeUtf8 inputJson) of
+            Just obj -> A.ToolInputObject obj
+            Nothing -> A.ToolInputEmpty  -- Failed to parse - use empty
+      
+      let toolUse = A.ToolUse
+            { A.tuId = atcId activeCall
+            , A.tuName = atcName activeCall
+            , A.tuInput = toolInput
+            }
+      
+      -- Add to completed tool calls
+      modifyIORef' toolCallsRef (toolUse :)
+      
+      -- Remove from accumulator
+      modifyIORef' toolCallAccumRef (Map.delete idx)
+    
+    Nothing ->
+      -- No active tool call for this block (was probably text)
       pure ()
 
 -- | Handle message_delta event (typed)
