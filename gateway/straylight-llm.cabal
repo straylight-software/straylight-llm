@@ -124,6 +124,8 @@ library
     -- // observability
     Observability.Logging
     Observability.Tracing
+    -- // telemetry (ClickHouse)
+    Telemetry.ClickHouse
     -- // streaming (SSE events)
     Streaming.Events
     Streaming.SigilBridge

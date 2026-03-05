@@ -64,11 +64,16 @@ import Resilience.RateLimiter
     newRateLimiter,
     rateLimitMiddleware,
   )
-import Router (makeRouter)
+import Router (makeRouter, routerMetrics, routerManager)
 import Servant (serve)
 import System.Environment (lookupEnv)
 import System.IO (BufferMode (..), hSetBuffering, stdout)
 import Transport.ZmqServer (runZmqServer)
+import Telemetry.ClickHouse
+  ( ClickHouseConfig (..),
+    newClickHouseClient,
+    startMetricsFlusher,
+  )
 
 -- ════════════════════════════════════════════════════════════════════════════
 --                                                              // middleware
@@ -179,6 +184,17 @@ main = do
   zmqServerThread <- async $ runZmqServer sigilConf router
   link zmqServerThread  -- propagate exceptions to main thread
 
+  -- Initialize ClickHouse telemetry
+  clickhouseConfig <- loadClickHouseConfig
+  if chEnabled clickhouseConfig
+    then do
+      -- Get the HTTP manager from router for connection pooling
+      let chClient = newClickHouseClient (routerManager router) clickhouseConfig
+      -- Start background metrics flusher (every 10 seconds)
+      _ <- startMetricsFlusher chClient (routerMetrics router)
+      TIO.putStrLn $ "  ClickHouse: [enabled] -> " <> chHost clickhouseConfig <> ":" <> T.pack (show (chPort clickhouseConfig))
+    else TIO.putStrLn "  ClickHouse: [disabled] (set CLICKHOUSE_ENABLED=true to enable)"
+
   -- Check backend selection environment variables
   -- USE_URING=1 enables io_uring single-core (CPS event loop)
   -- USE_URING_MC=1 enables io_uring multi-core (SO_REUSEPORT, one ring per core)
@@ -245,3 +261,33 @@ logLevelText LogDebug = "debug"
 logLevelText LogInfo = "info"
 logLevelText LogWarn = "warn"
 logLevelText LogError = "error"
+
+-- | Load ClickHouse configuration from environment
+--
+-- Environment variables:
+--   CLICKHOUSE_ENABLED - "true" to enable (default: false)
+--   CLICKHOUSE_HOST    - hostname (default: localhost)
+--   CLICKHOUSE_PORT    - port (default: 8123)
+--   CLICKHOUSE_DATABASE - database name (default: straylight)
+--   CLICKHOUSE_USER    - username (optional)
+--   CLICKHOUSE_PASSWORD - password (optional)
+--   CLICKHOUSE_TLS     - "true" for HTTPS (default: false)
+loadClickHouseConfig :: IO ClickHouseConfig
+loadClickHouseConfig = do
+  enabled <- lookupEnv "CLICKHOUSE_ENABLED"
+  host <- lookupEnv "CLICKHOUSE_HOST"
+  port <- lookupEnv "CLICKHOUSE_PORT"
+  database <- lookupEnv "CLICKHOUSE_DATABASE"
+  user <- lookupEnv "CLICKHOUSE_USER"
+  password <- lookupEnv "CLICKHOUSE_PASSWORD"
+  tls <- lookupEnv "CLICKHOUSE_TLS"
+
+  pure $ ClickHouseConfig
+    { chEnabled = maybe False (== "true") enabled
+    , chHost = maybe "localhost" T.pack host
+    , chPort = maybe 8123 read port
+    , chDatabase = maybe "straylight" T.pack database
+    , chUser = T.pack <$> user
+    , chPassword = T.pack <$> password
+    , chUseTLS = maybe False (== "true") tls
+    }

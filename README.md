@@ -38,6 +38,7 @@ A production-grade Haskell gateway that routes LLM requests through multiple pro
 - **Effect tracking** — Graded monad system tracks all IO effects
 - **Formal verification** — 904 lines of Lean4 proofs (no `sorry`, no axioms)
 - **Prometheus metrics** — `/metrics` endpoint for observability
+- **ClickHouse telemetry** — Export metrics to ClickHouse for dashboards
 - **OpenTelemetry tracing** — Distributed tracing with configurable OTLP export
 - **Rate limiting** — Per-API-key token bucket rate limiting
 - **Response caching** — Configurable LRU cache with TTL
@@ -113,6 +114,18 @@ Configure via environment variables:
 | `CACHE_ENABLED` | Enable response caching | `true` |
 | `CACHE_MAX_SIZE` | Maximum cached entries | `10000` |
 | `CACHE_TTL_SECONDS` | Cache entry TTL | `300` |
+
+### ClickHouse Telemetry
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `CLICKHOUSE_ENABLED` | Enable ClickHouse metrics export | `false` |
+| `CLICKHOUSE_HOST` | ClickHouse server hostname | `localhost` |
+| `CLICKHOUSE_PORT` | ClickHouse HTTP port | `8123` |
+| `CLICKHOUSE_DATABASE` | Database name | `straylight` |
+| `CLICKHOUSE_USER` | Username (optional) | - |
+| `CLICKHOUSE_PASSWORD` | Password (optional) | - |
+| `CLICKHOUSE_TLS` | Use HTTPS | `false` |
 
 ### Connection Pool
 
@@ -195,6 +208,31 @@ curl http://localhost:8080/metrics
 ```
 
 Returns Prometheus text format with request counts, latencies, provider status, and rate limiter stats.
+
+### ClickHouse Telemetry
+
+When `CLICKHOUSE_ENABLED=true`, the gateway exports metrics to ClickHouse every 10 seconds for dashboarding and analytics.
+
+**Tables created:**
+- `straylight.metrics_snapshots` — Global metrics (requests, latency percentiles, error rate)
+- `straylight.provider_metrics` — Per-provider stats (errors by type, avg latency, TTFT)
+- `straylight.requests` — Individual request logs (model, provider, latency, status)
+
+**Quick setup:**
+```bash
+# Start ClickHouse locally
+nix run nixpkgs#clickhouse -- server --config-file=/tmp/clickhouse-config.xml
+
+# Create database and tables
+curl 'http://localhost:8123/' -d 'CREATE DATABASE IF NOT EXISTS straylight'
+
+# Start gateway with ClickHouse enabled
+CLICKHOUSE_ENABLED=true ./result/bin/straylight-llm
+
+# Query metrics
+curl 'http://localhost:8123/?database=straylight' \
+  -d 'SELECT * FROM metrics_snapshots ORDER BY timestamp DESC LIMIT 5 FORMAT Pretty'
+```
 
 ### Discharge Proofs
 
