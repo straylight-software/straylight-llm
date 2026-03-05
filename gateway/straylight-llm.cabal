@@ -263,6 +263,8 @@ test-suite straylight-llm-test
     Property.StreamingProps
     Property.OutputValidationProps
     Property.SigilProps
+    Property.ClickHouseProps
+    Property.LoadTestProps
     -- // integration tests
     Integration.TestServer
     Integration.ApiTests

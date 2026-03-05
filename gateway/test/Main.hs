@@ -25,8 +25,10 @@ import Integration.OpenApiSpec qualified as OpenApiSpec
 import Integration.ProofTests qualified as ProofTests
 import Integration.RateLimiterTests qualified as RateLimiterTests
 import Integration.TracingTests qualified as TracingTests
+import Property.ClickHouseProps qualified as ClickHouseProps
 import Property.CoeffectProps qualified as CoeffectProps
 import Property.GradedMonadProps qualified as GradedMonadProps
+import Property.LoadTestProps qualified as LoadTestProps
 import Property.OutputValidationProps qualified as OutputValidationProps
 import Property.SecurityProps qualified as SecurityProps
 import Property.SigilProps qualified as SigilProps
@@ -56,7 +58,9 @@ main =
             SecurityProps.tests,
             StreamingProps.tests,
             OutputValidationProps.tests,
-            SigilProps.tests
+            SigilProps.tests,
+            ClickHouseProps.tests,
+            LoadTestProps.tests
           ],
         testGroup
           "Adversarial Tests"
