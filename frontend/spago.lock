@@ -28,6 +28,7 @@
             "nullable",
             "ordered-collections",
             "prelude",
+            "radix-halogen",
             "refs",
             "strings",
             "transformers",
@@ -100,21 +101,22 @@
             "prelude",
             "profunctor",
             "profunctor-lenses",
+            "radix-halogen",
             "record",
             "refs",
             "safe-coerce",
+            "simple-json",
             "st",
             "strings",
             "tailrec",
             "transformers",
             "tuples",
             "type-equality",
-            "typelevel-lists",
-            "typelevel-peano",
             "typelevel-prelude",
             "unfoldable",
             "unsafe-coerce",
             "unsafe-reference",
+            "variant",
             "web-clipboard",
             "web-dom",
             "web-events",
@@ -727,8 +729,12 @@
     },
     "extra_packages": {
       "hydrogen": {
-        "git": "https://github.com/justinfleek/hydrogen.git",
-        "ref": "jpyxal-0x02"
+        "git": "git@github.com:straylight-software/hydrogen.git",
+        "ref": "main"
+      },
+      "radix-halogen": {
+        "git": "git@github.com:straylight-software/purescript-radix.git",
+        "ref": "main"
       }
     }
   },
@@ -1345,52 +1351,38 @@
     },
     "hydrogen": {
       "type": "git",
-      "url": "https://github.com/justinfleek/hydrogen.git",
-      "rev": "7a69926617eac9a9a914a55ffe29caa6b021bcad",
+      "url": "git@github.com:straylight-software/hydrogen.git",
+      "rev": "d7075f327b505a6b238b541c9857f90441739364",
       "dependencies": [
         "aff",
-        "aff-promise",
         "affjax",
         "affjax-web",
         "argonaut",
         "argonaut-codecs",
         "argonaut-core",
-        "arraybuffer-types",
         "arrays",
-        "bifunctors",
         "console",
-        "control",
         "datetime",
         "effect",
         "either",
-        "enums",
-        "exceptions",
         "foldable-traversable",
-        "foreign",
-        "foreign-object",
         "halogen",
         "halogen-vdom",
         "http-methods",
         "integers",
-        "lists",
         "maybe",
-        "media-types",
         "newtype",
         "now",
-        "nullable",
         "numbers",
         "ordered-collections",
         "prelude",
         "refs",
         "strings",
+        "transformers",
         "tuples",
-        "type-equality",
-        "typelevel-lists",
-        "typelevel-prelude",
         "web-dom",
         "web-events",
-        "web-html",
-        "web-uievents"
+        "web-html"
       ]
     },
     "identity": {
@@ -1667,6 +1659,30 @@
         "tuples"
       ]
     },
+    "radix-halogen": {
+      "type": "git",
+      "url": "git@github.com:straylight-software/purescript-radix.git",
+      "rev": "d359d46c546d3fae85380dda10cf9b07fe95f0ca",
+      "dependencies": [
+        "aff",
+        "arrays",
+        "effect",
+        "foreign",
+        "foreign-object",
+        "halogen",
+        "maybe",
+        "nullable",
+        "prelude",
+        "safe-coerce",
+        "simple-json",
+        "transformers",
+        "typelevel-prelude",
+        "web-dom",
+        "web-events",
+        "web-html",
+        "web-uievents"
+      ]
+    },
     "record": {
       "type": "registry",
       "version": "4.0.0",
@@ -1692,6 +1708,31 @@
       "integrity": "sha256-EJrxtKt5xC7TYjBZrSBO/J7Aw3DmtilYjt4olpAXWVc=",
       "dependencies": [
         "unsafe-coerce"
+      ]
+    },
+    "simple-json": {
+      "type": "registry",
+      "version": "9.0.0",
+      "integrity": "sha256-9PIR1i5DtHn4ApFptn+c2BfnGMok0ESlYe4TnZiBvgs=",
+      "dependencies": [
+        "arrays",
+        "bifunctors",
+        "control",
+        "effect",
+        "either",
+        "exceptions",
+        "foldable-traversable",
+        "foreign",
+        "foreign-object",
+        "identity",
+        "lists",
+        "maybe",
+        "nullable",
+        "partial",
+        "prelude",
+        "record",
+        "transformers",
+        "variant"
       ]
     },
     "st": {
@@ -1782,28 +1823,6 @@
       "integrity": "sha256-BBqYOSnAKmayRvR5mtZoCf4SlYs2ipatD/+5nQx73aw=",
       "dependencies": []
     },
-    "typelevel-lists": {
-      "type": "registry",
-      "version": "2.1.0",
-      "integrity": "sha256-0MjcPZTI31JjaveIUUBkUHr8QhUHy7NWj5iXNg/wZDU=",
-      "dependencies": [
-        "prelude",
-        "tuples",
-        "typelevel-peano",
-        "typelevel-prelude",
-        "unsafe-coerce"
-      ]
-    },
-    "typelevel-peano": {
-      "type": "registry",
-      "version": "1.0.1",
-      "integrity": "sha256-6ojCXDUL2LY6II8x2l6Ljmtta7A8feqXg/F39CTzMzk=",
-      "dependencies": [
-        "prelude",
-        "typelevel-prelude",
-        "unsafe-coerce"
-      ]
-    },
     "typelevel-prelude": {
       "type": "registry",
       "version": "7.0.0",
@@ -1837,6 +1856,22 @@
       "integrity": "sha256-ttSJTQUnK8AK2eGOsfRxLUJEDPL6pnmExjbiOqfwC6I=",
       "dependencies": [
         "prelude"
+      ]
+    },
+    "variant": {
+      "type": "registry",
+      "version": "8.0.0",
+      "integrity": "sha256-Ydrgl8liWEwYQOWW76PdZtg3vxKpoKgsnmFyTLgZkoU=",
+      "dependencies": [
+        "control",
+        "enums",
+        "foldable-traversable",
+        "lists",
+        "maybe",
+        "partial",
+        "prelude",
+        "type-equality",
+        "unsafe-coerce"
       ]
     },
     "web-clipboard": {

@@ -51,8 +51,9 @@ where
 import Api
 import Coeffect.Types (DischargeProof, dpSignature)
 import Config
-  ( Config (cfgAnthropic, cfgBaseten, cfgHost, cfgLogLevel, cfgOpenRouter, cfgPort, cfgTriton, cfgVenice, cfgVertex),
+  ( Config (cfgAnthropic, cfgBaseten, cfgHost, cfgLogLevel, cfgOpenRouter, cfgPort, cfgSigil, cfgTriton, cfgVenice, cfgVertex),
     ProviderConfig (pcBaseUrl, pcEnabled),
+    SigilConfig (scFlushThreshold),
     cfgAdminApiKey,
   )
 import Control.Concurrent.STM (atomically, readTChan)
@@ -92,6 +93,8 @@ import Resilience.Cache (cacheRecentValues)
 import Resilience.CircuitBreaker (CircuitState (Closed, HalfOpen, Open), CircuitStats, csLastFailure, csState)
 import Resilience.Metrics (LatencyBuckets (lbCount, lbLe005, lbLe01, lbLe025, lbLe05, lbLe1, lbLe10, lbLe100s, lbLe25, lbLe25s, lbLe5, lbLe50s, lbSum), Metrics (mProviders, mRequestsActive, mRequestsTotal, mStartTime), ProviderMetrics (pmErrorsAuth, pmErrorsOther, pmErrorsRateLimit, pmErrorsTimeout, pmErrorsUnavailable, pmLatency, pmRequestsTotal, pmTTFT), recordTTFT, renderPrometheus)
 import Router
+import Streaming.SigilBridge (BridgeConfig (bcFlushThreshold), SigilBridge (SigilBridge, sbMetadata, sbPublisher, sbState), defaultBridgeConfig, finalizeBridge, makeDualCallback, newBridgeState)
+import Transport.Zmq (newStreamMetadata)
 import Security.ConstantTime (constantTimeCompareText)
 import Servant
 import System.IO (hPutStrLn, stderr)
@@ -342,7 +345,7 @@ chatStreamHandler router = Tagged $ \req respond' -> do
           ]
         $ \send flush -> do
           -- Callback that sends each chunk as SSE and tracks TTFT
-          let streamCallback chunk = do
+          let sseCallback chunk = do
                 -- Record time of first chunk for TTFT
                 mFirstTime <- readIORef firstChunkTimeRef
                 case mFirstTime of
@@ -356,8 +359,36 @@ chatStreamHandler router = Tagged $ \req respond' -> do
                 send $ string8 "\n\n"
                 flush
 
+          -- Create SIGIL bridge if publisher is enabled
+          let modelId = unModelId $ crModel chatReq
+          (streamCallback, mBridge) <- case routerSigilPublisher router of
+            Just publisher -> do
+              -- Create stream metadata
+              meta <- newStreamMetadata requestId modelId requestId
+              -- Create bridge state with config
+              let sigilConf = cfgSigil (routerConfig router)
+                  bridgeConf = defaultBridgeConfig {bcFlushThreshold = scFlushThreshold sigilConf}
+              bridgeState <- newBridgeState bridgeConf (routerDefaultModel router)
+              let bridge = SigilBridge
+                    { sbState = bridgeState,
+                      sbPublisher = publisher,
+                      sbMetadata = meta
+                    }
+              -- Wrap SSE callback with SIGIL emission
+              pure (makeDualCallback sseCallback bridge, Just bridge)
+            Nothing ->
+              -- No SIGIL publisher, use plain SSE callback
+              pure (sseCallback, Nothing)
+
           -- Route through provider chain with streaming
           result <- routeChatStream router requestId chatReq streamCallback
+
+          -- Finalize SIGIL bridge if active
+          case mBridge of
+            Just bridge -> do
+              _ <- finalizeBridge bridge
+              pure ()
+            Nothing -> pure ()
 
           -- Record TTFT metric if we got a first chunk
           mFirstChunkTime <- readIORef firstChunkTimeRef

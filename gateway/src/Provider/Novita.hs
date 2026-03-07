@@ -69,6 +69,7 @@ import Types
     Model (Model),
     ModelId (ModelId),
     ModelList (ModelList),
+    Timestamp (Timestamp),
   )
 
 -- ════════════════════════════════════════════════════════════════════════════
@@ -150,14 +151,14 @@ chatCompletion ::
   ChatRequest ->
   GatewayM Full (ProviderResult ChatResponse)
 chatCompletion configRef ctx req = G.do
-  recordAuthUsage "novita" Nothing
+  recordAuthUsage "novita" "api-key"
   config <- liftIO' $ readIORef configRef
 
-  let baseUrl = maybe defaultBaseUrl id (pcBaseUrl config)
+  let baseUrl = if T.null (pcBaseUrl config) then defaultBaseUrl else pcBaseUrl config
       url = T.unpack baseUrl <> "/chat/completions"
       apiKey = maybe "" id (pcApiKey config)
 
-  recordHttpAccess url "POST"
+  recordHttpAccess (T.pack url) "POST" Nothing
 
   result <- liftIO' $ do
     initReq <- HC.parseRequest url
@@ -192,14 +193,14 @@ chatCompletionStream ::
   StreamCallback ->
   GatewayM Full (ProviderResult ())
 chatCompletionStream configRef ctx req callback = G.do
-  recordAuthUsage "novita" Nothing
+  recordAuthUsage "novita" "api-key"
   config <- liftIO' $ readIORef configRef
 
-  let baseUrl = maybe defaultBaseUrl id (pcBaseUrl config)
+  let baseUrl = if T.null (pcBaseUrl config) then defaultBaseUrl else pcBaseUrl config
       url = T.unpack baseUrl <> "/chat/completions"
       apiKey = maybe "" id (pcApiKey config)
 
-  recordHttpAccess url "POST"
+  recordHttpAccess (T.pack url) "POST" Nothing
 
   result <- liftIO' $ do
     initReq <- HC.parseRequest url
@@ -220,18 +221,17 @@ chatCompletionStream configRef ctx req callback = G.do
       if status >= 200 && status < 300
         then do
           streamBody (HC.responseBody resp) callback
-          pure $ Right ()
+          pure Nothing
         else do
           body <- HC.brConsume (HC.responseBody resp)
-          pure $ Left $ handleErrorStatus status (LBS.fromChunks body)
+          pure $ Just $ handleErrorStatus status (LBS.fromChunks body)
 
     pure $ case tryResult of
-      Left e -> Left $ ProviderUnavailable $ T.pack $ show e
-      Right r -> r
+      Left e -> Retry $ ProviderUnavailable $ T.pack $ show e
+      Right Nothing -> Success ()
+      Right (Just provResult) -> provResult
 
-  case result of
-    Left err -> liftIO' $ pure $ Retry err
-    Right () -> liftIO' $ pure $ Success ()
+  liftIO' $ pure result
 
 -- | Stream response body
 streamBody :: HC.BodyReader -> StreamCallback -> IO ()
@@ -256,14 +256,14 @@ embeddings ::
   EmbeddingRequest ->
   GatewayM Full (ProviderResult EmbeddingResponse)
 embeddings configRef ctx req = G.do
-  recordAuthUsage "novita" Nothing
+  recordAuthUsage "novita" "api-key"
   config <- liftIO' $ readIORef configRef
 
-  let baseUrl = maybe defaultBaseUrl id (pcBaseUrl config)
+  let baseUrl = if T.null (pcBaseUrl config) then defaultBaseUrl else pcBaseUrl config
       url = T.unpack baseUrl <> "/embeddings"
       apiKey = maybe "" id (pcApiKey config)
 
-  recordHttpAccess url "POST"
+  recordHttpAccess (T.pack url) "POST" Nothing
 
   result <- liftIO' $ do
     initReq <- HC.parseRequest url
@@ -307,13 +307,7 @@ listModels _configRef _ctx = G.do
   -- Novita doesn't have a models endpoint, return hardcoded list
   liftIO' $ pure $ Success $ ModelList "list" $ map makeModel novitaModels
   where
-    makeModel mid =
-      Model
-        { Types.modelId = ModelId mid,
-          Types.modelObject = "model",
-          Types.modelCreated = 0,
-          Types.modelOwnedBy = "novita"
-        }
+    makeModel mid = Model (ModelId mid) "model" (Timestamp 0) "novita"
 
 -- ════════════════════════════════════════════════════════════════════════════
 --                                                                  // helpers

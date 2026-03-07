@@ -18,6 +18,21 @@
     },
     "crane": {
       "locked": {
+        "lastModified": 1772560058,
+        "narHash": "sha256-NuVKdMBJldwUXgghYpzIWJdfeB7ccsu1CC7B+NfSoZ8=",
+        "owner": "ipetkov",
+        "repo": "crane",
+        "rev": "db590d9286ed5ce22017541e36132eab4e8b3045",
+        "type": "github"
+      },
+      "original": {
+        "owner": "ipetkov",
+        "repo": "crane",
+        "type": "github"
+      }
+    },
+    "crane_2": {
+      "locked": {
         "lastModified": 1747587869,
         "narHash": "sha256-Zay3WJdSvC2VQmNqWSVLBOg/1iS/0/Q0c9JOBsB+3qw=",
         "owner": "ipetkov",
@@ -386,12 +401,12 @@
     },
     "nativelink": {
       "inputs": {
-        "crane": "crane",
+        "crane": "crane_2",
         "flake-parts": "flake-parts_6",
         "git-hooks": "git-hooks",
         "nix2container": "nix2container_2",
         "nixpkgs": "nixpkgs_2",
-        "rust-overlay": "rust-overlay"
+        "rust-overlay": "rust-overlay_2"
       },
       "locked": {
         "lastModified": 1770034444,
@@ -706,6 +721,7 @@
     "root": {
       "inputs": {
         "buck2-prelude": "buck2-prelude",
+        "crane": "crane",
         "flake-parts": "flake-parts",
         "haskemathesis": "haskemathesis",
         "home-manager": "home-manager",
@@ -719,12 +735,33 @@
         "nix2gpu": "nix2gpu",
         "nixpkgs": "nixpkgs",
         "nvidia-sdk": "nvidia-sdk",
+        "rust-overlay": "rust-overlay",
         "sensenet": "sensenet",
         "systems": "systems_3",
         "treefmt-nix": "treefmt-nix_3"
       }
     },
     "rust-overlay": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1772593411,
+        "narHash": "sha256-47WOnCSyOL6AghZiMIJaTLWM359DHe3be9R1cNCdGUE=",
+        "owner": "oxalica",
+        "repo": "rust-overlay",
+        "rev": "a741b36b77440f5db15fcf2ab6d7d592d2f9ee8f",
+        "type": "github"
+      },
+      "original": {
+        "owner": "oxalica",
+        "repo": "rust-overlay",
+        "type": "github"
+      }
+    },
+    "rust-overlay_2": {
       "inputs": {
         "nixpkgs": [
           "sensenet",

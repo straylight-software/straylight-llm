@@ -42,7 +42,8 @@ module Config
         cfgMaxRetries,
         cfgAdminApiKey,
         cfgCacheConfig,
-        cfgPoolConfig
+        cfgPoolConfig,
+        cfgSigil
       ),
     ProviderConfig
       ( ProviderConfig,
@@ -67,6 +68,15 @@ module Config
         cpcIdleTimeoutSeconds
       ),
     defaultConnectionPoolConfig,
+    SigilConfig
+      ( SigilConfig,
+        scEnabled,
+        scBindAddress,
+        scInboundAddress,
+        scDefaultModel,
+        scFlushThreshold
+      ),
+    defaultSigilConfig,
 
     -- * Loading
     loadConfig,
@@ -140,6 +150,38 @@ defaultConnectionPoolConfig =
       cpcIdleTimeoutSeconds = 60
     }
 
+-- | SIGIL configuration
+--
+-- Controls ZMQ sockets for SIGIL frame transport:
+--   - PUB socket (egress): streaming responses to downstream products
+--   - ROUTER socket (ingress): receiving requests from downstream products
+--
+-- Products: omegacode, strayforge, converge
+data SigilConfig = SigilConfig
+  { -- | Enable SIGIL transport (default: True)
+    scEnabled :: !Bool,
+    -- | ZMQ bind address for PUB socket / egress (default: "tcp://*:5555")
+    scBindAddress :: !Text,
+    -- | ZMQ bind address for ROUTER socket / ingress (default: "tcp://*:5556")
+    scInboundAddress :: !Text,
+    -- | Default model for tokenization (default: "qwen/qwen3-235b-a22b")
+    scDefaultModel :: !Text,
+    -- | Flush threshold in tokens (default: 32)
+    scFlushThreshold :: !Int
+  }
+  deriving (Eq, Show)
+
+-- | Default SIGIL configuration
+defaultSigilConfig :: SigilConfig
+defaultSigilConfig =
+  SigilConfig
+    { scEnabled = True,
+      scBindAddress = "tcp://*:5555",
+      scInboundAddress = "tcp://*:5556",
+      scDefaultModel = "qwen/qwen3-235b-a22b",
+      scFlushThreshold = 32
+    }
+
 -- | Configuration for a single provider
 data ProviderConfig = ProviderConfig
   { pcEnabled :: Bool,
@@ -176,7 +218,8 @@ data Config = Config
     cfgMaxRetries :: Int,
     cfgAdminApiKey :: Maybe Text, -- Admin API key for observability endpoints
     cfgCacheConfig :: ResponseCacheConfig, -- Response cache for semantic deduplication
-    cfgPoolConfig :: ConnectionPoolConfig -- HTTP connection pool settings
+    cfgPoolConfig :: ConnectionPoolConfig, -- HTTP connection pool settings
+    cfgSigil :: SigilConfig -- SIGIL frame egress configuration
   }
   deriving (Eq, Show)
 
@@ -316,7 +359,8 @@ defaultConfig =
       cfgMaxRetries = 3,
       cfgAdminApiKey = Nothing, -- Must be set via ADMIN_API_KEY env var
       cfgCacheConfig = defaultResponseCacheConfig,
-      cfgPoolConfig = defaultConnectionPoolConfig
+      cfgPoolConfig = defaultConnectionPoolConfig,
+      cfgSigil = defaultSigilConfig
     }
 
 -- ════════════════════════════════════════════════════════════════════════════
@@ -507,6 +551,21 @@ loadConfigFromEnv = do
             cpcIdleTimeoutSeconds = poolIdleTimeout
           }
 
+  -- SIGIL transport configuration
+  sigilEnabled <- maybe True parseEnabled <$> lookupEnv "SIGIL_ENABLED"
+  sigilBindAddr <- maybe "tcp://*:5555" T.pack <$> lookupEnv "SIGIL_BIND_ADDRESS"
+  sigilInboundAddr <- maybe "tcp://*:5556" T.pack <$> lookupEnv "SIGIL_INBOUND_ADDRESS"
+  sigilDefaultModel <- maybe "qwen/qwen3-235b-a22b" T.pack <$> lookupEnv "SIGIL_DEFAULT_MODEL"
+  sigilFlushThreshold <- fromMaybe 32 . (>>= readMaybe) <$> lookupEnv "SIGIL_FLUSH_THRESHOLD"
+  let sigilConfig =
+        SigilConfig
+          { scEnabled = sigilEnabled,
+            scBindAddress = sigilBindAddr,
+            scInboundAddress = sigilInboundAddr,
+            scDefaultModel = sigilDefaultModel,
+            scFlushThreshold = sigilFlushThreshold
+          }
+
   let vertexBaseUrl =
         if T.null gcpProject
           then ""
@@ -649,7 +708,8 @@ loadConfigFromEnv = do
         cfgMaxRetries = 3,
         cfgAdminApiKey = adminApiKey,
         cfgCacheConfig = cacheConfig,
-        cfgPoolConfig = poolConfig
+        cfgPoolConfig = poolConfig,
+        cfgSigil = sigilConfig
       }
 
 -- | Load configuration (currently just from env, could add file support)

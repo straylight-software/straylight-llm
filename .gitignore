@@ -40,3 +40,14 @@ master-spec.md
 requests-for-hydrogen.md
 docs/TEST_COVERAGE_GAPS.md
 docs/CONTINUITY_VISION.md
+
+# Reference directories (integrated from upstream repos)
+aleph-reference/
+omegacode/
+purescript-radix-reference/
+sensenet-reference/
+sigil-trtllm/
+trinity-engine-reference/
+triton-tensorrt-reference/
+weapon-server-reference/
+libevring/

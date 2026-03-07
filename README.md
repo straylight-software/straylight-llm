@@ -1,7 +1,7 @@
 # straylight-llm
 
 [![Build](https://github.com/straylight-software/straylight-llm/actions/workflows/build-container.yml/badge.svg)](https://github.com/straylight-software/straylight-llm/actions)
-[![Tests](https://img.shields.io/badge/tests-270%20passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-377%20passing-brightgreen)]()
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 **OpenAI-compatible LLM gateway with provider fallback, effect tracking, and formal verification.**
@@ -19,6 +19,7 @@ A production-grade Haskell gateway that routes LLM requests through multiple pro
 | **io_uring backend** | Yes (5x throughput) | No | N/A |
 | **Circuit breakers** | Per-provider | Limited | N/A |
 | **Language** | Haskell | Python | N/A |
+| **Binary protocol** | SIGIL over ZMQ | No | No |
 
 **straylight-llm** is for teams who need:
 - Cryptographic proof that requests were handled correctly
@@ -32,14 +33,16 @@ A production-grade Haskell gateway that routes LLM requests through multiple pro
 - **Multi-provider fallback** — Venice AI → Vertex AI → Baseten → OpenRouter → Anthropic
 - **Circuit breakers** — Automatic provider isolation on failures
 - **Streaming SSE** — Real-time token streaming with `text/event-stream`
+- **SIGIL transport** — Binary wire protocol over ZMQ (eliminates JSON parsing in clients)
 - **Discharge proofs** — Ed25519-signed cryptographic proofs for every request
 - **Effect tracking** — Graded monad system tracks all IO effects
 - **Formal verification** — 904 lines of Lean4 proofs (no `sorry`, no axioms)
 - **Prometheus metrics** — `/metrics` endpoint for observability
+- **ClickHouse telemetry** — Export metrics to ClickHouse for dashboards
 - **OpenTelemetry tracing** — Distributed tracing with configurable OTLP export
 - **Rate limiting** — Per-API-key token bucket rate limiting
 - **Response caching** — Configurable LRU cache with TTL
-- **270 tests** — Property tests, integration tests, adversarial tests, formal correspondence tests
+- **377 tests** — Property tests, integration tests, adversarial tests, formal correspondence tests
 
 ## Quick Start
 
@@ -111,6 +114,18 @@ Configure via environment variables:
 | `CACHE_ENABLED` | Enable response caching | `true` |
 | `CACHE_MAX_SIZE` | Maximum cached entries | `10000` |
 | `CACHE_TTL_SECONDS` | Cache entry TTL | `300` |
+
+### ClickHouse Telemetry
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `CLICKHOUSE_ENABLED` | Enable ClickHouse metrics export | `false` |
+| `CLICKHOUSE_HOST` | ClickHouse server hostname | `localhost` |
+| `CLICKHOUSE_PORT` | ClickHouse HTTP port | `8123` |
+| `CLICKHOUSE_DATABASE` | Database name | `straylight` |
+| `CLICKHOUSE_USER` | Username (optional) | - |
+| `CLICKHOUSE_PASSWORD` | Password (optional) | - |
+| `CLICKHOUSE_TLS` | Use HTTPS | `false` |
 
 ### Connection Pool
 
@@ -194,6 +209,31 @@ curl http://localhost:8080/metrics
 
 Returns Prometheus text format with request counts, latencies, provider status, and rate limiter stats.
 
+### ClickHouse Telemetry
+
+When `CLICKHOUSE_ENABLED=true`, the gateway exports metrics to ClickHouse every 10 seconds for dashboarding and analytics.
+
+**Tables created:**
+- `straylight.metrics_snapshots` — Global metrics (requests, latency percentiles, error rate)
+- `straylight.provider_metrics` — Per-provider stats (errors by type, avg latency, TTFT)
+- `straylight.requests` — Individual request logs (model, provider, latency, status)
+
+**Quick setup:**
+```bash
+# Start ClickHouse locally
+nix run nixpkgs#clickhouse -- server --config-file=/tmp/clickhouse-config.xml
+
+# Create database and tables
+curl 'http://localhost:8123/' -d 'CREATE DATABASE IF NOT EXISTS straylight'
+
+# Start gateway with ClickHouse enabled
+CLICKHOUSE_ENABLED=true ./result/bin/straylight-llm
+
+# Query metrics
+curl 'http://localhost:8123/?database=straylight' \
+  -d 'SELECT * FROM metrics_snapshots ORDER BY timestamp DESC LIMIT 5 FORMAT Pretty'
+```
+
 ### Discharge Proofs
 
 Retrieve the cryptographic proof for a completed request:
@@ -238,15 +278,28 @@ Each provider has an independent circuit breaker. Failed providers are temporari
 │              └── Discharge Proofs (ed25519 signed)          │
 ├─────────────────────────────────────────────────────────────┤
 │  Providers: Venice │ Vertex │ Baseten │ OpenRouter │ ...    │
+├─────────────────────────────────────────────────────────────┤
+│  SIGIL Transport: ZMQ PUB/SUB │ Binary frames │ No JSON     │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+### SIGIL Transport Layer
+
+For high-performance clients, straylight-llm exposes a SIGIL binary protocol over ZeroMQ:
+
+- **ZMQ PUB** on port 5555 — Clients SUB to receive SIGIL frames
+- **ZMQ ROUTER** on port 5556 — Request/response for non-streaming
+- **No JSON parsing** — Clients receive pre-tokenized binary frames
+- **Mode tracking** — Text/think/toolCall/codeBlock semantic modes
+
+See [libevring/docs/sigil.md](libevring/docs/sigil.md) for the full protocol specification.
 
 ## Testing
 
 ```bash
 cd gateway
 
-# Run all tests (270 tests)
+# Run all tests (377 tests)
 cabal test
 
 # Run benchmarks
@@ -321,7 +374,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## Contributing
 
-1. Ensure all 270 tests pass: `cd gateway && cabal test`
+1. Ensure all 377 tests pass: `cd gateway && cabal test`
 2. Run the formatter: `nix fmt`
 3. Verify Dhall manifests: `nix build .#dhall-verify`
 4. No partial functions (`head`, `tail`, `fromJust`, `read`, `!!`)

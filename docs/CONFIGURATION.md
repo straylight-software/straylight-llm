@@ -55,6 +55,25 @@ Only providers with configured API keys are included in the fallback chain.
 | `STRAYLIGHT_PROOF_CACHE_SIZE` | Max cached proofs | `10000` |
 | `STRAYLIGHT_PROOF_CACHE_TTL_S` | Proof cache TTL | `3600` |
 
+### ClickHouse Telemetry
+
+Export metrics to ClickHouse for dashboarding and historical analysis.
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `CLICKHOUSE_ENABLED` | Enable ClickHouse export | `false` |
+| `CLICKHOUSE_HOST` | ClickHouse hostname | `localhost` |
+| `CLICKHOUSE_PORT` | ClickHouse HTTP port | `8123` |
+| `CLICKHOUSE_DATABASE` | Database name | `straylight` |
+| `CLICKHOUSE_USER` | Username (optional) | — |
+| `CLICKHOUSE_PASSWORD` | Password (optional) | — |
+| `CLICKHOUSE_TLS` | Use HTTPS connection | `false` |
+
+When enabled, the gateway exports:
+- **metrics_snapshots** — Global stats every 10 seconds (requests, latency percentiles, error rate)
+- **provider_metrics** — Per-provider stats (auth errors, rate limits, timeouts, avg latency)
+- **requests** — Individual request logs (model, provider, latency, tokens, status)
+
 ## Example Configurations
 
 ### Minimal (OpenRouter Only)

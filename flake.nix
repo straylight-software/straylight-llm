@@ -85,6 +85,17 @@
       url = "git+ssh://git@github.com/weyl-ai/nvidia-sdk";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # crane — Rust build tool for tokenizers-cpp
+    crane = {
+      url = "github:ipetkov/crane";
+    };
+
+    # rust-overlay — Rust toolchain for tokenizers-cpp
+    rust-overlay = {
+      url = "github:oxalica/rust-overlay";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   nixConfig = {
@@ -132,6 +143,20 @@
           ...
         }:
         let
+          # Rust toolchain for tokenizers-cpp
+          rustOverlay = import inputs.rust-overlay;
+          pkgsWithRust = import inputs.nixpkgs {
+            inherit system;
+            overlays = [ rustOverlay ];
+          };
+          rustToolchain = pkgsWithRust.rust-bin.stable.latest.default;
+          craneLib = (inputs.crane.mkLib pkgsWithRust).overrideToolchain rustToolchain;
+
+          # tokenizers-cpp with pre-built Rust library (for SIGIL FFI)
+          tokenizers-cpp = pkgs.callPackage ./nix/tokenizers-cpp.nix {
+            inherit craneLib;
+          };
+
           # GHC 9.12 for StrictData and latest language features
           # Overlay local packages (effect-monad, io-uring, haskemathesis) into the package set
           hpkgs = pkgs.haskell.packages.ghc912.override {
@@ -148,10 +173,33 @@
                 uring = pkgs.liburing;
               };
 
-              # straylight-llm gateway (depends on effect-monad, io-uring, haskemathesis)
-              straylight-llm = pkgs.haskell.lib.compose.addExtraLibrary pkgs.liburing (
-                hself.callCabal2nix "straylight-llm" ./gateway { }
-              );
+              # zeromq4-haskell with libzmq4 from pkgs
+              # Override the pkgconfig dependency name (cabal2nix generates 'zeromq' but we need zmq4)
+              zeromq4-haskell =
+                pkgs.haskell.lib.overrideCabal (hself.callHackage "zeromq4-haskell" "0.8.0" { })
+                  (old: {
+                    libraryPkgconfigDepends = [ pkgs.zeromq ];
+                  });
+
+              # straylight-llm gateway (depends on effect-monad, io-uring, haskemathesis, zeromq4-haskell, tokenizers-cpp)
+              straylight-llm =
+                let
+                  basePkg = hself.callCabal2nix "straylight-llm" ./gateway { };
+                in
+                pkgs.haskell.lib.overrideCabal basePkg (old: {
+                  librarySystemDepends = (old.librarySystemDepends or [ ]) ++ [
+                    pkgs.liburing
+                    pkgs.zeromq
+                    tokenizers-cpp
+                  ];
+                  # Set up library/include paths for tokenizers-cpp C++ FFI
+                  preConfigure = ''
+                    export LIBRARY_PATH="${tokenizers-cpp}/lib''${LIBRARY_PATH:+:$LIBRARY_PATH}"
+                    export LD_LIBRARY_PATH="${tokenizers-cpp}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+                    export CFLAGS="-I${tokenizers-cpp}/include $CFLAGS"
+                    export CXXFLAGS="-I${tokenizers-cpp}/include $CXXFLAGS"
+                  '';
+                });
             };
           };
 
@@ -483,6 +531,8 @@
               # Build dependencies
               pkgs.zlib
               pkgs.liburing # io_uring for evring-wai backend
+              pkgs.zeromq # ZMQ for SIGIL frame egress
+              tokenizers-cpp # HuggingFace tokenizers for SIGIL
 
               # Container tools
               pkgs.docker
@@ -491,6 +541,15 @@
             ];
 
             shellHook = ''
+              # ZMQ and liburing pkg-config paths for zeromq4-haskell and io-uring
+              export PKG_CONFIG_PATH="${pkgs.liburing}/lib/pkgconfig:${pkgs.zeromq}/lib/pkgconfig:$PKG_CONFIG_PATH"
+
+              # tokenizers-cpp paths for SIGIL FFI
+              export LIBRARY_PATH="${tokenizers-cpp}/lib''${LIBRARY_PATH:+:$LIBRARY_PATH}"
+              export LD_LIBRARY_PATH="${tokenizers-cpp}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+              export CFLAGS="-I${tokenizers-cpp}/include $CFLAGS"
+              export CXXFLAGS="-I${tokenizers-cpp}/include $CXXFLAGS"
+
               echo ""
               echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
               echo "                                                   // straylight-llm //"
