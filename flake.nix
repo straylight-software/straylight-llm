@@ -173,10 +173,13 @@
                 uring = pkgs.liburing;
               };
 
-              # zeromq4-haskell with libzmq from pkgs
-              zeromq4-haskell = hself.callHackage "zeromq4-haskell" "0.8.0" {
-                zmq4 = pkgs.zeromq;
-              };
+              # zeromq4-haskell with libzmq4 from pkgs
+              # Override the pkgconfig dependency name (cabal2nix generates 'zeromq' but we need zmq4)
+              zeromq4-haskell =
+                pkgs.haskell.lib.overrideCabal (hself.callHackage "zeromq4-haskell" "0.8.0" { })
+                  (old: {
+                    libraryPkgconfigDepends = [ pkgs.zeromq ];
+                  });
 
               # straylight-llm gateway (depends on effect-monad, io-uring, haskemathesis, zeromq4-haskell, tokenizers-cpp)
               straylight-llm =

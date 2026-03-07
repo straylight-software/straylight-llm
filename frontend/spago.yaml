@@ -33,11 +33,15 @@ package:
     - nullable
     - aff-promise
     - hydrogen
+    - radix-halogen
 
 workspace:
   packageSet:
     registry: 73.2.0
   extraPackages:
     hydrogen:
-      git: https://github.com/justinfleek/hydrogen.git
-      ref: jpyxal-0x02
+      git: git@github.com:straylight-software/hydrogen.git
+      ref: main
+    radix-halogen:
+      git: git@github.com:straylight-software/purescript-radix.git
+      ref: main
